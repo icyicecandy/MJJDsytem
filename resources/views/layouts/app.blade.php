@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="{{ asset('images/favicon/mjjdnewlogo.png') }}" />
     <title>@yield('title', 'MJJD Telecom CRM')</title>
     <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}" />
     @stack('styles')
@@ -78,7 +79,6 @@
                     <nav class="guest-nav" aria-label="Primary">
                         <a href="{{ url('/') }}">Home</a>
                         <a href="{{ url('/#plans') }}">Plans</a>
-                        <a href="{{ route('track.form') }}">Track Status</a>
                         <a href="{{ url('/#support') }}">Support</a>
                     </nav>
                     <div class="guest-actions">

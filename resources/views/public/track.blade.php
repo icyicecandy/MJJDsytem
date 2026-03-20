@@ -1,8 +1,5 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2>Track Application</h2>
-        <p>Check application progress using the application reference number and the email or mobile number used during submission.</p>
-    </x-slot>
+    
 
     <div class="tracking-shell">
         <div class="tracking-card tracking-form-card">

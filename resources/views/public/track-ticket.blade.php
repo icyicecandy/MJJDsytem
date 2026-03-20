@@ -1,8 +1,5 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2>Track Ticket</h2>
-        <p>Check ticket progress using the current ticket ID and the customer email used on the account.</p>
-    </x-slot>
+    
 
     <div class="tracking-shell">
         <div class="tracking-card tracking-form-card">
