@@ -2,6 +2,7 @@
 @extends('layouts.app')
 
 @section('title','MJJD Telecom')
+@section('hide_global_footer', '1')
 
 @php
     $heroSlides = [
@@ -21,13 +22,13 @@
         --strip-soft: linear-gradient(180deg, rgba(233, 242, 255, 0.92), rgba(247, 250, 255, 0.94));
         display: grid;
         gap: 2.8rem;
-        padding: 0 1.55rem 4rem;
+        padding: 0 0.9rem 4rem;
     }
     .public-shell {
-        width: min(1160px, 100%);
+        width: min(1360px, 100%);
         margin-inline: auto;
     }
-    .public-home-heading {
+        .public-home-heading {
         display: grid;
         gap: 0.8rem;
         max-width: 680px;
@@ -282,7 +283,7 @@
 
     .public-steps-strip {
         position: relative;
-        width: min(1160px, 100%);
+        width: min(1360px, 100%);
         margin-inline: auto;
         background: var(--panel-soft);
         border: 1px solid rgba(202, 216, 238, 0.65);
@@ -293,6 +294,9 @@
     .public-steps-strip .public-home-heading {
         margin-bottom: 1.4rem;
         max-width: 640px;
+        margin-inline: auto;
+        text-align: center;
+        justify-items: center;
     }
     .public-steps-grid {
         position: relative;
@@ -378,6 +382,7 @@
     .public-step-note {
         margin: 1.1rem 0 0;
         color: var(--color-text-muted);
+        text-align: center;
     }
 
     .public-faq-section {
@@ -389,19 +394,20 @@
     }
     .public-faq-wrap {
         display: grid;
-        gap: 0.65rem;
+        grid-template-columns: 1fr;
+        gap: 0;
     }
     .public-faq-item {
-        border: 1px solid rgba(219, 228, 239, 0.95);
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.86);
-        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        border: 0;
+        border-bottom: 1px solid rgba(219, 228, 239, 0.95);
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        transition: background 0.2s ease;
     }
     .public-faq-item[open],
     .public-faq-item.is-open {
-        border-color: rgba(37, 99, 235, 0.42);
-        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.1);
-        background: rgba(255, 255, 255, 0.98);
+        background: rgba(248, 251, 255, 0.65);
     }
     .public-faq-item summary {
         list-style: none;
@@ -410,7 +416,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 0.8rem;
-        padding: 0.88rem 0.45rem;
+        padding: 0.92rem 0.25rem;
         color: var(--color-primary);
         font-weight: 600;
         font-size: 0.98rem;
@@ -436,7 +442,7 @@
     }
     .public-faq-answer p {
         margin: 0;
-        padding: 0 0.45rem 0.92rem;
+        padding: 0 0.25rem 0.92rem;
         color: var(--color-text-muted);
         line-height: 1.62;
         font-size: 0.95rem;
@@ -524,11 +530,15 @@
         justify-content: space-between;
         gap: 1rem;
     }
+    .public-footer-copy {
+        display: grid;
+        gap: 0.55rem;
+    }
     .public-footer-brand {
         display: inline-flex;
         align-items: center;
         gap: 0.78rem;
-        margin-bottom: 0.55rem;
+        margin-bottom: 0;
         color: var(--color-primary);
     }
     .public-footer-brand .logo-mark {
@@ -544,10 +554,14 @@
     .public-footer-links a {
         color: var(--color-text-muted);
     }
+    .public-footer-copy p {
+        margin: 0;
+    }
     .public-footer-links {
         display: flex;
         flex-wrap: wrap;
         gap: 1.35rem;
+        align-self: end;
     }
     .public-footer-links a {
         text-decoration: none;
@@ -574,14 +588,6 @@
     [data-reveal].is-visible {
         opacity: 1;
         transform: translateY(0);
-    }
-
-    @media (min-width: 980px) {
-        .public-faq-wrap {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            column-gap: 1.7rem;
-            row-gap: 0;
-        }
     }
     @media (max-width: 1200px) {
         .public-hero {
@@ -632,7 +638,7 @@
     @media (max-width: 768px) {
         .public-home {
             gap: 2rem;
-            padding: 0 1rem 3rem;
+            padding: 0 0.75rem 3rem;
         }
         .public-hero {
             min-height: auto;
@@ -842,7 +848,7 @@
                 <span class="public-contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.78.65 2.62a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.46-1.22a2 2 0 0 1 2.11-.45c.84.31 1.72.53 2.62.65A2 2 0 0 1 22 16.92z"></path></svg></span>
                 <div>
                     <strong>Phone</strong>
-                    <span>(+63) 912 345 6789</span>
+                    <span>0985 075 7176</span>
                 </div>
             </article>
             <article class="public-contact-item">
@@ -864,7 +870,7 @@
                 <span class="public-contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
                 <div>
                     <strong>Office Location</strong>
-                    <span>123 ISP St., Telecom City, Philippines 4567</span>
+                    <span>Dumlao St. Dusoc, Bayambang, Pangasinan</span>
                 </div>
             </article>
         </div>
@@ -968,9 +974,25 @@
 
                 if (item.open) {
                     closeItem();
-                } else {
-                    openItem();
+                    return;
                 }
+
+                faqItems.forEach((otherItem) => {
+                    if (otherItem === item || !otherItem.open) {
+                        return;
+                    }
+
+                    const otherContent = otherItem.querySelector('.public-faq-answer');
+                    otherItem.classList.remove('is-open');
+                    if (otherContent) {
+                        otherContent.style.maxHeight = '0px';
+                    }
+                    window.setTimeout(() => {
+                        otherItem.open = false;
+                    }, 170);
+                });
+
+                openItem();
             });
         });
 

@@ -130,9 +130,11 @@
         </div>
     </main>
 
-    <footer class="footer">
-        <p>&copy; {{ date('Y') }} MJJD Telecom. All rights reserved.</p>
-    </footer>
+    @unless (trim($__env->yieldContent('hide_global_footer')) === '1')
+        <footer class="footer">
+            <p>&copy; {{ date('Y') }} MJJD Telecom. All rights reserved.</p>
+        </footer>
+    @endunless
 
     @stack('scripts')
     @yield('scripts')
