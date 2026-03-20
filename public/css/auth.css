@@ -1,0 +1,359 @@
+/* auth.css - styling for login/register */
+body.auth-layout {
+    margin: 0;
+    padding: 1.25rem;
+    font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, #0b3c5d 0%, #072a40 100%);
+    color: #1f2d3d;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.auth-wrapper {
+    width: min(1120px, 100%);
+    max-height: calc(100vh - 2.5rem);
+    display: flex;
+    border-radius: 26px;
+    overflow: hidden;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.24);
+    background: #fff;
+}
+.auth-left {
+    flex: 1.05;
+    position: relative;
+    padding: clamp(2rem, 4vw, 3rem);
+    color: #fff;
+    background: #0b3c5d;
+    isolation: isolate;
+    display: flex;
+    align-items: flex-start;
+}
+.auth-slideshow {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+.auth-slide {
+    position: absolute;
+    inset: 0;
+    background-position: center;
+    background-size: cover;
+    opacity: 0;
+    transform: scale(1.04);
+    transition: opacity 0.8s ease, transform 6s ease;
+}
+.auth-slide.is-active {
+    opacity: 1;
+    transform: scale(1);
+}
+.auth-left::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(5, 22, 44, 0.22), rgba(5, 22, 44, 0.58));
+    z-index: 0;
+}
+.auth-left .branding {
+    position: relative;
+    z-index: 2;
+    max-width: 430px;
+    display: grid;
+    gap: 0.9rem;
+    align-content: start;
+}
+.auth-left p {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.84);
+}
+.brand-kicker {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 0.42rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+.brand-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+.brand-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(11, 60, 93, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(8px);
+    font-size: 0.84rem;
+    font-weight: 600;
+}
+.slide-dots {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+}
+.slide-dot {
+    width: 11px;
+    height: 11px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.32);
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+.slide-dot.is-active {
+    background: #f2c94c;
+    transform: scale(1.15);
+}
+.auth-right {
+    flex: 0.95;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4f6f9;
+    padding: 1.5rem;
+    overflow: auto;
+}
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+    max-height: calc(100vh - 5rem);
+    background: #fff;
+    border-radius: 18px;
+    padding: 1.5rem 1.75rem;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.08);
+    overflow: auto;
+}
+.auth-card-logo {
+    display: block;
+    width: min(100%, 185px);
+    height: auto;
+    margin: 0 auto 0.7rem;
+    object-fit: contain;
+}
+.form-title {
+    font-size: 1.65rem;
+    text-align: center;
+    margin: 0 0 1.15rem;
+    color: #0b3c5d;
+}
+.auth-form .form-group {
+    margin-bottom: 0.9rem;
+    position: relative;
+}
+.auth-form label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+}
+.auth-form input,
+.auth-form select {
+    width: 100%;
+    padding: 0.72rem 0.85rem;
+    border: 1px solid #cdd6df;
+    border-radius: 10px;
+    font-size: 0.96rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.auth-form input:focus,
+.auth-form select:focus {
+    outline: none;
+    border-color: #0b3c5d;
+    box-shadow: 0 0 0 4px rgba(11, 60, 93, 0.12);
+}
+.form-group.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: normal;
+}
+.checkbox-group input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+.btn {
+    display: inline-block;
+    width: 100%;
+    padding: 0.78rem;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+    text-align: center;
+}
+.btn.primary {
+    background: #0b3c5d;
+    color: #fff;
+}
+.btn.primary:hover {
+    background: #072a40;
+    transform: translateY(-1px);
+}
+.btn.secondary {
+    background: #fff;
+    color: #0b3c5d;
+    border: 1px solid #0b3c5d;
+}
+.btn.secondary:hover {
+    background: #f4f6f9;
+}
+.divider {
+    text-align: center;
+    margin: 0.95rem 0;
+    position: relative;
+}
+.divider span {
+    background: #fff;
+    padding: 0 1rem;
+    color: #777;
+    font-size: 0.9rem;
+    position: relative;
+    z-index: 1;
+}
+.divider:before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #ddd;
+}
+.small-text {
+    text-align: center;
+    font-size: 0.88rem;
+    color: #555;
+    margin-top: 0.9rem;
+}
+.error {
+    color: #d9534f;
+    font-size: 0.82rem;
+    position: static;
+    display: block;
+    margin-top: 0.35rem;
+}
+.password-group .show-password {
+    position: absolute;
+    right: 0.8rem;
+    top: 2.3rem;
+    background: transparent;
+    border: none;
+    color: #0b3c5d;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.auth-register-page {
+    align-items: flex-start;
+}
+.auth-register-page .register-wrapper {
+    width: min(980px, 100%);
+    max-height: none;
+}
+.auth-register-page .register-right {
+    flex: 1;
+    padding: 1rem;
+    overflow: visible;
+}
+.auth-register-page .register-card {
+    max-width: none;
+    max-height: none;
+    padding: 1.25rem 1.5rem;
+    overflow: visible;
+}
+.register-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem 1rem;
+    align-items: start;
+}
+.register-form-grid > * {
+    min-width: 0;
+}
+.register-form-grid .form-group {
+    margin-bottom: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.register-form-grid .full-span {
+    grid-column: 1 / -1;
+}
+.register-form-grid .small-text {
+    margin-top: 0;
+}
+.auth-register-page .auth-card {
+    max-width: 900px;
+}
+.auth-register-page .auth-form input,
+.auth-register-page .auth-form select {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+.auth-register-page .password-group input {
+    padding-right: 4.8rem;
+}
+.auth-register-page .password-group .show-password {
+    right: 0.95rem;
+    top: 2.45rem;
+    transform: none;
+}
+.auth-register-page .form-title {
+    margin-bottom: 1rem;
+}
+.auth-register-page .auth-card-logo {
+    width: min(100%, 150px);
+    margin-bottom: 0.5rem;
+}
+@media (max-width: 960px) {
+    body.auth-layout {
+        padding: 0.9rem;
+        align-items: flex-start;
+    }
+    .auth-wrapper {
+        max-height: none;
+        flex-direction: column;
+    }
+    .auth-left,
+    .auth-right {
+        flex: none;
+    }
+    .auth-left {
+        min-height: 280px;
+        padding: 1.5rem;
+    }
+    .auth-right {
+        padding: 1rem;
+        overflow: visible;
+    }
+    .auth-card {
+        max-height: none;
+        padding: 1.35rem;
+        overflow: visible;
+    }
+    .auth-card-logo {
+        width: min(100%, 170px);
+    }
+    .register-form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+
+
