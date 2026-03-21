@@ -62,16 +62,12 @@ a { color: inherit; }
     text-decoration: none;
 }
 .logo-mark {
-    width: 42px;
-    height: 42px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 14px;
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
-    color: #fff;
-    font-weight: 800;
-    box-shadow: 0 14px 28px rgba(37, 99, 235, 0.24);
+    width: 52px;
+    height: 52px;
+    display: block;
+    border-radius: 999px;
+    object-fit: cover;
+    object-position: center;
 }
 .logo-copy {
     display: flex;
@@ -103,8 +99,8 @@ a { color: inherit; }
     letter-spacing: 0.08em;
 }
 .icon-btn {
-    width: 42px;
-    height: 42px;
+    width: 52px;
+    height: 52px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -374,8 +370,8 @@ h1.card, h2.card { padding: 1rem 1.2rem; font-size: 1.15rem; }
     margin-bottom: 0.85rem;
 }
 .metric-icon {
-    width: 42px;
-    height: 42px;
+    width: 52px;
+    height: 52px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3007,7 +3003,7 @@ textarea { min-height: 120px; resize: vertical; }
     background: linear-gradient(180deg, rgba(37,99,235,0.92), rgba(96,165,250,0.48));
 }
 .support-empty-illustration span:nth-child(1) {
-    height: 42px;
+    height: 52px;
 }
 .support-empty-illustration span:nth-child(2) {
     height: 58px;
@@ -3079,6 +3075,10 @@ textarea { min-height: 120px; resize: vertical; }
         width: 100%;
     }
 }
+
+
+
+
 
 
 

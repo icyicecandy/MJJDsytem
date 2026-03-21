@@ -29,19 +29,21 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => ['nullable', 'in:customer,technician'],
         ]);
 
-        $role = $request->input('role', 'customer');
+        $role = $validated['role'] ?? 'customer';
+        $fullName = trim($validated['first_name'] . ' ' . $validated['last_name']);
 
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'name' => $fullName,
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
             'role' => $role,
         ]);
 
@@ -60,4 +62,3 @@ class RegisteredUserController extends Controller
         return redirect()->route('customer.dashboard');
     }
 }
-

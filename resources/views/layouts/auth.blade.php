@@ -16,15 +16,18 @@
         <div class="auth-stage-content">
             <div class="auth-stage-top">
                 <a href="{{ url('/') }}" class="auth-visual-brand">
-                    <span class="auth-brand-dot"></span>
-                    <strong>MJJD Telecom</strong>
+                    <img src="{{ asset('images/favicon/mjjdnewlogo.png') }}" alt="MJJD Telecom" class="auth-brand-logo" />
+                    <span class="auth-brand-copy">
+                        <strong>MJJD Telecom</strong>
+                    </span>
                 </a>
+
                 <nav class="auth-visual-nav" aria-label="Auth Navigation">
                     <a href="{{ url('/') }}">Home</a>
                     @if($isRegisterPage)
                         <a href="{{ route('login') }}">Log In</a>
                     @else
-                        <a href="{{ route('register') }}">Join</a>
+                        <a href="{{ route('register') }}">Register</a>
                     @endif
                 </nav>
             </div>

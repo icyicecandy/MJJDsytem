@@ -22,7 +22,7 @@
                 </button>
             @endauth
             <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" class="logo">
-                <span class="logo-mark">MJ</span>
+                <img src="{{ asset('images/favicon/mjjdnewlogo.png') }}" alt="MJJD Telecom" class="logo-mark" />
                 <span class="logo-copy">
                     <strong>MJJD Telecom</strong>
                     <small>Powered by Surf2Sawa</small>
@@ -140,6 +140,7 @@
     @yield('scripts')
 </body>
 </html>
+
 
 
 

@@ -7,10 +7,14 @@ window.addEventListener('DOMContentLoaded', function() {
             if (!input) return;
             if (input.type === 'password') {
                 input.type = 'text';
-                this.textContent = 'HIDE';
+                this.classList.add('is-visible');
+                this.setAttribute('aria-label', 'Hide password');
+                this.setAttribute('title', 'Hide password');
             } else {
                 input.type = 'password';
-                this.textContent = 'SHOW';
+                this.classList.remove('is-visible');
+                this.setAttribute('aria-label', 'Show password');
+                this.setAttribute('title', 'Show password');
             }
         });
     });
