@@ -118,6 +118,16 @@ class CustomerApplicationController extends Controller
             ]);
         }
 
+        AppNotificationSender::sendToRole(
+            'admin',
+            'New customer application submitted',
+            $application->first_name . ' ' . $application->last_name . ' submitted application ' . $application->reference_no . '.',
+            route('admin.applications.show', $application),
+            'application_submitted',
+            ['application_id' => $application->id, 'reference_no' => $application->reference_no],
+            Auth::id()
+        );
+
         return redirect()->route('customer.apply.done', ['reference' => $application->reference_no]);
     }
 
@@ -174,4 +184,5 @@ class CustomerApplicationController extends Controller
         return false;
     }
 }
+
 

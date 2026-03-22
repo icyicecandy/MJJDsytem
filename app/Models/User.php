@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Models\AppNotification;
 
 class User extends Authenticatable
 {
@@ -161,6 +162,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\InstallationLog::class);
     }
+    public function appNotifications()
+    {
+        return $this->hasMany(AppNotification::class)->latest();
+    }
 
     public function scopeTechnicians($query)
     {
@@ -173,3 +178,5 @@ class User extends Authenticatable
             ->where('chat_available', true);
     }
 }
+
+

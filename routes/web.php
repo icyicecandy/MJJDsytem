@@ -7,6 +7,7 @@ use App\Http\Controllers\AdminApplicationController;
 use App\Http\Controllers\TechnicianDashboardController;
 use App\Http\Controllers\PublicTrackingController;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AdminTicketController;
 use App\Http\Controllers\TechnicianTicketController;
 use App\Models\Application;
@@ -94,6 +95,16 @@ Route::middleware(['auth'])->group(function () {
 
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
+
+
+    Route::get('/notifications', [NotificationController::class, 'index'])
+        ->name('notifications.index');
+    Route::get('/notifications/feed', [NotificationController::class, 'feed'])
+        ->name('notifications.feed');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])
+        ->name('notifications.mark-all-read');
+    Route::get('/notifications/{notification}/go', [NotificationController::class, 'redirect'])
+        ->name('notifications.redirect');
 });
 
 
@@ -363,6 +374,9 @@ Route::middleware(['auth', 'role:admin,technician'])->group(function () {
 
 
 require __DIR__.'/auth.php';
+
+
+
 
 
 

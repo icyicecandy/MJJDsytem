@@ -27,12 +27,22 @@ class TicketController extends Controller
             'description' => 'required|string',
         ]);
 
-        Ticket::create([
+        $ticket = Ticket::create([
             'user_id' => Auth::id(),
             'subject' => $request->subject,
             'description' => $request->description,
             'status' => Ticket::STATUS_QUEUED,
         ]);
+
+        AppNotificationSender::sendToRole(
+            'admin',
+            'New support ticket submitted',
+            Auth::user()->name . ' opened ticket "' . $ticket->subject . '".',
+            route('admin.tickets.show', $ticket),
+            'ticket_submitted',
+            ['ticket_id' => $ticket->id],
+            Auth::id()
+        );
 
         return redirect()
             ->route('customer.tickets.index')
@@ -67,3 +77,4 @@ class TicketController extends Controller
         return back();
     }
 }
+

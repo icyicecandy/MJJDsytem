@@ -13,6 +13,7 @@
             window.location = '{{ route('technician.dashboard') }}';
         } else if(role === 'admin') {
             window.location = '{{ route('admin.dashboard') }}';
+            window.location = '{{ route('admin.dashboard') }}';
         }
     });
 </script>

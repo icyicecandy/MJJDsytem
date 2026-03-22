@@ -28,6 +28,28 @@ class TechnicianTicketController extends Controller
             'status' => Ticket::STATUS_RESOLVED,
         ]);
 
+        if ($ticket->user) {
+            AppNotificationSender::send(
+                $ticket->user,
+                'Support ticket resolved',
+                'Your ticket "' . $ticket->subject . '" has been marked as resolved.',
+                route('customer.tickets.show', $ticket),
+                'ticket_resolved',
+                ['ticket_id' => $ticket->id, 'status' => $ticket->status],
+                Auth::id()
+            );
+        }
+
+        AppNotificationSender::sendToRole(
+            'admin',
+            'Ticket resolved by technician',
+            Auth::user()->name . ' resolved ticket "' . $ticket->subject . '".',
+            route('admin.tickets.show', $ticket),
+            'ticket_resolved_admin',
+            ['ticket_id' => $ticket->id, 'status' => $ticket->status],
+            Auth::id()
+        );
+
         return redirect()
             ->route('technician.tickets.index')
             ->with('success', 'Ticket marked as resolved.');
@@ -61,3 +83,4 @@ class TechnicianTicketController extends Controller
         return back();
     }
 }
+

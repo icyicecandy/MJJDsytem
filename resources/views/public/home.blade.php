@@ -18,15 +18,22 @@
 @push('styles')
 <style>
     .public-home {
-        --panel-soft: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(243, 247, 255, 0.95));
-        --strip-soft: linear-gradient(180deg, rgba(233, 242, 255, 0.92), rgba(247, 250, 255, 0.94));
+        --panel-soft: linear-gradient(180deg, rgba(15, 31, 74, 0.62), rgba(10, 24, 58, 0.54));
+        --strip-soft: linear-gradient(180deg, rgba(21, 43, 97, 0.54), rgba(12, 29, 68, 0.46));
+        --glass-border: rgba(173, 204, 255, 0.18);
+        --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(211, 227, 255, 0.10));
+        --glass-shadow: 0 8px 20px rgba(3, 16, 44, 0.12);
+        --glass-shadow-hover: 0 14px 30px rgba(5, 24, 64, 0.18);
         display: grid;
         gap: 2.8rem;
-        padding: 0 0.9rem 4rem;
+        padding: 0 0 4rem;
     }
     .public-shell {
         width: min(1360px, 100%);
         margin-inline: auto;
+    }
+    .public-hero-shell {
+        width: 100%;
     }
         .public-home-heading {
         display: grid;
@@ -38,11 +45,11 @@
         font-size: clamp(2rem, 4vw, 3.15rem);
         line-height: 1.05;
         letter-spacing: -0.04em;
-        color: var(--color-primary);
+        color: #001840;
     }
     .public-home-heading p {
         margin: 0;
-        color: var(--color-text-muted);
+        color: rgba(16, 42, 113, 0.78);
         font-size: 1.02rem;
         line-height: 1.72;
     }
@@ -58,7 +65,7 @@
         color: #fff;
         box-shadow: 0 30px 60px rgba(15, 23, 42, 0.18);
         isolation: isolate;
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 64, 175, 0.9));
+        background: linear-gradient(135deg, rgba(0, 24, 64, 0.96), rgba(16, 42, 113, 0.92) 60%, rgba(245, 196, 0, 0.72) 100%);
     }
     .public-hero-slider {
         position: absolute;
@@ -77,13 +84,6 @@
     .public-hero-slide.is-active {
         opacity: 1;
         transform: scale(1);
-    }
-    .public-hero-overlay {
-        position: absolute;
-        inset: 0;
-        background:
-            radial-gradient(circle at 85% 18%, rgba(59, 130, 246, 0.3), transparent 28%),
-            linear-gradient(100deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.6) 44%, rgba(15, 23, 42, 0.75) 100%);
     }
     .public-hero-main {
         position: relative;
@@ -105,6 +105,17 @@
             transform: translateY(0);
         }
     }
+    @keyframes auroraDrift {
+        0% {
+            transform: translate3d(0, 0, 0) scale(1);
+        }
+        50% {
+            transform: translate3d(3%, -2%, 0) scale(1.08);
+        }
+        100% {
+            transform: translate3d(-4%, 3%, 0) scale(0.96);
+        }
+    }
     .public-kicker {
         display: inline-flex;
         align-items: center;
@@ -123,19 +134,12 @@
         width: 15px;
         height: 15px;
     }
-    .public-hero h1 {
+     .public-hero h1 {
         margin: 0;
         font-size: clamp(2.25rem, 5vw, 4.9rem);
         line-height: 0.96;
         letter-spacing: -0.05em;
         text-wrap: balance;
-    }
-    .public-hero p {
-        margin: 0;
-        max-width: 600px;
-        color: rgba(255, 255, 255, 0.86);
-        font-size: 1.03rem;
-        line-height: 1.65;
     }
     .public-hero-actions {
         display: flex;
@@ -146,7 +150,27 @@
     .public-hero-btn {
         padding: 0.62rem 0.95rem;
         font-size: 0.92rem;
-        box-shadow: 0 10px 22px rgba(37, 99, 235, 0.2);
+        border-radius: 12px;
+        box-shadow: 0 14px 28px rgba(16, 42, 113, 0.24);
+    }
+    .public-hero .btn.primary,
+    .public-hero .public-hero-btn:not(.secondary) {
+        background: linear-gradient(135deg, #102A71, #F5C400);
+        color: #fff9df;
+        border: none;
+    }
+    .public-hero .btn.primary:hover,
+    .public-hero .public-hero-btn:not(.secondary):hover {
+        background: linear-gradient(135deg, #001840, #F5C400);
+    }
+    .public-hero .btn.secondary {
+        background: rgba(255, 249, 223, 0.92);
+        color: #001840;
+        border: 1px solid rgba(245, 196, 0, 0.52);
+    }
+    .public-hero .btn.secondary:hover {
+        background: linear-gradient(135deg, rgba(255, 220, 95, 0.94), rgba(255, 249, 223, 0.98));
+        color: #001840;
     }
     .public-hero-dots {
         position: absolute;
@@ -175,9 +199,10 @@
     .public-plans {
         padding: 2.85rem 2.4rem;
         border-radius: 28px;
-        background: var(--panel-soft);
-        border: 1px solid rgba(202, 216, 238, 0.68);
-        box-shadow: 0 24px 52px rgba(15, 23, 42, 0.08);
+        background: var(--glass-fill);
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass-shadow);
+        backdrop-filter: blur(8px);
     }
     .public-plans .public-home-heading {
         margin-inline: auto;
@@ -195,9 +220,10 @@
         gap: 1.08rem;
         padding: 1.6rem;
         border-radius: 24px;
-        border: 1px solid rgba(219, 228, 239, 0.98);
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
-        box-shadow: 0 16px 35px rgba(15, 23, 42, 0.08);
+        border: 1px solid var(--glass-border);
+        background: var(--glass-fill);
+        box-shadow: var(--glass-shadow);
+        backdrop-filter: blur(8px);
         transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
     }
     .public-plan-card:nth-child(1) {
@@ -205,13 +231,14 @@
     }
     .public-plan-card:hover {
         transform: translateY(-7px) scale(1.01);
-        box-shadow: 0 22px 42px rgba(30, 64, 175, 0.16);
-        border-color: rgba(37, 99, 235, 0.34);
+        box-shadow: 0 22px 42px rgba(6, 24, 64, 0.22);
+        border-color: rgba(191, 214, 255, 0.30);
     }
     .public-plan-card.featured {
         transform: scale(1.025);
-        border-color: rgba(37, 99, 235, 0.44);
-        box-shadow: 0 24px 52px rgba(37, 99, 235, 0.23);
+        border-color: rgba(191, 214, 255, 0.28);
+        background: var(--glass-fill);
+        box-shadow: var(--glass-shadow-hover);
         overflow: hidden;
     }
     .public-plan-card.featured::before {
@@ -232,12 +259,12 @@
     }
     .public-plan-top strong {
         display: block;
-        color: var(--color-primary);
+        color: #001840;
         font-size: 1.22rem;
     }
     .public-plan-speed {
         margin-top: 0.35rem;
-        color: var(--color-primary);
+        color: #001840;
         font-size: clamp(2rem, 3.8vw, 3.1rem);
         font-weight: 800;
         letter-spacing: -0.045em;
@@ -245,14 +272,14 @@
     .public-plan-badge {
         padding: 0.45rem 0.75rem;
         border-radius: 999px;
-        background: rgba(37, 99, 235, 0.1);
-        color: var(--color-secondary);
+        background: rgba(245, 196, 0, 0.18);
+        color: #001840;
         font-size: 0.8rem;
         font-weight: 700;
         white-space: nowrap;
     }
     .public-plan-price {
-        color: var(--color-primary);
+        color: #001840;
         font-size: clamp(2rem, 4vw, 3.15rem);
         font-weight: 800;
         letter-spacing: -0.05em;
@@ -260,7 +287,7 @@
     .public-plan-price small {
         font-size: 0.52em;
         font-weight: 700;
-        color: var(--color-text-muted);
+        color: rgba(16, 42, 113, 0.72);
     }
     .public-plan-list {
         margin: 0;
@@ -273,7 +300,7 @@
         display: flex;
         align-items: center;
         gap: 0.62rem;
-        color: var(--color-text-muted);
+        color: rgba(16, 42, 113, 0.76);
     }
     .public-plan-list li::before {
         content: "\2713";
@@ -285,10 +312,11 @@
         position: relative;
         width: min(1360px, 100%);
         margin-inline: auto;
-        background: var(--panel-soft);
-        border: 1px solid rgba(202, 216, 238, 0.65);
+        background: var(--glass-fill);
+        border: 1px solid var(--glass-border);
         border-radius: 28px;
-        box-shadow: 0 20px 42px rgba(15, 23, 42, 0.06);
+        box-shadow: var(--glass-shadow);
+        backdrop-filter: blur(8px);
         padding: 3rem 2.4rem;
     }
     .public-steps-strip .public-home-heading {
@@ -306,34 +334,29 @@
         isolation: isolate;
     }
     .public-steps-grid::before {
-        content: "";
-        position: absolute;
-        left: 10%;
-        right: 10%;
-        top: 62px;
-        height: 2px;
-        background: linear-gradient(90deg, rgba(37, 99, 235, 0.2), rgba(37, 99, 235, 0.56), rgba(37, 99, 235, 0.2));
-        z-index: 0;
+        display: none;
     }
     .public-step-card {
         position: relative;
         z-index: 1;
         padding: 1.4rem 1.08rem;
         border-radius: 18px;
-        border: 1px solid rgba(219, 228, 239, 0.82);
-        background: rgba(255, 255, 255, 0.88);
-        box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+        border: 1px solid var(--glass-border);
+        background: var(--glass-fill);
+        box-shadow: var(--glass-shadow);
+        backdrop-filter: blur(8px);
         display: grid;
         gap: 0.8rem;
         text-align: center;
-        transition: transform 0.24s ease, box-shadow 0.24s ease;
+        transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
     }
     .public-step-card:nth-child(even) {
         margin-top: 0;
     }
     .public-step-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 16px 34px rgba(30, 64, 175, 0.13);
+        box-shadow: 0 16px 34px rgba(5, 24, 64, 0.18);
+        border-color: rgba(191, 214, 255, 0.28);
     }
     .public-step-number {
         display: inline-flex;
@@ -343,8 +366,8 @@
         height: 26px;
         border-radius: 999px;
         margin: 0 auto;
-        background: rgba(37, 99, 235, 0.1);
-        color: var(--color-secondary);
+        background: rgba(245, 196, 0, 0.18);
+        color: #102A71;
         font-size: 0.82rem;
         font-weight: 700;
     }
@@ -369,19 +392,19 @@
     }
     .public-step-card h3 {
         margin: 0;
-        color: var(--color-primary);
+        color: #001840;
         font-size: 1.04rem;
         line-height: 1.4;
     }
     .public-step-card p {
         margin: 0;
-        color: var(--color-text-muted);
+        color: rgba(16, 42, 113, 0.76);
         font-size: 0.94rem;
         line-height: 1.62;
     }
     .public-step-note {
         margin: 1.1rem 0 0;
-        color: var(--color-text-muted);
+        color: rgba(16, 42, 113, 0.72);
         text-align: center;
     }
 
@@ -391,6 +414,12 @@
     .public-faq-layout {
         display: grid;
         gap: 0.82rem;
+        padding: 1rem;
+        border-radius: 24px;
+        border: 1px solid var(--glass-border);
+        background: var(--glass-fill);
+        box-shadow: var(--glass-shadow);
+        backdrop-filter: blur(8px);
     }
     .public-faq-wrap {
         display: grid;
@@ -399,7 +428,7 @@
     }
     .public-faq-item {
         border: 0;
-        border-bottom: 1px solid rgba(219, 228, 239, 0.95);
+        border-bottom: 1px solid rgba(173, 204, 255, 0.18);
         border-radius: 0;
         background: transparent;
         box-shadow: none;
@@ -407,7 +436,7 @@
     }
     .public-faq-item[open],
     .public-faq-item.is-open {
-        background: rgba(248, 251, 255, 0.65);
+        background: rgba(255, 255, 255, 0.10);
     }
     .public-faq-item summary {
         list-style: none;
@@ -417,8 +446,8 @@
         justify-content: space-between;
         gap: 0.8rem;
         padding: 0.92rem 0.25rem;
-        color: var(--color-primary);
-        font-weight: 600;
+        color: #001840;
+        font-weight: 700;
         font-size: 0.98rem;
     }
     .public-faq-item summary::-webkit-details-marker {
@@ -443,7 +472,7 @@
     .public-faq-answer p {
         margin: 0;
         padding: 0 0.25rem 0.92rem;
-        color: var(--color-text-muted);
+        color: rgba(16, 42, 113, 0.76);
         line-height: 1.62;
         font-size: 0.95rem;
     }
@@ -461,14 +490,14 @@
     }
     .public-contact-intro h2 {
         margin: 0;
-        color: var(--color-primary);
+        color: #001840;
         font-size: clamp(1.8rem, 3.2vw, 2.65rem);
         line-height: 1.06;
         letter-spacing: -0.03em;
     }
     .public-contact-intro p {
         margin: 0;
-        color: var(--color-text-muted);
+        color: rgba(16, 42, 113, 0.76);
         line-height: 1.7;
     }
     .public-contact-grid {
@@ -482,14 +511,16 @@
         gap: 0.9rem;
         padding: 0.95rem;
         border-radius: 16px;
-        border: 1px solid rgba(219, 228, 239, 0.88);
-        background: rgba(255, 255, 255, 0.78);
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 1px solid var(--glass-border);
+        background: var(--glass-fill);
+        box-shadow: var(--glass-shadow);
+        backdrop-filter: blur(8px);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     }
     .public-contact-item:hover {
         transform: translateY(-3px);
-        box-shadow: 0 14px 30px rgba(30, 64, 175, 0.11);
+        box-shadow: var(--glass-shadow-hover);
+        border-color: rgba(191, 214, 255, 0.28);
     }
     .public-contact-icon {
         width: 50px;
@@ -500,7 +531,7 @@
         justify-content: center;
         border-radius: 999px;
         background: rgba(37, 99, 235, 0.1);
-        color: var(--color-primary);
+        color: #102A71;
         transition: transform 0.2s ease;
     }
     .public-contact-item:hover .public-contact-icon {
@@ -513,11 +544,11 @@
     .public-contact-item strong {
         display: block;
         margin-bottom: 0.2rem;
-        color: var(--color-primary);
+        color: #001840;
         font-size: 1.02rem;
     }
     .public-contact-item span {
-        color: var(--color-text-muted);
+        color: rgba(16, 42, 113, 0.82);
         line-height: 1.6;
     }
 
@@ -539,7 +570,7 @@
         align-items: center;
         gap: 0.78rem;
         margin-bottom: 0;
-        color: var(--color-primary);
+        color: #001840;
     }
     .public-footer-brand .logo-mark {
         width: 40px;
@@ -552,7 +583,7 @@
     }
     .public-footer-copy p,
     .public-footer-links a {
-        color: var(--color-text-muted);
+        color: rgba(16, 42, 113, 0.82);
     }
     .public-footer-copy p {
         margin: 0;
@@ -567,7 +598,7 @@
         text-decoration: none;
     }
     .public-footer-links a:hover {
-        color: var(--color-primary);
+        color: #001840;
     }
 
     .btn,
@@ -593,10 +624,9 @@
         .public-hero {
             min-height: 590px;
         }
-        .public-steps-grid::before {
-            left: 8%;
-            right: 8%;
-        }
+    .public-steps-grid::before {
+        display: none;
+    }
     }
     @media (max-width: 1100px) {
         .public-plan-grid {
@@ -606,14 +636,18 @@
             margin-top: 0;
         }
         .public-plan-card.featured {
-            transform: none;
-        }
+        transform: scale(1.025);
+        border-color: rgba(191, 214, 255, 0.28);
+        background: var(--glass-fill);
+        box-shadow: var(--glass-shadow-hover);
+        overflow: hidden;
+    }
         .public-steps-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
-        .public-steps-grid::before {
-            display: none;
-        }
+    .public-steps-grid::before {
+        display: none;
+    }
         .public-step-card:nth-child(even) {
             margin-top: 0;
         }
@@ -637,9 +671,16 @@
     }
     @media (max-width: 768px) {
         .public-home {
-            gap: 2rem;
-            padding: 0 0.75rem 3rem;
-        }
+        --panel-soft: linear-gradient(180deg, rgba(15, 31, 74, 0.62), rgba(10, 24, 58, 0.54));
+        --strip-soft: linear-gradient(180deg, rgba(21, 43, 97, 0.54), rgba(12, 29, 68, 0.46));
+        --glass-border: rgba(173, 204, 255, 0.18);
+        --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(211, 227, 255, 0.10));
+        --glass-shadow: 0 8px 20px rgba(3, 16, 44, 0.12);
+        --glass-shadow-hover: 0 14px 30px rgba(5, 24, 64, 0.18);
+        display: grid;
+        gap: 2.8rem;
+        padding: 0 0 4rem;
+    }
         .public-hero {
             min-height: auto;
             padding: 1.35rem 1.35rem 4.9rem;
@@ -649,8 +690,12 @@
             max-width: none;
         }
         .public-hero h1 {
-            font-size: clamp(2rem, 10vw, 3.3rem);
-        }
+        margin: 0;
+        font-size: clamp(2.25rem, 5vw, 4.9rem);
+        line-height: 0.96;
+        letter-spacing: -0.05em;
+        text-wrap: balance;
+    }
         .public-hero-actions {
             flex-direction: column;
         }
@@ -663,12 +708,24 @@
             bottom: 1.1rem;
         }
         .public-plans {
-            padding: 2rem 1.2rem;
-            border-radius: 22px;
-        }
+        padding: 2.85rem 2.4rem;
+        border-radius: 28px;
+        background: var(--glass-fill);
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass-shadow);
+        backdrop-filter: blur(8px);
+    }
         .public-steps-strip {
-            padding: 2.25rem 0 2.35rem;
-        }
+        position: relative;
+        width: min(1360px, 100%);
+        margin-inline: auto;
+        background: var(--glass-fill);
+        border: 1px solid var(--glass-border);
+        border-radius: 28px;
+        box-shadow: var(--glass-shadow);
+        backdrop-filter: blur(8px);
+        padding: 3rem 2.4rem;
+    }
         .public-steps-grid {
             grid-template-columns: 1fr;
         }
@@ -678,13 +735,12 @@
 
 @section('content')
 <div class="public-home" id="home">
-    <div class="public-shell" data-reveal>
+    <div class="public-shell public-hero-shell" data-reveal>
         <section class="public-hero">
             <div class="public-hero-slider" data-hero-slider>
                 @foreach($heroSlides as $index => $slide)
                     <div class="public-hero-slide {{ $index === 0 ? 'is-active' : '' }}" style="background-image: url('{{ $slide }}');"></div>
                 @endforeach
-                <div class="public-hero-overlay"></div>
             </div>
 
             <div class="public-hero-main" data-hero-copy>
@@ -878,10 +934,6 @@
 
     <section class="public-shell public-footer" data-reveal>
         <div class="public-footer-copy">
-            <div class="public-footer-brand">
-                <span class="logo-mark">MJ</span>
-                <strong>MJJD TELECOM</strong>
-            </div>
             <p>&copy; {{ date('Y') }} MJJD TELECOM. All rights reserved.</p>
         </div>
 
@@ -1014,3 +1066,37 @@
     });
 </script>
 @endpush
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

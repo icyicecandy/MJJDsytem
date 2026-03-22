@@ -15,14 +15,10 @@
 
         <div class="auth-stage-content">
             <div class="auth-stage-top">
-                <a href="{{ url('/') }}" class="auth-visual-brand">
-                    <img src="{{ asset('images/favicon/mjjdnewlogo.png') }}" alt="MJJD Telecom" class="auth-brand-logo" />
-                    <span class="auth-brand-copy">
-                        <strong>MJJD Telecom</strong>
-                    </span>
-                </a>
-
                 <nav class="auth-visual-nav" aria-label="Auth Navigation">
+                    <a href="{{ url('/') }}" class="auth-nav-logo" aria-label="MJJD Telecom Home">
+                        <img src="{{ asset('images/favicon/mjjdnewlogo.png') }}" alt="MJJD Telecom" class="auth-nav-logo-mark" />
+                    </a>
                     <a href="{{ url('/') }}">Home</a>
                     @if($isRegisterPage)
                         <a href="{{ route('login') }}">Log In</a>
@@ -42,3 +38,6 @@
     </section>
 </body>
 </html>
+
+
+

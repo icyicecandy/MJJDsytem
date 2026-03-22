@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Ticket;
 use App\Models\User;
+use App\Support\AppNotificationSender;
 use Illuminate\Http\Request;
 
 class AdminTicketController extends Controller
@@ -26,7 +27,10 @@ class AdminTicketController extends Controller
             'technician_id' => 'nullable|exists:users,id',
         ]);
 
+        $previousTechnicianId = $ticket->technician_id;
+        $previousStatus = $ticket->status;
         $technicianId = $validated['technician_id'] ?: null;
+        $technician = null;
 
         if ($technicianId) {
             $technician = User::findOrFail($technicianId);
@@ -34,6 +38,31 @@ class AdminTicketController extends Controller
         }
 
         $ticket->update($ticket->syncAssignmentStatus($technicianId, $validated['status']));
+        $ticket->refresh();
+
+        if ($technician && $ticket->technician_id && $ticket->technician_id !== $previousTechnicianId) {
+            AppNotificationSender::send(
+                $technician,
+                'New support ticket assigned',
+                'Ticket "' . $ticket->subject . '" was assigned to you.',
+                route('technician.tickets.show', $ticket),
+                'ticket_assigned',
+                ['ticket_id' => $ticket->id],
+                auth()->id()
+            );
+        }
+
+        if ($ticket->user && in_array($ticket->status, [Ticket::STATUS_RESOLVED, Ticket::STATUS_CLOSED], true) && $ticket->status !== $previousStatus) {
+            AppNotificationSender::send(
+                $ticket->user,
+                'Support ticket updated',
+                'Your ticket "' . $ticket->subject . '" is now ' . ucfirst(str_replace('_', ' ', $ticket->status)) . '.',
+                route('customer.tickets.show', $ticket),
+                'ticket_status',
+                ['ticket_id' => $ticket->id, 'status' => $ticket->status],
+                auth()->id()
+            );
+        }
 
         return redirect()
             ->route('admin.tickets.index')

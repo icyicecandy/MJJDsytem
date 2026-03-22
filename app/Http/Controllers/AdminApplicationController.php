@@ -3,16 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
-use Illuminate\Http\Request;
 use App\Models\Installation;
 use App\Models\User;
+use App\Support\AppNotificationSender;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
 class AdminApplicationController extends Controller
 {
     public function index(Request $request)
     {
-        $status = $request->query('status'); // optional filter
+        $status = $request->query('status');
 
         $query = Application::query()->orderByDesc('created_at');
 
@@ -56,6 +57,26 @@ class AdminApplicationController extends Controller
 
         $application->update($updateData);
 
+        if ($application->user) {
+            $statusLabel = ucfirst(str_replace('_', ' ', $validated['status']));
+            $message = match ($validated['status']) {
+                'under_review' => 'Your application is now under review.',
+                'approved' => 'Your application was approved and is ready for scheduling.',
+                'rejected' => 'Your application was rejected. Please review the latest notes in your application page.',
+                default => 'Your application status was updated.',
+            };
+
+            AppNotificationSender::send(
+                $application->user,
+                'Application status updated: ' . $statusLabel,
+                $message,
+                route('customer.application.show'),
+                'application_status',
+                ['application_id' => $application->id, 'status' => $validated['status']],
+                auth()->id()
+            );
+        }
+
         return redirect()
             ->route('admin.applications.show', $application)
             ->with('success', 'Application status updated.');
@@ -89,7 +110,7 @@ class AdminApplicationController extends Controller
             ]);
         }
 
-        Installation::updateOrCreate(
+        $installation = Installation::updateOrCreate(
             ['application_id' => $application->id],
             [
                 'technician_id' => $validated['technician_id'],
@@ -105,7 +126,28 @@ class AdminApplicationController extends Controller
             ]);
         }
 
+        AppNotificationSender::send(
+            $technician,
+            'New installation assigned',
+            'You were assigned an installation scheduled for ' . $installation->installation_date?->format('F d, Y') . '.',
+            route('technician.installations.show', $installation),
+            'installation_assigned',
+            ['installation_id' => $installation->id, 'application_id' => $application->id],
+            auth()->id()
+        );
+
+        if ($application->user) {
+            AppNotificationSender::send(
+                $application->user,
+                'Installation scheduled',
+                'Your installation has been scheduled. Open your application page to view the details.',
+                route('customer.application.show'),
+                'installation_scheduled',
+                ['installation_id' => $installation->id, 'application_id' => $application->id],
+                auth()->id()
+            );
+        }
+
         return back()->with('success', 'Installation scheduled successfully.');
     }
 }
-

@@ -39,6 +39,119 @@
         });
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function renderNotificationItem(notification) {
+        const unreadClass = notification.is_unread ? ' is-unread' : '';
+        const message = notification.message
+            ? `<span class="notif-message">${escapeHtml(notification.message)}</span>`
+            : '';
+        const time = notification.time ? `<span class="notif-time">${escapeHtml(notification.time)}</span>` : '';
+
+        return `<a href="${escapeHtml(notification.url)}" class="notif-item${unreadClass}">
+            <span class="notif-title">${escapeHtml(notification.title)}</span>
+            ${message}
+            ${time}
+        </a>`;
+    }
+
+    function initNotificationCenter() {
+        const body = document.body;
+        const feedUrl = body?.dataset.notificationsFeed;
+        const markAllUrl = body?.dataset.notificationsMarkAll;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const notifDropdownList = document.getElementById('notifDropdownList');
+        const notifUnreadLabel = document.getElementById('notifUnreadLabel');
+        const notifDot = document.querySelector('.notif-dot');
+        const notifMarkAllForm = document.getElementById('notifMarkAllForm');
+
+        if (!feedUrl || !notifDropdownList || !notifUnreadLabel || !notifDot) {
+            return;
+        }
+
+        let isFetching = false;
+
+        function applyNotificationState(payload) {
+            const unreadCount = Number(payload.unread_count || 0);
+            notifUnreadLabel.textContent = unreadCount > 0 ? `${unreadCount} unread` : 'All caught up';
+            notifDot.classList.toggle('is-hidden', unreadCount <= 0);
+
+            if (Array.isArray(payload.notifications) && payload.notifications.length > 0) {
+                notifDropdownList.innerHTML = payload.notifications
+                    .map(renderNotificationItem)
+                    .join('');
+            } else {
+                notifDropdownList.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+            }
+        }
+
+        async function refreshNotifications() {
+            if (isFetching) {
+                return;
+            }
+
+            isFetching = true;
+            try {
+                const response = await fetch(feedUrl, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const payload = await response.json();
+                applyNotificationState(payload);
+            } catch (error) {
+                console.error('Notification refresh failed.', error);
+            } finally {
+                isFetching = false;
+            }
+        }
+
+        if (notifMarkAllForm && markAllUrl && csrfToken) {
+            notifMarkAllForm.addEventListener('submit', async function (event) {
+                event.preventDefault();
+
+                try {
+                    const response = await fetch(markAllUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin'
+                    });
+
+                    if (response.ok) {
+                        refreshNotifications();
+                    }
+                } catch (error) {
+                    console.error('Mark all as read failed.', error);
+                }
+            });
+        }
+
+        refreshNotifications();
+        window.setInterval(() => {
+            if (!document.hidden) {
+                refreshNotifications();
+            }
+        }, 15000);
+    }
+
     window.initReadonlyLocationMaps = initReadonlyLocationMaps;
     window.refreshReadonlyLocationMaps = function () {
         initReadonlyLocationMaps();
@@ -113,5 +226,6 @@
         });
 
         initReadonlyLocationMaps();
+        initNotificationCenter();
     });
 })();

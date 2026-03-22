@@ -10,7 +10,7 @@
 <div class="telecom-page">
     <section class="telecom-hero">
         <h1>Welcome, {{ Auth::user()->name }}</h1>
-        <p>Monitor applications, installation activity, subscription health, and service tickets from one telecom operations dashboard.</p>
+        <p>Monitor applications, installation activity, and service tickets from one telecom operations dashboard.</p>
         <div class="telecom-chip-row">
             <span class="telecom-chip">Applications Pipeline</span>
             <span class="telecom-chip">Installation Monitoring</span>
@@ -57,16 +57,6 @@
                     <div class="metric-meta">Customers currently in service</div>
                 </div>
                 <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg></div>
-            </div>
-        </article>
-        <article class="metric-card">
-            <div class="metric-head">
-                <div>
-                    <div class="metric-label">Expired Subscriptions</div>
-                    <div class="metric-value">{{ $expiredSubscriptions ?? 0 }}</div>
-                    <div class="metric-meta">Accounts needing renewal</div>
-                </div>
-                <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12h20"></path><path d="M12 2v20"></path></svg></div>
             </div>
         </article>
         <article class="metric-card">
@@ -134,4 +124,6 @@
     </div>
 </div>
 @endsection
+
+
 

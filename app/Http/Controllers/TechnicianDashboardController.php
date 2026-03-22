@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Installation;
 use App\Models\Subscription;
+use App\Models\User;
+use App\Support\AppNotificationSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -125,8 +127,31 @@ class TechnicianDashboardController extends Controller
                     ]
                 );
             }
+
+            if ($installation->application->user) {
+                AppNotificationSender::send(
+                    $installation->application->user,
+                    'Installation completed',
+                    'Your service installation has been completed. Open your application page to review the latest status.',
+                    route('customer.application.show'),
+                    'installation_completed',
+                    ['installation_id' => $installation->id, 'application_id' => $installation->application->id],
+                    auth()->id()
+                );
+            }
+
+            AppNotificationSender::sendToRole(
+                'admin',
+                'Installation completed',
+                'Installation #' . $installation->id . ' has been completed by ' . auth()->user()->name . '.',
+                route('admin.installations.index'),
+                'installation_completed_admin',
+                ['installation_id' => $installation->id, 'application_id' => $installation->application->id],
+                auth()->id()
+            );
         }
 
         return back()->with('success', 'Installation marked as completed with full field activation details.');
     }
 }
+
