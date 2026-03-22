@@ -101,7 +101,7 @@
                 <div class="quick-link-grid">
                     <a href="{{ route('admin.applications.index') }}" class="quick-link"><strong>Applications</strong><span>Review, approve, and schedule requests.</span></a>
                     <a href="{{ route('admin.installations.index') }}" class="quick-link"><strong>Installations</strong><span>Track field schedules and completions.</span></a>
-                    <a href="{{ route('admin.subscriptions.index') }}" class="quick-link"><strong>Subscriptions</strong><span>Check active and expiring service plans.</span></a>
+                    <a href="{{ route('admin.technicians.index') }}" class="quick-link"><strong>Technicians</strong><span>Review technician details, workload, and upcoming schedules.</span></a>
                     <a href="{{ route('admin.tickets.index') }}" class="quick-link"><strong>Tickets</strong><span>Manage customer issues and assignments.</span></a>
                 </div>
             </div>
@@ -124,6 +124,7 @@
     </div>
 </div>
 @endsection
+
 
 
 

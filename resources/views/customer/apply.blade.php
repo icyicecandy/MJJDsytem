@@ -11,6 +11,7 @@
         $selectedMunicipality = old('municipality', $application->municipality ?? '');
         $selectedBarangay = old('barangay', $application->barangay ?? '');
         $luzonBounds = $mapBounds ?? ['south' => 11.8, 'west' => 118.8, 'north' => 19.9, 'east' => 123.9, 'center' => [16.2, 121.0], 'zoom' => 7];
+        $initialStep = ($errors->has('agreed_to_terms') || $errors->has('agreed_to_privacy')) ? 5 : 1;
     @endphp
 
     <div class="apply-wizard-shell">
@@ -28,7 +29,7 @@
             </section>
         @endif
 
-        <form method="POST" action="{{ route('customer.apply.store') }}" enctype="multipart/form-data" class="apply-wizard-form" id="customerApplyWizard">
+        <form method="POST" action="{{ route('customer.apply.store') }}" enctype="multipart/form-data" class="apply-wizard-form" id="customerApplyWizard" novalidate>
             @csrf
             <input type="hidden" name="lat" id="apply_lat" value="{{ $currentLat }}">
             <input type="hidden" name="lng" id="apply_lng" value="{{ $currentLng }}">
@@ -204,6 +205,12 @@
                     <div class="tracking-meta"><strong>ID Upload</strong><span id="reviewId">Optional</span></div>
                 </div>
 
+                @include('partials.consent-agreement', [
+                    'consentPrefix' => 'application_consent',
+                    'formId' => 'customerApplyWizard',
+                    'helperText' => 'Please read and agree to the Terms and Conditions and Privacy Notice before proceeding.'
+                ])
+
                 <div class="apply-step-actions between">
                     <button type="button" class="apply-link-btn" data-prev-step="4" onclick="return window.customerApplyWizardPrev ? window.customerApplyWizardPrev(4) : false;">Back</button>
                     <button type="submit" class="btn">Submit Application</button>
@@ -247,7 +254,7 @@
         }
 
         let allowedBounds = null;
-        let currentStep = 1;
+        let currentStep = @json($initialStep);
         let marker = null;
         let map = null;
         let reverseLookupTimer = null;
@@ -672,8 +679,10 @@
         });
 
         updateReview();
-        setStep(1);
+        setStep(currentStep);
     })();
 </script>
+
+
 
 

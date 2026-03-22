@@ -7,8 +7,10 @@
     <link rel="icon" type="image/png" href="{{ asset('images/favicon/mjjdnewlogo.png') }}" />
     <title>@yield('title', 'MJJD Telecom CRM')</title>
     <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}" />
+    <link rel="stylesheet" href="{{ asset('css/consent.css') }}" />
     @stack('styles')
     <script defer src="{{ asset('js/dashboard.js') }}"></script>
+    <script defer src="{{ asset('js/consent.js') }}"></script>
 </head>
 <body
     class="layout {{ auth()->check() ? 'is-auth' : 'is-guest' }}"

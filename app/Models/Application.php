@@ -28,6 +28,15 @@ class Application extends Model
         'status',
     ];
 
+
+    protected function casts(): array
+    {
+        return [
+            'agreed_to_terms' => 'boolean',
+            'agreed_to_privacy' => 'boolean',
+            'consented_at' => 'datetime',
+        ];
+    }
     public function installation()
     {
         return $this->hasOne(Installation::class);
@@ -49,3 +58,4 @@ class Application extends Model
         ])->filter()->implode(', ');
     }
 }
+

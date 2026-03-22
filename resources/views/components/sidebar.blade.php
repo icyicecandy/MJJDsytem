@@ -44,6 +44,7 @@
                 <li class="sidebar-item {{ request()->is('admin/applications*') ? 'active' : '' }}"><a href="{{ route('admin.applications.index') }}"><span class="nav-icon">{!! $icons['document'] !!}</span><span class="nav-label">Applications</span></a></li>
                 <li class="sidebar-item {{ request()->is('admin/installations*') ? 'active' : '' }}"><a href="{{ route('admin.installations.index') }}"><span class="nav-icon">{!! $icons['tool'] !!}</span><span class="nav-label">Installations</span></a></li>
                 <li class="sidebar-item {{ request()->is('admin/customers*') ? 'active' : '' }}"><a href="{{ route('admin.customers.index') }}"><span class="nav-icon">{!! $icons['users'] !!}</span><span class="nav-label">Customers</span></a></li>
+                <li class="sidebar-item {{ request()->is('admin/technicians*') ? 'active' : '' }}"><a href="{{ route('admin.technicians.index') }}"><span class="nav-icon">{!! $icons['users'] !!}</span><span class="nav-label">Technicians</span></a></li>
                 <li class="sidebar-item {{ request()->is('admin/subscriptions*') ? 'active' : '' }}"><a href="{{ route('admin.subscriptions.index') }}"><span class="nav-icon">{!! $icons['credit-card'] !!}</span><span class="nav-label">Subscriptions</span></a></li>
                 <li class="sidebar-item {{ request()->is('admin/tickets*') ? 'active' : '' }}"><a href="{{ route('admin.tickets.index') }}"><span class="nav-icon">{!! $icons['ticket'] !!}</span><span class="nav-label">Tickets</span></a></li>
                 <li class="sidebar-item {{ request()->is('notifications*') ? 'active' : '' }}"><a href="{{ route('notifications.index') }}"><span class="nav-icon">{!! $icons['bell'] !!}</span><span class="nav-label">Notifications</span></a></li>
@@ -54,3 +55,4 @@
         </ul>
     </nav>
 </aside>
+

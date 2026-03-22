@@ -4,19 +4,23 @@
 
 @section('content')
 <h2 class="form-title">Register</h2>
-<form method="POST" action="{{ route('register') }}" class="auth-form">
+<form method="POST" action="{{ route('register') }}" class="auth-form" id="registerForm" novalidate>
     @csrf
     <input type="hidden" name="role" value="customer" />
-    <div class="form-group">
-        <label for="first_name">First Name</label>
-        <input id="first_name" type="text" name="first_name" value="{{ old('first_name') }}" required autofocus placeholder="Jane" />
-        @error('first_name')<span class="error">{{ $message }}</span>@enderror
+
+    <div class="register-form-grid">
+        <div class="form-group">
+            <label for="first_name">First Name</label>
+            <input id="first_name" type="text" name="first_name" value="{{ old('first_name') }}" required autofocus placeholder="Jane" />
+            @error('first_name')<span class="error">{{ $message }}</span>@enderror
+        </div>
+        <div class="form-group">
+            <label for="last_name">Last Name</label>
+            <input id="last_name" type="text" name="last_name" value="{{ old('last_name') }}" required placeholder="Doe" />
+            @error('last_name')<span class="error">{{ $message }}</span>@enderror
+        </div>
     </div>
-    <div class="form-group">
-        <label for="last_name">Last Name</label>
-        <input id="last_name" type="text" name="last_name" value="{{ old('last_name') }}" required placeholder="Doe" />
-        @error('last_name')<span class="error">{{ $message }}</span>@enderror
-    </div>
+
     <div class="form-group">
         <label for="email">Email</label>
         <input id="email" type="email" name="email" value="{{ old('email') }}" required placeholder="you@example.com" />
@@ -59,6 +63,15 @@
             </svg>
         </button>
     </div>
+
+    <div class="form-group consent-form-group">
+        @include('partials.consent-agreement', [
+            'consentPrefix' => 'register_consent',
+            'formId' => 'registerForm',
+            'helperText' => 'Please read and agree to the Terms and Conditions and Privacy Notice before proceeding.'
+        ])
+    </div>
+
     <div class="form-group">
         <button type="submit" class="btn primary">Register</button>
     </div>

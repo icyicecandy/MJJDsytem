@@ -14,19 +14,11 @@ use Illuminate\View\View;
 
 class RegisteredUserController extends Controller
 {
-    /**
-     * Display the registration view.
-     */
     public function create(): View
     {
         return view('auth.register');
     }
 
-    /**
-     * Handle an incoming registration request.
-     *
-     * @throws \Illuminate\Validation\ValidationException
-     */
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -35,16 +27,29 @@ class RegisteredUserController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => ['nullable', 'in:customer,technician'],
+            'agreed_to_terms' => ['accepted'],
+            'agreed_to_privacy' => ['accepted'],
+            'terms_version' => ['nullable', 'string', 'max:50'],
+            'privacy_version' => ['nullable', 'string', 'max:50'],
+        ], [
+            'agreed_to_terms.accepted' => config('legal.validation_message'),
+            'agreed_to_privacy.accepted' => config('legal.validation_message'),
         ]);
 
         $role = $validated['role'] ?? 'customer';
         $fullName = trim($validated['first_name'] . ' ' . $validated['last_name']);
+        $consentedAt = now();
 
         $user = User::create([
             'name' => $fullName,
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => $role,
+            'agreed_to_terms' => true,
+            'agreed_to_privacy' => true,
+            'consented_at' => $consentedAt,
+            'terms_version' => $validated['terms_version'] ?? config('legal.terms_version'),
+            'privacy_version' => $validated['privacy_version'] ?? config('legal.privacy_version'),
         ]);
 
         event(new Registered($user));

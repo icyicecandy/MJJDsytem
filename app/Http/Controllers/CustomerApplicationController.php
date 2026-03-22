@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
+use App\Support\AppNotificationSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -57,6 +58,13 @@ class CustomerApplicationController extends Controller
             'lng' => ['required', 'numeric'],
             'plan_code' => ['required', 'in:S2S_50,S2S_100'],
             'id_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'agreed_to_terms' => ['accepted'],
+            'agreed_to_privacy' => ['accepted'],
+            'terms_version' => ['nullable', 'string', 'max:50'],
+            'privacy_version' => ['nullable', 'string', 'max:50'],
+        ], [
+            'agreed_to_terms.accepted' => config('legal.validation_message'),
+            'agreed_to_privacy.accepted' => config('legal.validation_message'),
         ]);
 
         if (! $this->addressSelectionIsValid($validated['region'], $validated['province'], $validated['municipality'], $validated['barangay'])) {
@@ -88,6 +96,8 @@ class CustomerApplicationController extends Controller
             $idPath = $request->file('id_image')->store('applications/ids', 'public');
         }
 
+        $consentedAt = now();
+
         $payload = [
             'reference_no' => $reference,
             'first_name' => $validated['first_name'],
@@ -102,6 +112,11 @@ class CustomerApplicationController extends Controller
             'lat' => $lat,
             'lng' => $lng,
             'plan_code' => $validated['plan_code'],
+            'agreed_to_terms' => true,
+            'agreed_to_privacy' => true,
+            'consented_at' => $consentedAt,
+            'terms_version' => $validated['terms_version'] ?? config('legal.terms_version'),
+            'privacy_version' => $validated['privacy_version'] ?? config('legal.privacy_version'),
             'status' => 'submitted',
         ];
 
@@ -184,5 +199,3 @@ class CustomerApplicationController extends Controller
         return false;
     }
 }
-
-

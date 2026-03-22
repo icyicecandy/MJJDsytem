@@ -10,6 +10,7 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AdminTicketController;
 use App\Http\Controllers\TechnicianTicketController;
+use App\Http\Controllers\Admin\TechnicianController;
 use App\Models\Application;
 use App\Models\Installation;
 use App\Models\Ticket;
@@ -263,6 +264,10 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
         ->name('admin.installations.index');
     Route::get('/admin/customers', [\App\Http\Controllers\Admin\CustomerController::class, 'index'])
         ->name('admin.customers.index');
+    Route::get('/admin/technicians', [TechnicianController::class, 'index'])
+        ->name('admin.technicians.index');
+    Route::get('/admin/technicians/{technician}', [TechnicianController::class, 'show'])
+        ->name('admin.technicians.show');
     Route::get('/admin/subscriptions', [\App\Http\Controllers\Admin\SubscriptionController::class, 'index'])
         ->name('admin.subscriptions.index');
     Route::get('/admin/reports', [\App\Http\Controllers\Admin\ReportController::class, 'index'])
@@ -374,6 +379,7 @@ Route::middleware(['auth', 'role:admin,technician'])->group(function () {
 
 
 require __DIR__.'/auth.php';
+
 
 
 

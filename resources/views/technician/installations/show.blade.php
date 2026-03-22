@@ -28,95 +28,6 @@
             text-transform: uppercase;
             color: #475569;
         }
-        .workflow-stepbar {
-            position: sticky;
-            top: 1rem;
-            z-index: 5;
-            padding: 0.9rem 1rem;
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.96);
-            border: 1px solid rgba(219, 228, 239, 0.95);
-            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
-        }
-        .workflow-progress {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.75rem;
-            align-items: center;
-        }
-        .workflow-progress-step {
-            appearance: none;
-            width: 100%;
-            border: 1px solid transparent;
-            background: transparent;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            min-width: 0;
-            padding: 0.35rem 0.4rem;
-            color: #64748b;
-            cursor: pointer;
-            border-radius: 14px;
-            text-align: left;
-            transition: background 0.18s ease, border-color 0.18s ease;
-        }
-        .workflow-progress-step:hover {
-            background: rgba(37, 99, 235, 0.05);
-            border-color: rgba(37, 99, 235, 0.12);
-        }
-        .workflow-progress-dot {
-            width: 2.25rem;
-            height: 2.25rem;
-            border-radius: 999px;
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            background: #f8fafc;
-            color: #475569;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.95rem;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-        .workflow-progress-copy {
-            min-width: 0;
-            display: grid;
-            gap: 0.12rem;
-        }
-        .workflow-progress-copy strong {
-            font-size: 0.95rem;
-            line-height: 1.2;
-            color: #334155;
-        }
-        .workflow-progress-copy span {
-            font-size: 0.8rem;
-            line-height: 1.2;
-            color: #94a3b8;
-        }
-        .workflow-progress-step.is-active,
-        .workflow-progress-step.is-complete {
-            background: rgba(37, 99, 235, 0.06);
-            border-color: rgba(37, 99, 235, 0.16);
-        }
-        .workflow-progress-step.is-active .workflow-progress-dot,
-        .workflow-progress-step.is-complete .workflow-progress-dot {
-            background: #2563eb;
-            border-color: #2563eb;
-            color: #fff;
-        }
-        .workflow-progress-step.is-active .workflow-progress-copy strong,
-        .workflow-progress-step.is-complete .workflow-progress-copy strong {
-            color: #0f172a;
-        }
-        .workflow-progress-line {
-            display: none;
-        }
-        .workflow-panel {
-            display: none;
-        }
-        .workflow-panel.is-active {
-            display: block;
-        }
         .workflow-panel .job-card-header {
             padding-bottom: 0.95rem;
         }
@@ -232,11 +143,6 @@
         .workflow-grid .location-map-meta-grid {
             margin-top: 0.15rem;
         }
-        @media (max-width: 1180px) {
-            .workflow-progress {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
         @media (max-width: 980px) {
             .workflow-grid,
             .workflow-overview-grid,
@@ -249,16 +155,6 @@
             }
         }
         @media (max-width: 640px) {
-            .workflow-stepbar {
-                position: static;
-                padding: 0.8rem;
-            }
-            .workflow-progress {
-                grid-template-columns: 1fr;
-            }
-            .workflow-progress-step {
-                padding: 0.55rem 0.35rem;
-            }
             .workflow-nav-actions > .btn,
             .workflow-nav-actions > span {
                 width: 100%;
@@ -278,12 +174,6 @@
             : '-';
         $address = $application ? $application->fullServiceAddress() : '-';
         $proofPhotos = collect($installation->proofPhotos())->filter();
-        $stepTwoFields = ['nap_code', 'full_nap_label', 'port_number', 'jo_number', 'activation_date', 'activation_status', 'package_name', 'technician_remarks'];
-        $stepThreeFields = ['router_photo', 'speed_test_photo', 'nap_box_photo', 'acceptance_report_photo'];
-        $activeStep = 'step-1';
-        if ($errors->any()) {
-            $activeStep = collect($stepThreeFields)->contains(fn ($field) => $errors->has($field)) ? 'step-3' : 'step-2';
-        }
     @endphp
 
     <div class="job-page workflow-shell">
@@ -291,7 +181,7 @@
             <div>
                 <div class="workflow-ref">{{ $installation->displayJobReference() }}</div>
                 <h1>{{ $installation->isCompleted() ? 'Completed Installation Record' : 'Installation Work Order' }}</h1>
-                <p>Use a step-by-step field workflow to review the job, record activation details, upload proof photos, and complete the installation cleanly.</p>
+                <p>Review the job, record activation details, upload proof photos, and complete the installation from one page.</p>
             </div>
             <div class="workflow-hero-meta">
                 <span class="badge {{ $installation->status ?? 'info' }}">{{ $installation->displayStatusLabel() }}</span>
@@ -313,47 +203,12 @@
                     </ul>
                 </section>
             @endif
-            <section class="workflow-stepbar">
-                <div class="workflow-progress" data-workflow-progress>
-                    <button type="button" class="workflow-progress-step {{ $activeStep === 'step-1' ? 'is-active' : '' }}" data-step-trigger="step-1" onclick="return window.installationWorkflowSetStep ? window.installationWorkflowSetStep('step-1') : false;">
-                        <span class="workflow-progress-dot">1</span>
-                        <span class="workflow-progress-copy">
-                            <strong>Overview</strong>
-                            <span>Customer and map</span>
-                        </span>
-                    </button>
-                    <span class="workflow-progress-line"></span>
-                    <button type="button" class="workflow-progress-step {{ $activeStep === 'step-2' ? 'is-active' : '' }}" data-step-trigger="step-2" onclick="return window.installationWorkflowSetStep ? window.installationWorkflowSetStep('step-2') : false;">
-                        <span class="workflow-progress-dot">2</span>
-                        <span class="workflow-progress-copy">
-                            <strong>Activation</strong>
-                            <span>NAP and JO details</span>
-                        </span>
-                    </button>
-                    <span class="workflow-progress-line"></span>
-                    <button type="button" class="workflow-progress-step {{ $activeStep === 'step-3' ? 'is-active' : '' }}" data-step-trigger="step-3" onclick="return window.installationWorkflowSetStep ? window.installationWorkflowSetStep('step-3') : false;">
-                        <span class="workflow-progress-dot">3</span>
-                        <span class="workflow-progress-copy">
-                            <strong>Uploads</strong>
-                            <span>Proof photos</span>
-                        </span>
-                    </button>
-                    <span class="workflow-progress-line"></span>
-                    <button type="button" class="workflow-progress-step {{ $activeStep === 'step-4' ? 'is-active' : '' }}" data-step-trigger="step-4" onclick="return window.installationWorkflowSetStep ? window.installationWorkflowSetStep('step-4') : false;">
-                        <span class="workflow-progress-dot">4</span>
-                        <span class="workflow-progress-copy">
-                            <strong>Review</strong>
-                            <span>Checklist and submit</span>
-                        </span>
-                    </button>
-                </div>
-            </section>
 
-            <section class="workflow-panel card {{ $activeStep === 'step-1' ? 'is-active' : '' }}" data-step-panel="step-1">
+            <section class="workflow-panel card">
                 <div class="job-card-header">
                     <div>
-                        <h2>Step 1 - Job Overview</h2>
-                        <p>Review the job context before recording field activation details.</p>
+                        <h2>Job Overview</h2>
+                        <p>Review the job context before recording the final field completion details.</p>
                     </div>
                 </div>
                 <div class="job-card-body workflow-grid">
@@ -422,20 +277,15 @@
                         'containerClass' => 'job-card',
                     ])
                 </div>
-                <div class="workflow-nav-actions">
-                    <span class="workflow-section-note">Map is shown only in the overview step to keep the rest of the workflow compact.</span>
-                    <button type="button" class="btn" data-step-next="step-2" onclick="return window.installationWorkflowSetStep ? window.installationWorkflowSetStep('step-2') : false;">Next: Field Activation</button>
-                </div>
             </section>
 
             <form method="POST" enctype="multipart/form-data" action="{{ route('technician.installations.complete', $installation->id) }}" id="installationWorkflowForm">
                 @csrf
-                <input type="hidden" name="workflow_step" id="workflow_step" value="{{ $activeStep }}">
 
-                <section class="workflow-panel card {{ $activeStep === 'step-2' ? 'is-active' : '' }}" data-step-panel="step-2">
+                <section class="workflow-panel card">
                     <div class="job-card-header">
                         <div>
-                            <h2>Step 2 - Field Activation Details</h2>
+                            <h2>Field Activation Details</h2>
                             <p>Capture the NAP, JO, activation, and remarks data from the field record.</p>
                         </div>
                     </div>
@@ -504,16 +354,12 @@
                             </div>
                         </div>
                     </div>
-                    <div class="workflow-nav-actions">
-                        <button type="button" class="btn secondary" data-step-next="step-1" onclick="return window.installationWorkflowSetStep ? window.installationWorkflowSetStep('step-1') : false;">Back to Overview</button>
-                        <button type="button" class="btn" data-step-next="step-3" onclick="return window.installationWorkflowSetStep ? window.installationWorkflowSetStep('step-3') : false;">Next: Proof Uploads</button>
-                    </div>
                 </section>
 
-                <section class="workflow-panel card {{ $activeStep === 'step-3' ? 'is-active' : '' }}" data-step-panel="step-3">
+                <section class="workflow-panel card">
                     <div class="job-card-header">
                         <div>
-                            <h2>Step 3 - Proof Uploads</h2>
+                            <h2>Proof Uploads</h2>
                             <p>Upload the required proof set. Optional field photos can also be attached here.</p>
                         </div>
                     </div>
@@ -549,16 +395,12 @@
                             </div>
                         </div>
                     </div>
-                    <div class="workflow-nav-actions">
-                        <button type="button" class="btn secondary" data-step-next="step-2" onclick="return window.installationWorkflowSetStep ? window.installationWorkflowSetStep('step-2') : false;">Back: Field Activation</button>
-                        <button type="button" class="btn" data-step-next="step-4" onclick="return window.installationWorkflowSetStep ? window.installationWorkflowSetStep('step-4') : false;">Next: Review & Complete</button>
-                    </div>
                 </section>
 
-                <section class="workflow-panel card {{ $activeStep === 'step-4' ? 'is-active' : '' }}" data-step-panel="step-4">
+                <section class="workflow-panel card">
                     <div class="job-card-header">
                         <div>
-                            <h2>Step 4 - Review & Complete</h2>
+                            <h2>Review & Complete</h2>
                             <p>Confirm the summary and checklist before submitting the completed installation record.</p>
                         </div>
                     </div>
@@ -588,7 +430,7 @@
                         </ul>
                     </div>
                     <div class="workflow-nav-actions">
-                        <button type="button" class="btn secondary" data-step-next="step-3" onclick="return window.installationWorkflowSetStep ? window.installationWorkflowSetStep('step-3') : false;">Back: Proof Uploads</button>
+                        <span class="workflow-section-note">Once submitted, the installation will be marked completed and the customer and admins will receive the usual status updates.</span>
                         <button type="submit" class="btn">Complete Installation</button>
                     </div>
                 </section>
@@ -716,18 +558,7 @@
             }
 
             function initInstallationWorkflow() {
-                const panels = Array.from(document.querySelectorAll('[data-step-panel]'));
-                const triggers = Array.from(document.querySelectorAll('[data-step-trigger]'));
-                const lines = Array.from(document.querySelectorAll('.workflow-progress-line'));
-                const workflowInput = document.getElementById('workflow_step');
                 const reviewFields = Array.from(document.querySelectorAll('[data-review-field]'));
-                const stepOrder = ['step-1', 'step-2', 'step-3', 'step-4'];
-                const initialStep = workflowInput ? workflowInput.value : 'step-1';
-
-                if (!panels.length || !triggers.length) {
-                    initReadonlyMaps();
-                    return;
-                }
 
                 function updateReview() {
                     reviewFields.forEach((node) => {
@@ -738,49 +569,11 @@
                     });
                 }
 
-                window.installationWorkflowSetStep = function (stepId) {
-                    const currentIndex = stepOrder.indexOf(stepId);
-                    if (currentIndex === -1) {
-                        return false;
-                    }
-
-                    panels.forEach((panel) => {
-                        panel.classList.toggle('is-active', panel.dataset.stepPanel === stepId);
-                    });
-
-                    triggers.forEach((trigger) => {
-                        const triggerIndex = stepOrder.indexOf(trigger.dataset.stepTrigger);
-                        trigger.classList.toggle('is-active', triggerIndex === currentIndex);
-                        trigger.classList.toggle('is-complete', triggerIndex < currentIndex);
-                    });
-
-                    lines.forEach((line, index) => {
-                        line.classList.toggle('is-complete', index < currentIndex);
-                    });
-
-                    if (workflowInput) {
-                        workflowInput.value = stepId;
-                    }
-
-                    if (stepId === 'step-4') {
-                        updateReview();
-                    }
-
-                    if (stepId === 'step-1') {
-                        setTimeout(initReadonlyMaps, 120);
-                    }
-
-                    return false;
-                };
-
-                document.querySelectorAll('[data-step-next]').forEach((button) => {
-                    button.addEventListener('click', function (event) {
-                        event.preventDefault();
-                        window.installationWorkflowSetStep(this.dataset.stepNext);
-                    });
+                document.querySelectorAll('#installationWorkflowForm input, #installationWorkflowForm select, #installationWorkflowForm textarea').forEach((field) => {
+                    field.addEventListener('input', updateReview);
+                    field.addEventListener('change', updateReview);
                 });
 
-                window.installationWorkflowSetStep(initialStep);
                 updateReview();
                 initReadonlyMaps();
             }
@@ -793,43 +586,3 @@
         })();
     </script>
 @endpush
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

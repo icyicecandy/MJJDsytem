@@ -54,6 +54,9 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'agreed_to_terms' => 'boolean',
+            'agreed_to_privacy' => 'boolean',
+            'consented_at' => 'datetime',
             'phone_verified_at' => 'datetime',
             'date_of_birth' => 'date',
             'email_notifications' => 'boolean',
@@ -178,5 +181,7 @@ class User extends Authenticatable
             ->where('chat_available', true);
     }
 }
+
+
 
 
