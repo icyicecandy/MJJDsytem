@@ -178,7 +178,7 @@
 
                 <div class="upload-field apply-upload-field">
                     <label for="id_image">Valid ID Image</label>
-                    <input id="id_image" type="file" name="id_image" accept=".jpg,.jpeg,.png">
+                    <input id="id_image" type="file" name="id_image" accept=".jpg,.jpeg,.png" required>
                     @error('id_image')<span class="error">{{ $message }}</span>@enderror
                 </div>
 
@@ -202,7 +202,7 @@
                     <div class="tracking-meta"><strong>Address</strong><span id="reviewAddress">-</span></div>
                     <div class="tracking-meta"><strong>Location Pin</strong><span id="reviewPin">Not set</span></div>
                     <div class="tracking-meta"><strong>Plan</strong><span id="reviewPlan">-</span></div>
-                    <div class="tracking-meta"><strong>ID Upload</strong><span id="reviewId">Optional</span></div>
+                    <div class="tracking-meta"><strong>ID Upload</strong><span id="reviewId">Required</span></div>
                 </div>
 
                 @include('partials.consent-agreement', [
@@ -299,7 +299,7 @@
             setText('reviewAddress', currentAddressParts().join(', ') || '-');
             setText('reviewPin', latInput && lngInput && latInput.value && lngInput.value ? `${latInput.value}, ${lngInput.value}` : 'Not set');
             setText('reviewPlan', checkedPlan ? checkedPlan.value.replace('_', ' ') : '-');
-            setText('reviewId', fileInput && fileInput.files.length ? fileInput.files[0].name : 'Optional');
+            setText('reviewId', fileInput && fileInput.files.length ? fileInput.files[0].name : 'Required');
             updateAddressSummary();
         }
 
@@ -682,6 +682,7 @@
         setStep(currentStep);
     })();
 </script>
+
 
 
 

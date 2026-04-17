@@ -22,6 +22,7 @@
             <table class="telecom-table admin-ticket-table">
                 <thead>
                     <tr>
+                        <th>Tracking Number</th>
                         <th>Customer</th>
                         <th>Subject</th>
                         <th>Status</th>
@@ -32,6 +33,7 @@
                 <tbody>
                     @forelse($tickets as $ticket)
                     <tr>
+                        <td><span class="record-strong">{{ $ticket->publicReference() }}</span></td>
                         <td><span class="record-strong">{{ $ticket->user->name }}</span></td>
                         <td><a href="{{ route('admin.tickets.show', $ticket) }}" class="record-strong">{{ $ticket->subject }}</a></td>
                         <td><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></td>
@@ -61,7 +63,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5"><div class="empty-state compact">No support tickets available.</div></td>
+                        <td colspan="6"><div class="empty-state compact">No support tickets available.</div></td>
                     </tr>
                     @endforelse
                 </tbody>

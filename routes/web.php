@@ -25,8 +25,6 @@ Route::get('/', function () {
     return view('public.home');
 });
 
-
-
 Route::get('/track-application', [PublicTrackingController::class, 'form'])
     ->name('track.form');
 
@@ -39,7 +37,6 @@ Route::get('/track-ticket', [PublicTrackingController::class, 'ticketForm'])
 Route::post('/track-ticket', [PublicTrackingController::class, 'ticketSearch'])
     ->name('track.ticket.search');
 
-
 /*
 |--------------------------------------------------------------------------
 | Breeze Default Dashboard
@@ -50,12 +47,11 @@ Route::get('/dashboard', function () {
     $user = auth()->user();
     $application = $user->application;
 
-    // after login redirect based on role and onboarding state
     if ($user->isCustomer()) {
-        // if no application yet send to apply page
         if (! $application) {
             return redirect()->route('customer.apply');
         }
+
         return redirect()->route('customer.dashboard');
     }
 
@@ -70,7 +66,6 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-
 /*
 |--------------------------------------------------------------------------
 | Profile Routes
@@ -78,7 +73,6 @@ Route::get('/dashboard', function () {
 */
 
 Route::middleware(['auth'])->group(function () {
-
     Route::get('/profile', [ProfileController::class, 'edit'])
         ->name('profile.edit');
 
@@ -97,7 +91,6 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
 
-
     Route::get('/notifications', [NotificationController::class, 'index'])
         ->name('notifications.index');
     Route::get('/notifications/feed', [NotificationController::class, 'feed'])
@@ -108,17 +101,14 @@ Route::middleware(['auth'])->group(function () {
         ->name('notifications.redirect');
 });
 
-
 /*
 |--------------------------------------------------------------------------
-| CUSTOMER ROUTES
+| Customer Routes
 |--------------------------------------------------------------------------
 */
 
 Route::middleware(['auth', 'role:customer'])->group(function () {
-
     Route::get('/customer/dashboard', function () {
-
         $user = auth()->user();
 
         $application = $user->application()
@@ -126,7 +116,6 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
             ->first();
 
         $totalApplications = $application ? 1 : 0;
-
         $latestApplication = $application;
 
         $tickets = $user->tickets()
@@ -148,24 +137,14 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
             ], true)
             : false;
 
-        // subscription info (guard in case table/migration removed)
-        if (\Illuminate\Support\Facades\Schema::hasTable('subscriptions')) {
-            $subscription = \App\Models\Subscription::where('user_id', $user->id)->first();
-        } else {
-            $subscription = null;
-        }
-
         return view('customer.dashboard', compact(
             'totalApplications',
             'latestApplication',
             'tickets',
             'openTickets',
-            'activeApplication',
-            'subscription'
+            'activeApplication'
         ));
-
     })->name('customer.dashboard');
-
 
     Route::get('/customer/apply', [CustomerApplicationController::class, 'create'])
         ->name('customer.apply');
@@ -195,17 +174,14 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
         ->name('customer.tickets.reply');
 });
 
-
 /*
 |--------------------------------------------------------------------------
-| ADMIN ROUTES
+| Admin Routes
 |--------------------------------------------------------------------------
 */
 
 Route::middleware(['auth', 'role:admin'])->group(function () {
-
     Route::get('/admin/dashboard', function () {
-
         $totalApplications = Application::count();
         $pendingApplications = Application::whereIn('status', ['submitted', 'under_review'])->count();
         $approvedApplications = Application::where('status', 'approved')->count();
@@ -213,28 +189,15 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
         $installedApplications = Application::where('status', 'installed')->count();
         $openTickets = Ticket::where('status', 'open')->count();
 
-        // subscription counts (migration may not have run yet)
-        if (\Illuminate\Support\Facades\Schema::hasTable('subscriptions')) {
-            $activeSubscriptions = \App\Models\Subscription::where('status','active')->count();
-            $expiredSubscriptions = \App\Models\Subscription::where('status','expired')->count();
-        } else {
-            $activeSubscriptions = 0;
-            $expiredSubscriptions = 0;
-        }
-
         return view('admin.dashboard', compact(
             'totalApplications',
             'pendingApplications',
             'approvedApplications',
             'scheduledInstallations',
             'installedApplications',
-            'openTickets',
-            'activeSubscriptions',
-            'expiredSubscriptions'
+            'openTickets'
         ));
-
     })->name('admin.dashboard');
-
 
     Route::get('/admin/applications', [AdminApplicationController::class, 'index'])
         ->name('admin.applications.index');
@@ -259,7 +222,6 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/admin/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])
         ->name('admin.tickets.reply');
 
-    // additional admin modules
     Route::get('/admin/installations', [\App\Http\Controllers\Admin\InstallationController::class, 'index'])
         ->name('admin.installations.index');
     Route::get('/admin/customers', [\App\Http\Controllers\Admin\CustomerController::class, 'index'])
@@ -268,37 +230,25 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
         ->name('admin.technicians.index');
     Route::get('/admin/technicians/{technician}', [TechnicianController::class, 'show'])
         ->name('admin.technicians.show');
-    Route::get('/admin/subscriptions', [\App\Http\Controllers\Admin\SubscriptionController::class, 'index'])
-        ->name('admin.subscriptions.index');
-    Route::get('/admin/reports', [\App\Http\Controllers\Admin\ReportController::class, 'index'])
-        ->name('admin.reports.index');
 });
-
 
 /*
 |--------------------------------------------------------------------------
-| TECHNICIAN ROUTES
+| Technician Routes
 |--------------------------------------------------------------------------
 */
 
 Route::middleware(['auth', 'role:technician'])->group(function () {
-
-   Route::get('/technician/dashboard', function () {
-
+    Route::get('/technician/dashboard', function () {
         $technicianId = auth()->id();
 
-    // Installations
         $totalInstallations = Installation::where('technician_id', $technicianId)->count();
-
         $pendingInstallations = Installation::where('technician_id', $technicianId)
             ->where('status', 'scheduled')
             ->count();
-
         $completedInstallations = Installation::where('technician_id', $technicianId)
             ->where('status', 'completed')
             ->count();
-
-    // Tickets
         $assignedTickets = Ticket::where('technician_id', $technicianId)
             ->where('status', 'open')
             ->count();
@@ -309,10 +259,7 @@ Route::middleware(['auth', 'role:technician'])->group(function () {
             'completedInstallations',
             'assignedTickets'
         ));
-
     })->name('technician.dashboard');
-
-
 
     Route::get('/technician/installations', [TechnicianDashboardController::class, 'installations'])
         ->name('technician.installations.index');
@@ -337,15 +284,6 @@ Route::middleware(['auth', 'role:technician'])->group(function () {
         ->name('technician.tickets.reply');
 });
 
-// future modules (placeholders)
-
-// subscriptions (customer + admin)
-Route::middleware(['auth', 'role:customer'])->group(function () {
-    Route::get('/customer/subscription', [\App\Http\Controllers\SubscriptionController::class, 'show'])
-        ->name('customer.subscription.show');
-});
-
-// ticket messaging and live chat
 Route::middleware(['auth'])->group(function () {
     Route::post('/tickets/{ticket}/message', [\App\Http\Controllers\TicketMessageController::class, 'store'])
         ->name('tickets.messages.store');
@@ -360,9 +298,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('chat.availability');
 });
 
-// admin and technician chat panel with conversation list
 Route::middleware(['auth', 'role:admin,technician'])->group(function () {
-    // reuse same controller methods
     Route::get('/{role}/chat', [\App\Http\Controllers\ChatController::class, 'index'])
         ->name('role.chat.index');
     Route::get('/{role}/chat/{user}', [\App\Http\Controllers\ChatController::class, 'conversation'])
@@ -377,17 +313,4 @@ Route::middleware(['auth', 'role:admin,technician'])->group(function () {
         ->name('role.chat.availability');
 });
 
-
 require __DIR__.'/auth.php';
-
-
-
-
-
-
-
-
-
-
-
-

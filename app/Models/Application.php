@@ -25,9 +25,19 @@ class Application extends Model
         'lng',
         'plan_code',
         'id_image_path',
+        'agreed_to_terms',
+        'agreed_to_privacy',
+        'consented_at',
+        'terms_version',
+        'privacy_version',
+        'rejection_reason',
+        'serviceability_status',
+        'slot_availability_status',
+        'assessment_notes',
+        'assessed_by',
+        'assessed_at',
         'status',
     ];
-
 
     protected function casts(): array
     {
@@ -35,8 +45,10 @@ class Application extends Model
             'agreed_to_terms' => 'boolean',
             'agreed_to_privacy' => 'boolean',
             'consented_at' => 'datetime',
+            'assessed_at' => 'datetime',
         ];
     }
+
     public function installation()
     {
         return $this->hasOne(Installation::class);
@@ -45,6 +57,11 @@ class Application extends Model
     public function user()
     {
         return $this->belongsTo(\App\Models\User::class);
+    }
+
+    public function assessor()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'assessed_by');
     }
 
     public function fullServiceAddress(): string
@@ -58,4 +75,3 @@ class Application extends Model
         ])->filter()->implode(', ');
     }
 }
-

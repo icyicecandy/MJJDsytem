@@ -23,9 +23,9 @@ class CustomerApplicationController extends Controller
         $user = Auth::user();
         $application = $user->application;
 
-        if ($application && $application->status !== 'rejected') {
+        if ($this->hasActiveApplication($application)) {
             return redirect()->route('customer.dashboard')
-                ->with('error', 'You already have an application (status: ' . $application->status . ').');
+                ->with('error', 'You already have an active application (status: ' . $application->status . ').');
         }
 
         $mapBounds = self::LUZON_BOUNDS;
@@ -39,7 +39,7 @@ class CustomerApplicationController extends Controller
         $user = Auth::user();
         $existing = $user->application;
 
-        if ($existing && $existing->status !== 'rejected') {
+        if ($this->hasActiveApplication($existing)) {
             return redirect()->route('customer.dashboard')
                 ->with('error', 'You already have an active application.');
         }
@@ -57,7 +57,7 @@ class CustomerApplicationController extends Controller
             'lat' => ['required', 'numeric'],
             'lng' => ['required', 'numeric'],
             'plan_code' => ['required', 'in:S2S_50,S2S_100'],
-            'id_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'id_image' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'agreed_to_terms' => ['accepted'],
             'agreed_to_privacy' => ['accepted'],
             'terms_version' => ['nullable', 'string', 'max:50'],
@@ -65,6 +65,7 @@ class CustomerApplicationController extends Controller
         ], [
             'agreed_to_terms.accepted' => config('legal.validation_message'),
             'agreed_to_privacy.accepted' => config('legal.validation_message'),
+            'id_image.required' => 'Please upload a valid ID image before submitting your application.',
         ]);
 
         if (! $this->addressSelectionIsValid($validated['region'], $validated['province'], $validated['municipality'], $validated['barangay'])) {
@@ -91,11 +92,7 @@ class CustomerApplicationController extends Controller
             $reference = "APP-{$year}-{$random}";
         }
 
-        $idPath = null;
-        if ($request->hasFile('id_image')) {
-            $idPath = $request->file('id_image')->store('applications/ids', 'public');
-        }
-
+        $idPath = $request->file('id_image')->store('applications/ids', 'public');
         $consentedAt = now();
 
         $payload = [
@@ -112,24 +109,27 @@ class CustomerApplicationController extends Controller
             'lat' => $lat,
             'lng' => $lng,
             'plan_code' => $validated['plan_code'],
+            'id_image_path' => $idPath,
             'agreed_to_terms' => true,
             'agreed_to_privacy' => true,
             'consented_at' => $consentedAt,
             'terms_version' => $validated['terms_version'] ?? config('legal.terms_version'),
             'privacy_version' => $validated['privacy_version'] ?? config('legal.privacy_version'),
             'status' => 'submitted',
+            'rejection_reason' => null,
+            'serviceability_status' => null,
+            'slot_availability_status' => null,
+            'assessment_notes' => null,
+            'assessed_by' => null,
+            'assessed_at' => null,
         ];
 
         if ($existing && $existing->status === 'rejected') {
-            $existing->update($payload + [
-                'id_image_path' => $idPath ?? $existing->id_image_path,
-            ]);
-
+            $existing->update($payload);
             $application = $existing;
         } else {
             $application = Application::create($payload + [
                 'user_id' => Auth::id(),
-                'id_image_path' => $idPath,
             ]);
         }
 
@@ -158,6 +158,11 @@ class CustomerApplicationController extends Controller
         $application = Auth::user()->application;
 
         return view('customer.application', compact('application'));
+    }
+
+    private function hasActiveApplication(?Application $application): bool
+    {
+        return $application !== null && $application->status !== 'rejected';
     }
 
     private function coordinatesAreWithinLuzon(float $lat, float $lng): bool

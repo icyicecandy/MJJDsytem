@@ -2,30 +2,38 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
-use App\Models\Technician;
+use Illuminate\Support\Facades\Hash;
 
 class TechnicianSeeder extends Seeder
 {
     public function run(): void
     {
-        Technician::insert([
+        $technicians = [
             [
                 'name' => 'Juan Dela Cruz',
                 'email' => 'juan.tech@mjjdtelecom.com',
-                'mobile_number' => '09171234567',
-                'is_active' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'phone' => '09171234567',
             ],
             [
                 'name' => 'Maria Santos',
                 'email' => 'maria.tech@mjjdtelecom.com',
-                'mobile_number' => '09179876543',
-                'is_active' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'phone' => '09179876543',
             ],
-        ]);
+        ];
+
+        foreach ($technicians as $technician) {
+            User::updateOrCreate(
+                ['email' => $technician['email']],
+                [
+                    'name' => $technician['name'],
+                    'phone' => $technician['phone'],
+                    'password' => Hash::make('password'),
+                    'role' => 'technician',
+                    'email_verified_at' => now(),
+                ]
+            );
+        }
     }
 }

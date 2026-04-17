@@ -129,8 +129,8 @@
                         <a href="{{ url('/#support') }}">Support</a>
                     </nav>
                     <div class="guest-actions">
-                        <a href="{{ route('login') }}" class="btn secondary">Log in</a>
-                        <a href="{{ route('register') }}" class="btn">Register</a>
+                        <a href="{{ route('login') }}" class="btn secondary" data-open-login-modal>Log in</a>
+                        <a href="{{ route('register') }}" class="btn" data-open-register-modal>Register</a>
                     </div>
                 </div>
             @endauth
@@ -177,13 +177,134 @@
         </div>
     </main>
 
+    @guest
+        @include('partials.login-modal')
+        @include('partials.register-modal')
+    @endguest
+
     @unless (trim($__env->yieldContent('hide_global_footer')) === '1')
         <footer class="footer">
             <p>&copy; {{ date('Y') }} MJJD Telecom. All rights reserved.</p>
         </footer>
     @endunless
+    @guest
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const body = document.body;
+                const loginModal = document.getElementById('loginModal');
+                const registerModal = document.getElementById('registerModal');
+                const modals = {
+                    login: loginModal,
+                    register: registerModal
+                };
+
+                if (!loginModal || !registerModal) return;
+
+                const openRegisterFromErrors = {{ ((bool) (old('first_name') || old('last_name') || old('role') === 'customer' || $errors->has('first_name') || $errors->has('last_name') || $errors->has('password_confirmation'))) ? 'true' : 'false' }};
+                const openLoginFromErrors = {{ ((! (bool) (old('first_name') || old('last_name') || old('role') === 'customer' || $errors->has('first_name') || $errors->has('last_name') || $errors->has('password_confirmation'))) && ($errors->has('email') || $errors->has('password'))) ? 'true' : 'false' }};
+
+                const syncBodyState = function () {
+                    const hasOpenModal = Object.values(modals).some(function (modal) {
+                        return modal && modal.classList.contains('is-open');
+                    });
+
+                    body.classList.toggle('login-modal-open', hasOpenModal);
+                };
+
+                const closeModal = function (name) {
+                    const modal = modals[name];
+                    if (!modal) return;
+
+                    modal.classList.remove('is-open');
+                    modal.setAttribute('aria-hidden', 'true');
+                    syncBodyState();
+                };
+
+                const closeAllModals = function () {
+                    Object.keys(modals).forEach(closeModal);
+                };
+
+                const openModal = function (name) {
+                    const modal = modals[name];
+                    if (!modal) return;
+
+                    Object.keys(modals).forEach(function (key) {
+                        if (key !== name) {
+                            closeModal(key);
+                        }
+                    });
+
+                    modal.classList.add('is-open');
+                    modal.setAttribute('aria-hidden', 'false');
+                    syncBodyState();
+
+                    const firstInput = modal.querySelector('input:not([type="hidden"])');
+                    if (firstInput) {
+                        window.setTimeout(function () { firstInput.focus(); }, 30);
+                    }
+                };
+
+                Array.from(document.querySelectorAll('[data-open-login-modal]')).forEach(function (trigger) {
+                    trigger.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        openModal('login');
+                    });
+                });
+
+                Array.from(document.querySelectorAll('[data-open-register-modal]')).forEach(function (trigger) {
+                    trigger.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        openModal('register');
+                    });
+                });
+
+                Array.from(loginModal.querySelectorAll('[data-close-login-modal]')).forEach(function (trigger) {
+                    trigger.addEventListener('click', function () {
+                        closeModal('login');
+                    });
+                });
+
+                Array.from(registerModal.querySelectorAll('[data-close-register-modal]')).forEach(function (trigger) {
+                    trigger.addEventListener('click', function () {
+                        closeModal('register');
+                    });
+                });
+
+                Array.from(document.querySelectorAll('[data-switch-modal]')).forEach(function (trigger) {
+                    trigger.addEventListener('click', function (event) {
+                        const target = trigger.getAttribute('data-switch-modal');
+                        if (!target || !modals[target]) return;
+
+                        event.preventDefault();
+                        openModal(target);
+                    });
+                });
+
+                document.addEventListener('keydown', function (event) {
+                    if (event.key === 'Escape') {
+                        closeAllModals();
+                    }
+                });
+
+                window.addEventListener('pagehide', function () {
+                    body.classList.remove('login-modal-open');
+                });
+
+                if (openRegisterFromErrors) {
+                    openModal('register');
+                } else if (openLoginFromErrors) {
+                    openModal('login');
+                }
+            });
+        </script>
+    @endguest
 
     @stack('scripts')
     @yield('scripts')
 </body>
 </html>
+
+
+
+
+

@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\Installation;
 use App\Models\User;
 use App\Support\AppNotificationSender;
+use App\Support\CustomerEmailSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -28,7 +29,7 @@ class AdminApplicationController extends Controller
 
     public function show(Application $application)
     {
-        $application->load('installation');
+        $application->load(['installation', 'assessor']);
         $technicians = User::where('role', 'technician')->orderBy('name')->get();
 
         return view('admin.applications.show', compact('application', 'technicians'));
@@ -36,26 +37,63 @@ class AdminApplicationController extends Controller
 
     public function updateStatus(Request $request, Application $application)
     {
+        $previousStatus = $application->status;
+
         $validated = $request->validate([
             'status' => ['required', 'in:submitted,under_review,approved,rejected'],
         ]);
 
         $updateData = ['status' => $validated['status']];
 
-        if (Schema::hasColumn('applications', 'rejection_reason')) {
-            if ($validated['status'] === 'rejected') {
-                $request->validate([
-                    'rejection_reason' => ['required', 'string'],
-                ]);
-                $updateData['rejection_reason'] = $request->input('rejection_reason');
-            }
+        if ($this->supportsAssessmentFields()) {
+            $assessment = $request->validate([
+                'serviceability_status' => ['required', 'in:pending,serviceable,not_serviceable'],
+                'slot_availability_status' => ['required', 'in:pending,available,full,not_applicable'],
+                'assessment_notes' => ['nullable', 'string'],
+                'rejection_reason' => ['nullable', 'string'],
+            ]);
 
             if ($validated['status'] === 'approved') {
-                $updateData['rejection_reason'] = null;
+                if ($assessment['serviceability_status'] !== 'serviceable') {
+                    return back()
+                        ->withErrors(['serviceability_status' => 'Only serviceable applications can be approved.'])
+                        ->withInput();
+                }
+
+                if ($assessment['slot_availability_status'] !== 'available') {
+                    return back()
+                        ->withErrors(['slot_availability_status' => 'Only applications with available slots can be approved.'])
+                        ->withInput();
+                }
             }
+
+            if ($validated['status'] === 'rejected' && blank($assessment['rejection_reason'] ?? null)) {
+                return back()
+                    ->withErrors(['rejection_reason' => 'Please record the rejection reason before rejecting the application.'])
+                    ->withInput();
+            }
+
+            $updateData = array_merge($updateData, [
+                'serviceability_status' => $assessment['serviceability_status'],
+                'slot_availability_status' => $assessment['slot_availability_status'],
+                'assessment_notes' => $assessment['assessment_notes'] ?? null,
+                'assessed_by' => auth()->id(),
+                'assessed_at' => now(),
+                'rejection_reason' => $validated['status'] === 'rejected'
+                    ? ($assessment['rejection_reason'] ?? null)
+                    : null,
+            ]);
+        } elseif ($validated['status'] === 'rejected' && Schema::hasColumn('applications', 'rejection_reason')) {
+            $request->validate([
+                'rejection_reason' => ['required', 'string'],
+            ]);
+            $updateData['rejection_reason'] = $request->input('rejection_reason');
+        } elseif ($validated['status'] === 'approved' && Schema::hasColumn('applications', 'rejection_reason')) {
+            $updateData['rejection_reason'] = null;
         }
 
         $application->update($updateData);
+        $application->refresh();
 
         if ($application->user) {
             $statusLabel = ucfirst(str_replace('_', ' ', $validated['status']));
@@ -77,6 +115,14 @@ class AdminApplicationController extends Controller
             );
         }
 
+        if ($validated['status'] === 'approved' && $previousStatus !== 'approved') {
+            CustomerEmailSender::sendApplicationApproved($application);
+        }
+
+        if ($validated['status'] === 'rejected' && $previousStatus !== 'rejected') {
+            CustomerEmailSender::sendApplicationRejected($application);
+        }
+
         return redirect()
             ->route('admin.applications.show', $application)
             ->with('success', 'Application status updated.');
@@ -90,9 +136,17 @@ class AdminApplicationController extends Controller
             'installation_time' => ['nullable'],
         ]);
 
-        if ($application->status === 'installed') {
+        if (! in_array($application->status, ['approved', 'scheduled'], true)) {
             return back()->withErrors([
-                'schedule' => 'Installation already completed. Cannot reschedule.',
+                'schedule' => 'Applications must be approved before they can be scheduled.',
+            ]);
+        }
+
+        if (in_array($application->status, ['rejected', 'installed'], true)) {
+            return back()->withErrors([
+                'schedule' => $application->status === 'rejected'
+                    ? 'Rejected applications cannot be scheduled.'
+                    : 'Installation already completed. Cannot reschedule.',
             ]);
         }
 
@@ -120,11 +174,9 @@ class AdminApplicationController extends Controller
             ]
         );
 
-        if (! in_array($application->status, ['rejected', 'installed'], true)) {
-            $application->update([
-                'status' => 'scheduled',
-            ]);
-        }
+        $application->update([
+            'status' => 'scheduled',
+        ]);
 
         AppNotificationSender::send(
             $technician,
@@ -149,5 +201,14 @@ class AdminApplicationController extends Controller
         }
 
         return back()->with('success', 'Installation scheduled successfully.');
+    }
+
+    private function supportsAssessmentFields(): bool
+    {
+        return Schema::hasColumn('applications', 'serviceability_status')
+            && Schema::hasColumn('applications', 'slot_availability_status')
+            && Schema::hasColumn('applications', 'assessment_notes')
+            && Schema::hasColumn('applications', 'assessed_by')
+            && Schema::hasColumn('applications', 'assessed_at');
     }
 }

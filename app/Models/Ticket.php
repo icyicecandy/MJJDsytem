@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 
@@ -16,30 +17,49 @@ class Ticket extends Model
     protected $fillable = [
         'user_id',
         'technician_id',
+        'tracking_number',
         'subject',
         'description',
         'status',
     ];
 
-    /**
-     * The customer who created the ticket
-     */
+    protected static function booted(): void
+    {
+        static::created(function (Ticket $ticket): void {
+            if ($ticket->tracking_number) {
+                return;
+            }
+
+            $ticket->forceFill([
+                'tracking_number' => self::generateTrackingNumber($ticket->id, $ticket->created_at),
+            ])->saveQuietly();
+        });
+    }
+
+    public static function generateTrackingNumber(int $ticketId, CarbonInterface|string|null $createdAt = null): string
+    {
+        $timestamp = $createdAt instanceof CarbonInterface
+            ? $createdAt
+            : ($createdAt ? now()->parse($createdAt) : now());
+
+        return sprintf('TKT-%s-%04d', $timestamp->format('Y'), $ticketId);
+    }
+
+    public function publicReference(): string
+    {
+        return $this->tracking_number ?: self::generateTrackingNumber($this->id, $this->created_at);
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * The assigned technician
-     */
     public function technician()
     {
         return $this->belongsTo(User::class, 'technician_id');
     }
 
-    /**
-     * Messages posted in the ticket conversation
-     */
     public function messages()
     {
         return $this->hasMany(TicketMessage::class);

@@ -1,10 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Ticket #' . $ticket->id)
+@section('title', $ticket->publicReference())
 
 @section('content')
 <div class="card">
     <h1>{{ $ticket->subject }}</h1>
+    <p><strong>Tracking Number:</strong> {{ $ticket->publicReference() }}</p>
     <p><strong>Status:</strong> <span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></p>
     <p><strong>Assigned Staff:</strong> {{ optional($ticket->technician)->name ?? 'Waiting for Assignment' }}</p>
     <p><strong>Created:</strong> {{ $ticket->created_at->format('M d, Y') }}</p>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Support\AppNotificationSender;
+use App\Support\CustomerEmailSender;
 use Illuminate\Http\Request;
 
 class AdminTicketController extends Controller
@@ -47,7 +48,7 @@ class AdminTicketController extends Controller
                 'Ticket "' . $ticket->subject . '" was assigned to you.',
                 route('technician.tickets.show', $ticket),
                 'ticket_assigned',
-                ['ticket_id' => $ticket->id],
+                ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference()],
                 auth()->id()
             );
         }
@@ -59,9 +60,11 @@ class AdminTicketController extends Controller
                 'Your ticket "' . $ticket->subject . '" is now ' . ucfirst(str_replace('_', ' ', $ticket->status)) . '.',
                 route('customer.tickets.show', $ticket),
                 'ticket_status',
-                ['ticket_id' => $ticket->id, 'status' => $ticket->status],
+                ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
                 auth()->id()
             );
+
+            CustomerEmailSender::sendTicketStatusUpdated($ticket);
         }
 
         return redirect()

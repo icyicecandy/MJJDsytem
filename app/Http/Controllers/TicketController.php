@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Support\AppNotificationSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -40,13 +41,16 @@ class TicketController extends Controller
             Auth::user()->name . ' opened ticket "' . $ticket->subject . '".',
             route('admin.tickets.show', $ticket),
             'ticket_submitted',
-            ['ticket_id' => $ticket->id],
+            [
+                'ticket_id' => $ticket->id,
+                'tracking_number' => $ticket->publicReference(),
+            ],
             Auth::id()
         );
 
         return redirect()
             ->route('customer.tickets.index')
-            ->with('success', 'Support ticket submitted successfully. It is now in the support queue.');
+            ->with('success', 'Support ticket submitted successfully. Your tracking number is ' . $ticket->publicReference() . '.');
     }
 
     public function show(Ticket $ticket)
@@ -77,4 +81,3 @@ class TicketController extends Controller
         return back();
     }
 }
-

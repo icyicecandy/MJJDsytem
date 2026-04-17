@@ -34,11 +34,11 @@
             <div class="panel-body">
                 @if(($tickets ?? collect())->count())
                     <table class="telecom-table">
-                        <thead><tr><th>ID</th><th>Subject</th><th>Status</th><th>Action</th></tr></thead>
+                        <thead><tr><th>Tracking Number</th><th>Subject</th><th>Status</th><th>Action</th></tr></thead>
                         <tbody>
                             @foreach($tickets as $ticket)
                                 <tr>
-                                    <td><span class="record-strong">#{{ $ticket->id }}</span></td>
+                                    <td><span class="record-strong">{{ $ticket->publicReference() }}</span></td>
                                     <td>{{ $ticket->subject }}</td>
                                     <td><span class="badge {{ $ticket->status }}">{{ ucfirst(str_replace('_', ' ', $ticket->status)) }}</span></td>
                                     <td><a href="{{ route('technician.tickets.show', $ticket) }}" class="btn secondary">View</a></td>
@@ -88,4 +88,5 @@
     </div>
 </div>
 @endsection
+
 

@@ -6,13 +6,18 @@
     @php
         $installation = $application->installation;
         $proofPhotos = $installation ? collect($installation->proofPhotos())->filter() : collect();
+        $serviceabilityStatus = old('serviceability_status', $application->serviceability_status ?? 'pending');
+        $slotAvailabilityStatus = old('slot_availability_status', $application->slot_availability_status ?? 'pending');
+        $assessmentNotes = old('assessment_notes', $application->assessment_notes ?? '');
+        $rejectionReason = old('rejection_reason', $application->rejection_reason ?? '');
+        $canSchedule = in_array($application->status, ['approved', 'scheduled'], true);
     @endphp
     <div class="page-cluster admin-application-open-page">
         <section class="card section-title-card admin-application-open-hero">
             <div>
                 <span class="application-status-kicker">Application Review</span>
                 <h1>Application Details</h1>
-                <p>Review customer information, service location, status, technician scheduling, and completion records for reference {{ $application->reference_no }}.</p>
+                <p>Review customer information, service location, manual assessment, technician scheduling, and completion records for reference {{ $application->reference_no }}.</p>
             </div>
             <div class="admin-application-open-hero-meta">
                 <span class="badge {{ $application->status }}">{{ ucfirst(str_replace('_',' ', $application->status)) }}</span>
@@ -68,23 +73,70 @@
             <section class="card admin-application-panel">
                 <div class="admin-application-panel-head">
                     <div>
-                        <h3>Application Status</h3>
-                        <p>Update the application state based on the current review outcome.</p>
+                        <h3>Manual Assessment & Decision</h3>
+                        <p>Record serviceability, slot availability, and the final review outcome before scheduling.</p>
                     </div>
                 </div>
 
                 <div class="admin-status-summary">
                     <span class="badge {{ $application->status }}">{{ ucfirst(str_replace('_',' ', $application->status)) }}</span>
-                    <p>Choose the next status that best matches the application review result.</p>
+                    <p>Manual assessment must be recorded before the application is approved or rejected.</p>
                 </div>
 
-                <form method="POST" action="{{ route('admin.applications.status', $application) }}" class="admin-status-action-grid">
+                @if ($application->assessed_at)
+                    <div class="tracking-grid admin-application-detail-grid">
+                        <div class="tracking-meta"><strong>Serviceability</strong>{{ ucfirst(str_replace('_', ' ', $application->serviceability_status ?? 'pending')) }}</div>
+                        <div class="tracking-meta"><strong>Slot Availability</strong>{{ ucfirst(str_replace('_', ' ', $application->slot_availability_status ?? 'pending')) }}</div>
+                        <div class="tracking-meta"><strong>Assessed At</strong>{{ $application->assessed_at?->format('F d, Y h:i A') ?? '-' }}</div>
+                        <div class="tracking-meta"><strong>Assessed By</strong>{{ $application->assessor?->name ?? 'Not recorded' }}</div>
+                        <div class="tracking-meta full"><strong>Assessment Notes</strong>{{ $application->assessment_notes ?: 'No notes recorded.' }}</div>
+                    </div>
+                @endif
+
+                <form method="POST" action="{{ route('admin.applications.status', $application) }}" class="admin-schedule-form">
                     @csrf
                     @method('PATCH')
 
-                    <button name="status" value="approved" class="btn success">Approve</button>
-                    <button name="status" value="under_review" class="btn accent">Under Review</button>
-                    <button name="status" value="rejected" class="btn danger">Reject</button>
+                    <div class="admin-schedule-grid">
+                        <div class="admin-form-field">
+                            <label for="serviceability_status">Serviceability</label>
+                            <select id="serviceability_status" name="serviceability_status" required>
+                                <option value="pending" @selected($serviceabilityStatus === 'pending')>Pending Assessment</option>
+                                <option value="serviceable" @selected($serviceabilityStatus === 'serviceable')>Serviceable</option>
+                                <option value="not_serviceable" @selected($serviceabilityStatus === 'not_serviceable')>Not Serviceable</option>
+                            </select>
+                            @error('serviceability_status')<span class="error">{{ $message }}</span>@enderror
+                        </div>
+
+                        <div class="admin-form-field">
+                            <label for="slot_availability_status">Slot Availability</label>
+                            <select id="slot_availability_status" name="slot_availability_status" required>
+                                <option value="pending" @selected($slotAvailabilityStatus === 'pending')>Pending Check</option>
+                                <option value="available" @selected($slotAvailabilityStatus === 'available')>Available</option>
+                                <option value="full" @selected($slotAvailabilityStatus === 'full')>Full</option>
+                                <option value="not_applicable" @selected($slotAvailabilityStatus === 'not_applicable')>Not Applicable</option>
+                            </select>
+                            @error('slot_availability_status')<span class="error">{{ $message }}</span>@enderror
+                        </div>
+
+                        <div class="admin-form-field full">
+                            <label for="assessment_notes">Assessment Notes</label>
+                            <textarea id="assessment_notes" name="assessment_notes" rows="4" placeholder="Document serviceability checks, site constraints, or slot observations.">{{ $assessmentNotes }}</textarea>
+                            @error('assessment_notes')<span class="error">{{ $message }}</span>@enderror
+                        </div>
+
+                        <div class="admin-form-field full">
+                            <label for="rejection_reason">Rejection Reason</label>
+                            <textarea id="rejection_reason" name="rejection_reason" rows="3" placeholder="Required when rejecting an application.">{{ $rejectionReason }}</textarea>
+                            @error('rejection_reason')<span class="error">{{ $message }}</span>@enderror
+                        </div>
+                    </div>
+
+                    <div class="admin-status-action-grid">
+                        <button name="status" value="approved" class="btn success">Approve</button>
+                        <button name="status" value="under_review" class="btn accent">Save as Under Review</button>
+                        <button name="status" value="rejected" class="btn danger">Reject</button>
+                    </div>
                 </form>
             </section>
 
@@ -100,13 +152,17 @@
                     <div class="alert alert-success">{{ session('success') }}</div>
                 @endif
 
+                @if (! $canSchedule)
+                    <div class="empty-state compact">This application must be approved before technician scheduling becomes available.</div>
+                @endif
+
                 <form method="POST" action="{{ route('admin.applications.schedule', $application) }}" class="admin-schedule-form">
                     @csrf
 
                     <div class="admin-schedule-grid">
                         <div class="admin-form-field">
                             <label>Technician</label>
-                            <select name="technician_id" required>
+                            <select name="technician_id" required @disabled(! $canSchedule)>
                                 <option value="">Select Technician</option>
                                 @foreach($technicians as $techUser)
                                     <option value="{{ $techUser->id }}" @if(optional($installation)->technician_id === $techUser->id) selected @endif>
@@ -119,17 +175,17 @@
 
                         <div class="admin-form-field">
                             <label>Installation Date</label>
-                            <input type="date" name="installation_date" value="{{ optional($installation)->installation_date }}" required>
+                            <input type="date" name="installation_date" value="{{ optional($installation)->installation_date }}" required @disabled(! $canSchedule)>
                         </div>
 
                         <div class="admin-form-field">
                             <label>Installation Time</label>
-                            <input type="time" name="installation_time" value="{{ optional($installation)->installation_time }}">
+                            <input type="time" name="installation_time" value="{{ optional($installation)->installation_time }}" @disabled(! $canSchedule)>
                         </div>
                     </div>
 
                     <div class="admin-schedule-footer">
-                        <button class="btn">Save Schedule</button>
+                        <button class="btn" @disabled(! $canSchedule)>Save Schedule</button>
                     </div>
                 </form>
             </section>
@@ -246,12 +302,4 @@
         });
     </script>
 @endpush
-
-
-
-
-
-
-
-
 

@@ -3,11 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Installation;
-use App\Models\Subscription;
-use App\Models\User;
 use App\Support\AppNotificationSender;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 
 class TechnicianDashboardController extends Controller
 {
@@ -118,16 +115,6 @@ class TechnicianDashboardController extends Controller
                 'status' => 'installed',
             ]);
 
-            if (Schema::hasTable('subscriptions') && $installation->application->user_id) {
-                Subscription::updateOrCreate(
-                    ['user_id' => $installation->application->user_id],
-                    [
-                        'activated_at' => $validated['activation_date'],
-                        'status' => strtolower($validated['activation_status']) === 'activated' ? 'active' : 'pending',
-                    ]
-                );
-            }
-
             if ($installation->application->user) {
                 AppNotificationSender::send(
                     $installation->application->user,
@@ -154,4 +141,3 @@ class TechnicianDashboardController extends Controller
         return back()->with('success', 'Installation marked as completed with full field activation details.');
     }
 }
-

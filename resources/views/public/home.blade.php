@@ -730,6 +730,146 @@
             grid-template-columns: 1fr;
         }
     }
+    @media (max-width: 640px) {
+        .public-home {
+            gap: 1.5rem;
+            padding: 0 0 2.25rem;
+        }
+        .public-shell,
+        .public-steps-strip {
+            width: 100%;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        .public-hero {
+            min-height: auto;
+            padding: 1.1rem 1rem 4rem;
+            border-radius: 18px;
+        }
+        .public-kicker {
+            font-size: 0.68rem;
+            letter-spacing: 0.08em;
+            padding: 0.42rem 0.72rem;
+        }
+        .public-hero h1 {
+            font-size: clamp(1.9rem, 10vw, 2.6rem);
+            line-height: 1;
+        }
+        .public-hero p {
+            font-size: 0.92rem;
+            line-height: 1.55;
+        }
+        .public-hero-actions {
+            gap: 0.6rem;
+        }
+        .public-hero-actions .btn {
+            width: 100%;
+            justify-content: center;
+            min-height: 3rem;
+        }
+        .public-hero-dots {
+            left: 1rem;
+            bottom: 0.9rem;
+        }
+        .public-home-heading {
+            gap: 0.6rem;
+        }
+        .public-home-heading h2,
+        .public-contact-intro h2 {
+            font-size: clamp(1.55rem, 8vw, 2.1rem);
+            line-height: 1.08;
+        }
+        .public-home-heading p,
+        .public-contact-intro p {
+            font-size: 0.92rem;
+            line-height: 1.6;
+        }
+        .public-plans,
+        .public-steps-strip,
+        .public-faq-layout {
+            padding: 1.35rem 1rem;
+            border-radius: 20px;
+        }
+        .public-plan-grid,
+        .public-contact-grid,
+        .public-steps-grid {
+            grid-template-columns: 1fr;
+            gap: 0.9rem;
+        }
+        .public-plan-card,
+        .public-step-card,
+        .public-contact-item {
+            padding: 1rem;
+            border-radius: 18px;
+        }
+        .public-plan-card.featured {
+            transform: none;
+        }
+        .public-plan-speed,
+        .public-plan-price {
+            font-size: clamp(1.8rem, 9vw, 2.4rem);
+        }
+        .public-step-card h3,
+        .public-contact-item strong {
+            font-size: 0.98rem;
+        }
+        .public-step-card p,
+        .public-contact-item span,
+        .public-step-note,
+        .public-faq-answer p {
+            font-size: 0.9rem;
+            line-height: 1.55;
+        }
+        .public-faq-item summary {
+            padding: 0.85rem 0.15rem;
+            font-size: 0.92rem;
+        }
+        .public-contact-icon {
+            width: 44px;
+            height: 44px;
+            flex-basis: 44px;
+        }
+        .public-footer {
+            margin-top: 1rem;
+            padding-top: 1.2rem;
+            gap: 0.8rem;
+            align-items: flex-start;
+        }
+        .public-footer-links {
+            width: 100%;
+            gap: 0.75rem 1rem;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 420px) {
+        .public-shell,
+        .public-steps-strip {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+        .public-hero {
+            padding: 1rem 0.88rem 3.8rem;
+        }
+        .public-plans,
+        .public-steps-strip,
+        .public-faq-layout {
+            padding: 1.15rem 0.85rem;
+        }
+        .public-plan-card,
+        .public-step-card,
+        .public-contact-item {
+            padding: 0.9rem;
+        }
+        .public-plan-top {
+            gap: 0.7rem;
+        }
+        .public-plan-badge {
+            font-size: 0.72rem;
+            padding: 0.35rem 0.6rem;
+        }
+    }
 </style>
 @endpush
 
@@ -940,7 +1080,7 @@
         <div class="public-footer-links">
             <a href="{{ route('track.form') }}">Application Tracking</a>
             <a href="{{ route('track.ticket.form') }}">Ticket Tracking</a>
-            <a href="{{ route('login') }}">Support</a>
+            <a href="{{ route('login') }}" data-open-login-modal>Support</a>
         </div>
     </section>
 </div>
@@ -1066,6 +1206,8 @@
     });
 </script>
 @endpush
+
+
 
 
 

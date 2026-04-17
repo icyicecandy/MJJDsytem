@@ -52,11 +52,11 @@
         <article class="metric-card">
             <div class="metric-head">
                 <div>
-                    <div class="metric-label">Active Subscriptions</div>
-                    <div class="metric-value">{{ $activeSubscriptions ?? 0 }}</div>
-                    <div class="metric-meta">Customers currently in service</div>
+                    <div class="metric-label">Installed Applications</div>
+                    <div class="metric-value">{{ $installedApplications }}</div>
+                    <div class="metric-meta">Completed service activations</div>
                 </div>
-                <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg></div>
+                <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 3 7v6c0 5 3.8 8.7 9 9 5.2-.3 9-4 9-9V7l-9-5Z"></path><path d="m9 12 2 2 4-4"></path></svg></div>
             </div>
         </article>
         <article class="metric-card">
@@ -124,7 +124,3 @@
     </div>
 </div>
 @endsection
-
-
-
-

@@ -37,11 +37,11 @@
         <article class="metric-card">
             <div class="metric-head">
                 <div>
-                    <div class="metric-label">Subscription Status</div>
-                    <div class="metric-value">{{ $subscription ? ucfirst($subscription->status ?? 'none') : 'None' }}</div>
-                    <div class="metric-meta">@if($subscription && $subscription->expires_at) {{ now()->diffInDays($subscription->expires_at, false) }} days remaining @else No active service term @endif</div>
+                    <div class="metric-label">Live Application</div>
+                    <div class="metric-value">{{ $activeApplication ? 'Active' : 'None' }}</div>
+                    <div class="metric-meta">{{ $activeApplication ? 'You currently have one service request in progress.' : 'You can submit a new request when no active application is open.' }}</div>
                 </div>
-                <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg></div>
+                <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 3 7v6c0 5 3.8 8.7 9 9 5.2-.3 9-4 9-9V7l-9-5Z"></path><path d="m9 12 2 2 4-4"></path></svg></div>
             </div>
         </article>
         <article class="metric-card">
@@ -71,12 +71,12 @@
                 @if($tickets->count())
                     <table class="telecom-table">
                         <thead>
-                            <tr><th>ID</th><th>Subject</th><th>Status</th><th>Action</th></tr>
+                            <tr><th>Tracking Number</th><th>Subject</th><th>Status</th><th>Action</th></tr>
                         </thead>
                         <tbody>
                             @foreach($tickets as $ticket)
                                 <tr>
-                                    <td><span class="record-strong">#{{ $ticket->id }}</span></td>
+                                    <td><span class="record-strong">{{ $ticket->publicReference() }}</span></td>
                                     <td>{{ $ticket->subject }}</td>
                                     <td><span class="badge {{ $ticket->status }}">{{ ucfirst(str_replace('_', ' ', $ticket->status)) }}</span></td>
                                     <td><a href="{{ route('customer.tickets.show', $ticket) }}" class="btn secondary">View</a></td>
@@ -103,8 +103,8 @@
             <div class="panel-body">
                 <div class="quick-link-grid">
                     <a href="{{ route('customer.apply') }}" class="quick-link"><strong>Apply for Service</strong><span>Submit a new request if your previous application was rejected.</span></a>
-                    <a href="{{ route('customer.subscription.show') }}" class="quick-link"><strong>Subscription</strong><span>Review your active service term and expiry date.</span></a>
                     <a href="{{ route('customer.tickets.index') }}" class="quick-link"><strong>Tickets</strong><span>Open a support conversation and view updates.</span></a>
+                    <a href="{{ route('chat.index') }}" class="quick-link"><strong>Live Chat</strong><span>Connect with support staff or the AI assistant when staff are unavailable.</span></a>
                 </div>
             </div>
         </div>
@@ -116,7 +116,7 @@
                 <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h18v18H3z"></path><path d="M7 15l3-3 2 2 5-5"></path></svg></span>
                 <div>
                     <div class="panel-title">Application Timeline</div>
-                    <div class="panel-subtitle">Visual placeholder for lifecycle progress from submission to installation</div>
+                    <div class="panel-subtitle">Lifecycle progress from submission to installation.</div>
                 </div>
             </div>
         </div>

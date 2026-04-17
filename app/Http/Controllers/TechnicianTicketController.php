@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Support\AppNotificationSender;
+use App\Support\CustomerEmailSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -27,6 +29,7 @@ class TechnicianTicketController extends Controller
         $ticket->update([
             'status' => Ticket::STATUS_RESOLVED,
         ]);
+        $ticket->refresh();
 
         if ($ticket->user) {
             AppNotificationSender::send(
@@ -35,9 +38,11 @@ class TechnicianTicketController extends Controller
                 'Your ticket "' . $ticket->subject . '" has been marked as resolved.',
                 route('customer.tickets.show', $ticket),
                 'ticket_resolved',
-                ['ticket_id' => $ticket->id, 'status' => $ticket->status],
+                ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
                 Auth::id()
             );
+
+            CustomerEmailSender::sendTicketStatusUpdated($ticket);
         }
 
         AppNotificationSender::sendToRole(
@@ -46,7 +51,7 @@ class TechnicianTicketController extends Controller
             Auth::user()->name . ' resolved ticket "' . $ticket->subject . '".',
             route('admin.tickets.show', $ticket),
             'ticket_resolved_admin',
-            ['ticket_id' => $ticket->id, 'status' => $ticket->status],
+            ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
             Auth::id()
         );
 
@@ -83,4 +88,3 @@ class TechnicianTicketController extends Controller
         return back();
     }
 }
-

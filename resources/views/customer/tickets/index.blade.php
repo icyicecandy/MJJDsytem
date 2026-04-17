@@ -27,18 +27,19 @@
         <div class="table-wrap">
             <table class="telecom-table">
                 <thead>
-                    <tr><th>Subject</th><th>Status</th><th>Assigned Staff</th><th>Created</th></tr>
+                    <tr><th>Tracking Number</th><th>Subject</th><th>Status</th><th>Assigned Staff</th><th>Created</th></tr>
                 </thead>
                 <tbody>
                     @forelse($tickets as $ticket)
                     <tr>
+                        <td><span class="record-strong">{{ $ticket->publicReference() }}</span></td>
                         <td><a href="{{ route('customer.tickets.show', $ticket) }}" class="record-strong">{{ $ticket->subject }}</a></td>
                         <td><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></td>
                         <td>{{ optional($ticket->technician)->name ?? 'Waiting for Assignment' }}</td>
                         <td>{{ $ticket->created_at->format('M d, Y') }}</td>
                     </tr>
                     @empty
-                    <tr><td colspan="4"><div class="empty-state compact">No tickets yet.</div></td></tr>
+                    <tr><td colspan="5"><div class="empty-state compact">No tickets yet.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>

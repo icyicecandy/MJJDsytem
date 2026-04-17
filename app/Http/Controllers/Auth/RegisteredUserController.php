@@ -26,7 +26,6 @@ class RegisteredUserController extends Controller
             'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => ['nullable', 'in:customer,technician'],
             'agreed_to_terms' => ['accepted'],
             'agreed_to_privacy' => ['accepted'],
             'terms_version' => ['nullable', 'string', 'max:50'],
@@ -36,7 +35,6 @@ class RegisteredUserController extends Controller
             'agreed_to_privacy.accepted' => config('legal.validation_message'),
         ]);
 
-        $role = $validated['role'] ?? 'customer';
         $fullName = trim($validated['first_name'] . ' ' . $validated['last_name']);
         $consentedAt = now();
 
@@ -44,7 +42,7 @@ class RegisteredUserController extends Controller
             'name' => $fullName,
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role' => $role,
+            'role' => 'customer',
             'agreed_to_terms' => true,
             'agreed_to_privacy' => true,
             'consented_at' => $consentedAt,
@@ -58,10 +56,6 @@ class RegisteredUserController extends Controller
 
         if (session()->has('url.intended')) {
             return redirect()->intended();
-        }
-
-        if ($user->isTechnician()) {
-            return redirect()->route('technician.dashboard');
         }
 
         return redirect()->route('customer.dashboard');

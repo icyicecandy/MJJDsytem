@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2>Ticket Tracking Result</h2>
-        <p>Ticket ID: {{ $ticket->id }}</p>
+        <p>Tracking Number: {{ $ticket->publicReference() }}</p>
     </x-slot>
 
     <div class="tracking-shell">
@@ -9,7 +9,7 @@
             <h3>Current Status</h3>
             <p><span class="badge {{ $ticket->status }}">{{ strtoupper(str_replace('_', ' ', $ticket->status)) }}</span></p>
             <div class="tracking-grid mt-1">
-                <div class="tracking-meta"><strong>Ticket ID</strong>{{ $ticket->id }}</div>
+                <div class="tracking-meta"><strong>Tracking Number</strong>{{ $ticket->publicReference() }}</div>
                 <div class="tracking-meta"><strong>Subject</strong>{{ $ticket->subject }}</div>
                 <div class="tracking-meta"><strong>Created</strong>{{ $ticket->created_at->format('Y-m-d H:i') }}</div>
                 <div class="tracking-meta"><strong>Latest Update</strong>{{ $ticket->updated_at->format('Y-m-d H:i') }}</div>

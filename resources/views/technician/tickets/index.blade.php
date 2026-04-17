@@ -19,6 +19,7 @@
                     <thead>
                         <tr>
                             <th>Customer</th>
+                            <th>Tracking Number</th>
                             <th>Subject</th>
                             <th>Description</th>
                             <th>Status</th>
@@ -30,8 +31,8 @@
                         <tr>
                             <td>
                                 <div class="record-strong">{{ $ticket->user->name }}</div>
-                                <div class="record-muted">Ticket #{{ $ticket->id }}</div>
                             </td>
+                            <td><span class="record-strong">{{ $ticket->publicReference() }}</span></td>
                             <td>
                                 <a href="{{ route('technician.tickets.show', $ticket) }}" class="record-strong">{{ $ticket->subject }}</a>
                             </td>
@@ -51,7 +52,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="5"><div class="empty-state compact">No assigned tickets.</div></td>
+                            <td colspan="6"><div class="empty-state compact">No assigned tickets.</div></td>
                         </tr>
                         @endforelse
                     </tbody>

@@ -218,7 +218,7 @@
                                 <tr>
                                     <td>
                                         <div class="record-stack">
-                                            <span class="record-strong">#{{ $ticket->id }}</span>
+                                            <span class="record-strong">{{ $ticket->publicReference() }}</span>
                                             <span class="record-muted">{{ $ticket->subject }}</span>
                                         </div>
                                     </td>
@@ -238,3 +238,4 @@
     </section>
 </div>
 @endsection
+

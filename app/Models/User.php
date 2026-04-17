@@ -35,6 +35,11 @@ class User extends Authenticatable
         'deletion_requested_at',
         'password',
         'role',
+        'agreed_to_terms',
+        'agreed_to_privacy',
+        'consented_at',
+        'terms_version',
+        'privacy_version',
         'is_online',
         'last_seen',
         'chat_available',
@@ -181,7 +186,3 @@ class User extends Authenticatable
             ->where('chat_available', true);
     }
 }
-
-
-
-
