@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Installation;
+use App\Models\InstallationLog;
 use App\Support\AppNotificationSender;
 use Illuminate\Http\Request;
 
@@ -49,65 +50,70 @@ class TechnicianDashboardController extends Controller
     {
         abort_if($installation->technician_id !== auth()->id(), 403);
 
-        $installation->load('application');
+        $installation->load(['application', 'logs.user']);
 
         return view('technician.installations.show', compact('installation'));
+    }
+
+    public function updateInstallationStatus(Request $request, Installation $installation)
+    {
+        abort_if($installation->technician_id !== auth()->id(), 403);
+
+        $validated = $request->validate([
+            'status' => ['required', 'in:in_progress'],
+        ]);
+
+        if (! $installation->canTransitionTo($validated['status'])) {
+            return back()->withErrors([
+                'status' => 'This installation cannot be moved to that status from its current state.',
+            ]);
+        }
+
+        $installation->update([
+            'status' => $validated['status'],
+        ]);
+
+        InstallationLog::create([
+            'installation_id' => $installation->id,
+            'user_id' => auth()->id(),
+            'notes' => 'Installation status updated to in progress.',
+        ]);
+
+        return back()->with('success', 'Installation started successfully.');
     }
 
     public function complete(Request $request, Installation $installation)
     {
         abort_if($installation->technician_id !== auth()->id(), 403);
 
+        if (! $installation->canTransitionTo('completed')) {
+            return back()->withErrors([
+                'status' => 'Only in-progress installations can be marked as completed.',
+            ]);
+        }
+
         $validated = $request->validate([
-            'nap_code' => ['required', 'string', 'max:255'],
-            'lp_code' => ['nullable', 'string', 'max:255'],
-            'np_code' => ['nullable', 'string', 'max:255'],
-            'full_nap_label' => ['required', 'string', 'max:255'],
-            'port_number' => ['required', 'string', 'max:100'],
-            'jo_number' => ['required', 'string', 'max:100'],
-            'activation_date' => ['required', 'date'],
-            'activation_status' => ['required', 'string', 'max:100'],
-            'package_name' => ['required', 'string', 'max:255'],
             'technician_remarks' => ['required', 'string'],
-            'router_serial' => ['nullable', 'string', 'max:255'],
-            'cable_reel_no' => ['nullable', 'string', 'max:255'],
-            'material_notes' => ['nullable', 'string'],
-            'speed_test_result' => ['nullable', 'string', 'max:255'],
-            'router_photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:4096'],
-            'speed_test_photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:4096'],
-            'nap_box_photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:4096'],
-            'acceptance_report_photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:4096'],
-            'cable_reel_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:4096'],
-            'installation_site_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:4096'],
-            'customer_signature_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:4096'],
+            'installation_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:4096'],
         ]);
 
         $directory = 'installations/' . $installation->id;
-
-        $installation->update([
+        $updateData = [
             'status' => 'completed',
             'completed_at' => now(),
-            'nap_code' => $validated['nap_code'],
-            'lp_code' => $validated['lp_code'] ?? null,
-            'np_code' => $validated['np_code'] ?? null,
-            'full_nap_label' => $validated['full_nap_label'],
-            'port_number' => $validated['port_number'],
-            'jo_number' => $validated['jo_number'],
-            'activation_date' => $validated['activation_date'],
-            'activation_status' => $validated['activation_status'],
-            'package_name' => $validated['package_name'],
             'technician_remarks' => $validated['technician_remarks'],
-            'router_serial' => $validated['router_serial'] ?? null,
-            'cable_reel_no' => $validated['cable_reel_no'] ?? null,
-            'material_notes' => $validated['material_notes'] ?? null,
-            'speed_test_result' => $validated['speed_test_result'] ?? null,
-            'router_photo_path' => $request->file('router_photo')->store($directory, 'public'),
-            'speedtest_photo_path' => $request->file('speed_test_photo')->store($directory, 'public'),
-            'nap_photo_path' => $request->file('nap_box_photo')->store($directory, 'public'),
-            'acceptance_report_photo_path' => $request->file('acceptance_report_photo')->store($directory, 'public'),
-            'cable_reel_photo_path' => $request->file('cable_reel_photo')?->store($directory, 'public'),
-            'installation_photo_path' => $request->file('installation_site_photo')?->store($directory, 'public'),
-            'customer_signature_photo_path' => $request->file('customer_signature_photo')?->store($directory, 'public'),
+        ];
+
+        if ($request->hasFile('installation_photo')) {
+            $updateData['installation_photo_path'] = $request->file('installation_photo')->store($directory, 'public');
+        }
+
+        $installation->update($updateData);
+
+        InstallationLog::create([
+            'installation_id' => $installation->id,
+            'user_id' => auth()->id(),
+            'notes' => 'Installation marked completed. Remarks: ' . $validated['technician_remarks'],
         ]);
 
         if ($installation->application) {
@@ -138,6 +144,6 @@ class TechnicianDashboardController extends Controller
             );
         }
 
-        return back()->with('success', 'Installation marked as completed with full field activation details.');
+        return back()->with('success', 'Installation marked as completed.');
     }
 }

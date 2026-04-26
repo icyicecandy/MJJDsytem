@@ -5,6 +5,15 @@
     $privacyFieldName = $privacyFieldName ?? 'agreed_to_privacy';
     $helperText = $helperText ?? 'Please read and agree to the Terms and Conditions and Privacy Notice before proceeding.';
     $validationMessage = config('legal.validation_message');
+    $sectionClass = $sectionClass ?? '';
+    $panelClass = $panelClass ?? '';
+    $optionClass = $optionClass ?? '';
+    $optionMainClass = $optionMainClass ?? '';
+    $optionTextClass = $optionTextClass ?? '';
+    $linkClass = $linkClass ?? '';
+    $errorClass = $errorClass ?? '';
+    $validationBag = $validationBag ?? 'default';
+    $consentErrors = $errors->getBag($validationBag);
     $termsVersion = config('legal.terms_version');
     $privacyVersion = config('legal.privacy_version');
     $termsContent = config('legal.terms', []);
@@ -13,17 +22,17 @@
     $privacyOldAccepted = (bool) old($privacyFieldName);
 @endphp
 
-<div class="consent-section" data-consent-section data-consent-form="{{ $formId }}" data-consent-message="{{ $validationMessage }}">
+<div class="consent-section {{ $sectionClass }}" data-consent-section data-consent-form="{{ $formId }}" data-consent-message="{{ $validationMessage }}">
     <div class="consent-section-head">
         <p>{{ $helperText }}</p>
     </div>
 
-    <div class="consent-panel {{ $errors->has($termsFieldName) || $errors->has($privacyFieldName) ? 'has-error' : '' }}" data-consent-panel>
+    <div class="consent-panel {{ $panelClass }} {{ $consentErrors->has($termsFieldName) || $consentErrors->has($privacyFieldName) ? 'has-error' : '' }}" data-consent-panel>
         <input type="hidden" name="terms_version" value="{{ old('terms_version', $termsVersion) }}">
         <input type="hidden" name="privacy_version" value="{{ old('privacy_version', $privacyVersion) }}">
 
-        <label for="{{ $consentPrefix }}_terms" class="consent-option consent-option-inline {{ $errors->has($termsFieldName) ? 'is-invalid' : '' }}" data-consent-option>
-            <span class="consent-option-main">
+        <div class="consent-option consent-option-inline {{ $optionClass }} {{ $consentErrors->has($termsFieldName) ? 'is-invalid' : '' }}" data-consent-option>
+            <label for="{{ $consentPrefix }}_terms" class="consent-option-main {{ $optionMainClass }}">
                 <input
                     id="{{ $consentPrefix }}_terms"
                     type="checkbox"
@@ -36,15 +45,12 @@
                     data-consent-lock-id="{{ $consentPrefix }}_terms"
                     aria-describedby="{{ $consentPrefix }}_error"
                 >
-                <span class="consent-option-text">I have read and agree to the Terms and Conditions.</span>
-            </span>
-            <button type="button" class="consent-link" data-consent-open="{{ $consentPrefix }}_terms_modal" aria-haspopup="dialog">
-                Read Terms and Conditions
-            </button>
-        </label>
+                <span class="consent-option-text {{ $optionTextClass }}">I agree to the <button type="button" class="consent-link-inline {{ $linkClass }}" data-consent-open="{{ $consentPrefix }}_terms_modal" aria-haspopup="dialog">Terms and Conditions</button></span>
+            </label>
+        </div>
 
-        <label for="{{ $consentPrefix }}_privacy" class="consent-option consent-option-inline {{ $errors->has($privacyFieldName) ? 'is-invalid' : '' }}" data-consent-option>
-            <span class="consent-option-main">
+        <div class="consent-option consent-option-inline {{ $optionClass }} {{ $consentErrors->has($privacyFieldName) ? 'is-invalid' : '' }}" data-consent-option>
+            <label for="{{ $consentPrefix }}_privacy" class="consent-option-main {{ $optionMainClass }}">
                 <input
                     id="{{ $consentPrefix }}_privacy"
                     type="checkbox"
@@ -57,21 +63,18 @@
                     data-consent-lock-id="{{ $consentPrefix }}_privacy"
                     aria-describedby="{{ $consentPrefix }}_error"
                 >
-                <span class="consent-option-text">I have read and agree to the Privacy Notice.</span>
-            </span>
-            <button type="button" class="consent-link" data-consent-open="{{ $consentPrefix }}_privacy_modal" aria-haspopup="dialog">
-                Read Privacy Notice
-            </button>
-        </label>
+                <span class="consent-option-text {{ $optionTextClass }}">I agree to the <button type="button" class="consent-link-inline {{ $linkClass }}" data-consent-open="{{ $consentPrefix }}_privacy_modal" aria-haspopup="dialog">Privacy Notice</button></span>
+            </label>
+        </div>
 
         <div
             id="{{ $consentPrefix }}_error"
-            class="consent-error {{ $errors->has($termsFieldName) || $errors->has($privacyFieldName) ? 'is-visible' : '' }}"
+            class="consent-error {{ $errorClass }} {{ $consentErrors->has($termsFieldName) || $consentErrors->has($privacyFieldName) ? 'is-visible' : '' }}"
             data-consent-error
             tabindex="-1"
             aria-live="polite"
         >
-            {{ $errors->has($termsFieldName) || $errors->has($privacyFieldName) ? $validationMessage : '' }}
+            {{ $consentErrors->has($termsFieldName) || $consentErrors->has($privacyFieldName) ? $validationMessage : '' }}
         </div>
     </div>
 </div>
@@ -87,6 +90,9 @@
             <button type="button" class="consent-modal-close" data-consent-close aria-label="Close Terms and Conditions">&times;</button>
         </div>
         <div class="consent-modal-body" data-consent-scroll-body>
+            <div class="consent-modal-scroll-message" data-consent-scroll-message>
+                Scroll to the end to confirm you have read this document.
+            </div>
             @foreach($termsContent as $heading => $paragraphs)
                 <section class="consent-copy-block">
                     <h4>{{ $heading }}</h4>
@@ -113,6 +119,9 @@
             <button type="button" class="consent-modal-close" data-consent-close aria-label="Close Privacy Notice">&times;</button>
         </div>
         <div class="consent-modal-body" data-consent-scroll-body>
+            <div class="consent-modal-scroll-message" data-consent-scroll-message>
+                Scroll to the end to confirm you have read this document.
+            </div>
             @foreach($privacyContent as $heading => $paragraphs)
                 <section class="consent-copy-block">
                     <h4>{{ $heading }}</h4>

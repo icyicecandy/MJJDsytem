@@ -14,13 +14,12 @@
 
 @push('styles')
 <style>
-    .admin-technicians-table th:nth-child(1) { width: 23%; }
-    .admin-technicians-table th:nth-child(2) { width: 17%; }
-    .admin-technicians-table th:nth-child(3) { width: 16%; }
-    .admin-technicians-table th:nth-child(4) { width: 12%; }
+    .admin-technicians-table th:nth-child(1) { width: 26%; }
+    .admin-technicians-table th:nth-child(2) { width: 20%; }
+    .admin-technicians-table th:nth-child(3) { width: 18%; }
+    .admin-technicians-table th:nth-child(4) { width: 14%; }
     .admin-technicians-table th:nth-child(5) { width: 14%; }
-    .admin-technicians-table th:nth-child(6) { width: 10%; }
-    .admin-technicians-table th:nth-child(7) { width: 8%; }
+    .admin-technicians-table th:nth-child(6) { width: 8%; }
     .admin-technicians-table .record-stack {
         display: grid;
         gap: 0.2rem;
@@ -54,7 +53,7 @@
     <section class="card section-title-card">
         <div>
             <h1>Technicians</h1>
-            <p>Review technician records, core contact details, workload, availability, and assigned installation schedules from one admin operations list.</p>
+            <p>Review technician records, core contact details, availability, and direct access to the full technician profile from one admin operations list.</p>
         </div>
     </section>
 
@@ -86,7 +85,7 @@
 
     <section class="card table-card">
         <div class="table-card-head">
-            <p>This list highlights each technician's profile details, assignment load, schedule visibility, and direct access to the full record page.</p>
+            <p>This list keeps the overview lean. Open a technician record to review workload, assigned installations, open tickets, and schedule details.</p>
         </div>
         <div class="table-wrap">
             <table class="telecom-table admin-technicians-table">
@@ -96,8 +95,7 @@
                         <th>Contact Details</th>
                         <th>Address</th>
                         <th>Shift</th>
-                        <th>Status / Availability</th>
-                        <th>Workload</th>
+                        <th>Status</th>
                         <th class="col-actions">Action</th>
                     </tr>
                 </thead>
@@ -107,6 +105,7 @@
                             $statusValue = $technician->technician_status ?: 'available';
                             $statusLabel = $statusLabels[$statusValue] ?? ucfirst(str_replace('_', ' ', $statusValue));
                             $nextInstallation = $technician->installations->first();
+                            $chatStatusLabel = $technician->chatAvailabilityLabel();
                         @endphp
                         <tr>
                             <td>
@@ -118,7 +117,7 @@
                             <td>
                                 <div class="record-stack">
                                     <span class="record-strong">{{ $technician->phone ?: 'No contact number' }}</span>
-                                    <span class="record-muted">Chat: {{ $technician->chat_available ? 'Available' : 'Unavailable' }}</span>
+                                    <span class="record-muted">Chat: {{ $chatStatusLabel }}</span>
                                 </div>
                             </td>
                             <td>
@@ -139,13 +138,7 @@
                             <td>
                                 <div class="record-stack">
                                     <span class="record-strong"><span class="availability-dot {{ $statusValue }}"></span>{{ $statusLabel }}</span>
-                                    <span class="record-muted">{{ $technician->is_online ? 'Online now' : 'Offline' }}</span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="record-stack">
-                                    <span class="record-strong">{{ $technician->scheduled_installations_count }} scheduled</span>
-                                    <span class="record-muted">{{ $technician->open_tickets_count }} open tickets · {{ $technician->completed_installations_count }} completed</span>
+                                    <span class="record-muted">{{ $chatStatusLabel }}</span>
                                 </div>
                             </td>
                             <td class="actions-cell">
@@ -154,7 +147,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7"><div class="empty-state compact">No technician records matched the current filter.</div></td>
+                            <td colspan="6"><div class="empty-state compact">No technician records matched the current filter.</div></td>
                         </tr>
                     @endforelse
                 </tbody>

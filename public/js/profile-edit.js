@@ -7,6 +7,10 @@
             .replace(/^[-_.]+|[-_.]+$/g, '');
     }
 
+    function isValidPersonName(value) {
+        return /^[A-Za-z][A-Za-z\s'-]*$/.test(value);
+    }
+
     function getPasswordStrength(value) {
         let score = 0;
 
@@ -118,7 +122,11 @@
 
             switch (field.dataset.validate) {
                 case 'name':
-                    if (!value) message = 'Full name is required.';
+                    if (!value) {
+                        message = 'Full name is required.';
+                    } else if (!isValidPersonName(value)) {
+                        message = 'Full name may only contain letters, spaces, hyphens, and apostrophes.';
+                    }
                     break;
                 case 'email':
                     if (!value) {

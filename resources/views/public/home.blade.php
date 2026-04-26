@@ -888,7 +888,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h4l3 8 4-16 3 8h2"></path></svg>
                     Fiber Service Platform
                 </span>
-                <h1>Fast, reliable fiber internet for Pangasinan.</h1>
+                <h1>Manage your MJJD Telecom Service Online.</h1>
                 <p>Apply for service, track your application, and check support updates in one simple MJJD Telecom portal.</p>
                 <div class="public-hero-actions">
                     <a href="{{ route('customer.apply') }}" class="btn public-hero-btn">Apply Now</a>
@@ -908,14 +908,14 @@
     <section class="public-shell public-plans" id="plans" data-reveal>
         <div class="public-home-heading">
             <h2>Choose Your Plan</h2>
-            <p>Simple, transparent prepaid fiber options built around everyday browsing, streaming, and connected households.</p>
+            <p>Simple service options for households that need dependable internet installation and support. Reload via authorized retailers after installation.</p>
         </div>
 
         <div class="public-plan-grid">
             <article class="public-plan-card">
                 <div class="public-plan-top">
                     <div>
-                        <strong>Surf2Sawa 50</strong>
+                        <strong>Superfiber</strong>
                         <div class="public-plan-speed">50 Mbps</div>
                     </div>
                 </div>
@@ -923,15 +923,15 @@
                 <ul class="public-plan-list">
                     <li>Ideal for browsing and streaming</li>
                     <li>Up to 6 devices</li>
-                    <li>Prepaid with no lock-in</li>
+                    <li>Application review before installation</li>
                 </ul>
-                <a href="{{ route('customer.apply') }}" class="btn">Select Plan</a>
+                <a href="{{ url('/') }}" class="btn" data-open-register-modal>Select Plan</a>
             </article>
 
             <article class="public-plan-card featured">
                 <div class="public-plan-top">
                     <div>
-                        <strong>Surf2Sawa 100</strong>
+                        <strong>Extraboost</strong>
                         <div class="public-plan-speed">100 Mbps</div>
                     </div>
                     <span class="public-plan-badge">Most Popular</span>
@@ -940,9 +940,9 @@
                 <ul class="public-plan-list">
                     <li>Perfect for gaming and HD streaming</li>
                     <li>Up to 10 devices</li>
-                    <li>Prepaid with no lock-in</li>
+                    <li>Application review before installation</li>
                 </ul>
-                <a href="{{ route('customer.apply') }}" class="btn">Select Plan</a>
+                <a href="{{ url('/') }}" class="btn" data-open-register-modal>Select Plan</a>
             </article>
         </div>
     </section>
@@ -976,27 +976,27 @@
                 <article class="public-step-card">
                     <span class="public-step-number">4</span>
                     <span class="public-step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><path d="M12 20h.01"></path><path d="M2 8.82a16 16 0 0 1 20 0"></path></svg></span>
-                    <h3>Installation &amp; Activation</h3>
-                    <p>Our technician will install your connection and activate your service.</p>
+                    <h3>Installation Completion</h3>
+                    <p>Our technician will complete the installation and record the service visit in the system.</p>
                 </article>
             </div>
 
-            <p class="public-step-note">Availability depends on your area and nearest NAP box coverage.</p>
+            <p class="public-step-note">Availability depends on manual serviceability assessment and slot availability in your area.</p>
         </div>
     </section>
 
     <section class="public-shell public-faq-section" data-reveal>
         <div class="public-home-heading">
             <h2>Frequently Asked Questions</h2>
-            <p>Find answers to common questions about our prepaid fiber services.</p>
+            <p>Find answers to common questions about applications, installation scheduling, and customer support.</p>
         </div>
 
         <div class="public-faq-layout">
             <div class="public-faq-wrap" data-faq-root>
                 <details class="public-faq-item">
-                    <summary>What is prepaid fiber internet?</summary>
+                    <summary>How does the application process work?</summary>
                     <div class="public-faq-answer">
-                        <p>Prepaid fiber gives you high-speed internet without a long-term contract. You apply for installation first, then manage usage and reloads based on your service setup.</p>
+                        <p>Create an account, submit your installation application, upload your valid ID, pin your location, and wait for admin review and scheduling updates.</p>
                     </div>
                 </details>
                 <details class="public-faq-item">
@@ -1018,15 +1018,15 @@
                     </div>
                 </details>
                 <details class="public-faq-item">
-                    <summary>How do I reload my account?</summary>
+                    <summary>How do I track my request?</summary>
                     <div class="public-faq-answer">
-                        <p>Customers can buy prepaid load from authorized retailers or load outlets in their area. The system will not handle billing or loading directly.</p>
+                        <p>Use the application or ticket tracking page and enter your tracking number or reference number together with your registered contact details.</p>
                     </div>
                 </details>
                 <details class="public-faq-item">
                     <summary>Is there a data cap?</summary>
                     <div class="public-faq-answer">
-                        <p>Plan behavior depends on the service offering connected to your account. Choose the option that best fits your household usage and review plan details during application.</p>
+                        <p>Service details depend on the plan you selected during application and the availability confirmed by MJJD Telecom.</p>
                     </div>
                 </details>
             </div>
@@ -1051,7 +1051,7 @@
                 <span class="public-contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg></span>
                 <div>
                     <strong>Email</strong>
-                    <span>support@mjjdtelecom.com</span>
+                    <span>support&#64;mjjdtelecom.com</span>
                 </div>
             </article>
             <article class="public-contact-item">
@@ -1080,7 +1080,7 @@
         <div class="public-footer-links">
             <a href="{{ route('track.form') }}">Application Tracking</a>
             <a href="{{ route('track.ticket.form') }}">Ticket Tracking</a>
-            <a href="{{ route('login') }}" data-open-login-modal>Support</a>
+            <a href="{{ url('/') }}" data-open-login-modal>Support</a>
         </div>
     </section>
 </div>
@@ -1206,6 +1206,8 @@
     });
 </script>
 @endpush
+
+
 
 
 

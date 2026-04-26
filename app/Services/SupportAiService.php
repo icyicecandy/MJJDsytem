@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\FaqResponse;
 use App\Models\User;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -21,9 +20,77 @@ class SupportAiService
         ];
     }
 
-    public function findFaqMatch(string $message): ?FaqResponse
+    protected function normalizeMessage(string $message): string
     {
         $normalized = Str::lower($message);
+        $normalized = preg_replace('/[^a-z0-9\s]/', ' ', $normalized) ?? $normalized;
+
+        return trim(preg_replace('/\s+/', ' ', $normalized) ?? $normalized);
+    }
+
+    protected function programmedResponses(): array
+    {
+        return [
+            [
+                'keywords' => ['hi', 'hello', 'good morning', 'good afternoon', 'good evening'],
+                'answer' => 'Hello! I’m the MJJD Telecom assistant. I can help with common questions while our support team is unavailable or assisting other customers.',
+            ],
+            [
+                'keywords' => ['is anyone available', 'are you available', 'can i talk to support', 'can i talk to a person', 'human support', 'staff available', 'technician available'],
+                'answer' => 'Our support team may be unavailable or assisting other customers right now. I can help with common questions while you wait, and a staff member can take over when available.',
+            ],
+            [
+                'keywords' => ['how to apply', 'application requirements', 'requirements', 'valid id', 'service application'],
+                'answer' => 'To apply, submit your service application form with your contact information, service address, selected plan, and a valid ID. The admin will review serviceability before scheduling installation.',
+            ],
+            [
+                'keywords' => ['installation', 'schedule', 'technician', 'appointment', 'when will install'],
+                'answer' => 'After your application is approved, MJJD Telecom will assign a technician and schedule your installation date and time.',
+            ],
+            [
+                'keywords' => ['track application', 'tracking number', 'check status', 'application status'],
+                'answer' => 'You can track your application or support ticket using your tracking/reference number on the public tracking page.',
+            ],
+            [
+                'keywords' => ['ticket', 'report issue', 'no internet', 'slow internet', 'connection problem'],
+                'answer' => 'You can submit a support ticket with your issue details. Our staff will review it and update the ticket status.',
+            ],
+            [
+                'keywords' => ['plan', 'internet plan', 'price', 'package', 'speed'],
+                'answer' => 'MJJD Telecom offers service plans shown on the application page. Please choose the plan that matches your preferred speed and budget.',
+            ],
+            [
+                'keywords' => ['thank you', 'thanks', 'okay', 'ok'],
+                'answer' => 'You’re welcome! You may continue asking questions here, and support staff can assist when available.',
+            ],
+        ];
+    }
+
+    protected function findProgrammedResponse(string $message): ?array
+    {
+        $normalized = $this->normalizeMessage($message);
+
+        foreach ($this->programmedResponses() as $rule) {
+            foreach ($rule['keywords'] as $keyword) {
+                $normalizedKeyword = $this->normalizeMessage($keyword);
+
+                if ($normalized === $normalizedKeyword || Str::contains($normalized, $normalizedKeyword)) {
+                    return [
+                        'source' => 'programmed',
+                        'answer' => $rule['answer'],
+                        'confidence' => 1.0,
+                        'metadata' => ['keywords' => $rule['keywords']],
+                    ];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public function findFaqMatch(string $message): ?FaqResponse
+    {
+        $normalized = $this->normalizeMessage($message);
         $bestMatch = null;
         $bestScore = 0;
 
@@ -31,7 +98,7 @@ class SupportAiService
 
         foreach ($faqs as $faq) {
             $keywords = collect(explode(',', (string) $faq->keywords))
-                ->map(fn ($keyword) => trim(Str::lower($keyword)))
+                ->map(fn ($keyword) => $this->normalizeMessage($keyword))
                 ->filter();
 
             $score = $keywords->reduce(function (int $carry, string $keyword) use ($normalized) {
@@ -49,6 +116,11 @@ class SupportAiService
 
     public function generateSupportReply(User $customer, string $message): array
     {
+        $programmed = $this->findProgrammedResponse($message);
+        if ($programmed) {
+            return $programmed;
+        }
+
         $faq = $this->findFaqMatch($message);
         if ($faq) {
             return [
@@ -106,11 +178,11 @@ class SupportAiService
 You are MJJD AI Assistant for MJJD Telecom.
 
 Stay strictly within these topics:
-- Surf2Sawa and MJJD internet plans
+- MJJD Telecom internet plans
 - application tracking guidance
 - installation scheduling guidance
 - support ticket guidance
-- service availability guidance within supported Luzon areas
+- service availability guidance within supported service areas
 
 Rules:
 - Do not invent policies, pricing, timelines, or technical commitments not provided.
@@ -122,7 +194,7 @@ Known guidance:
 - Customers can track applications using their reference number and registered email or mobile number.
 - Customers can file tickets from the customer portal.
 - Installation happens after approval and scheduling.
-- Supported service review is focused on Luzon operational coverage.
+- Supported service review is based on serviceability assessment and slot availability.
 
 Customer message:
 {$message}
@@ -147,7 +219,7 @@ PROMPT;
     {
         return [
             'source' => 'fallback',
-            'answer' => 'I\'m not fully sure about that. Our support staff are currently offline. Please leave your message and wait for an available agent.',
+            'answer' => 'I’m not fully sure about that yet, but I can help with applications, installation schedules, tracking, tickets, and available plans. A staff member can also take over when available.',
             'confidence' => 0.0,
             'metadata' => ['fallback' => true],
         ];

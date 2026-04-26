@@ -62,6 +62,7 @@
 
                 <div class="tracking-grid application-detail-grid">
                     <div class="tracking-meta"><strong>Reference</strong>{{ $application->reference_no }}</div>
+                    <div class="tracking-meta"><strong>Submitted At</strong>{{ $application->created_at->displayDateTime('F d, Y h:i A') }}</div>
                     <div class="tracking-meta"><strong>Plan</strong>{{ $application->plan_code }}</div>
                     <div class="tracking-meta"><strong>Service Area</strong>{{ $application->barangay }}, {{ $application->municipality }}</div>
                     <div class="tracking-meta"><strong>Address</strong>{{ $fullAddress ?: 'Not provided' }}</div>
@@ -69,6 +70,10 @@
 
                 @if($application->installation)
                     <div class="application-highlight-row">
+                        <div class="tracking-meta">
+                            <strong>Installation Assigned At</strong>
+                            {{ $application->installation->assigned_at?->displayDateTime('F d, Y h:i A') ?? 'Not recorded yet' }}
+                        </div>
                         <div class="tracking-meta">
                             <strong>Installation Date</strong>
                             {{ \Illuminate\Support\Carbon::parse($application->installation->installation_date)->format('F j, Y') }}
@@ -132,6 +137,10 @@
         @else
             <div class="empty-state">No application found.</div>
         @endif
+    </section>
+
+    <section class="card">
+        <a href="{{ route('customer.dashboard') }}" class="btn secondary">Back</a>
     </section>
 </div>
 @endsection

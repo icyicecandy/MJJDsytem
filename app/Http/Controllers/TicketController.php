@@ -18,21 +18,29 @@ class TicketController extends Controller
 
     public function create()
     {
-        return view('customer.tickets.create');
+        return redirect()->route('customer.tickets.index', ['create_ticket' => 1]);
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'subject' => 'required|string|max:255',
+            'subject' => 'required|in:' . implode(',', Ticket::subjectKeys()),
             'description' => 'required|string',
+            'ticket_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:4096',
         ]);
+
+        $subjectKey = $request->subject;
+        $photoPath = $request->hasFile('ticket_photo')
+            ? $request->file('ticket_photo')->store('tickets/' . Auth::id(), 'public')
+            : null;
 
         $ticket = Ticket::create([
             'user_id' => Auth::id(),
-            'subject' => $request->subject,
+            'subject' => Ticket::resolveSubjectLabel($subjectKey),
             'description' => $request->description,
             'status' => Ticket::STATUS_QUEUED,
+            'urgency' => Ticket::resolveUrgencyForSubject($subjectKey),
+            'photo_path' => $photoPath,
         ]);
 
         AppNotificationSender::sendToRole(

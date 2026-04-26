@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
@@ -19,11 +20,28 @@ class RegisteredUserController extends Controller
         return view('auth.register');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function emailCheck(Request $request)
     {
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'string', 'email', 'max:255'],
+        ]);
+
+        $email = trim((string) ($validated['email'] ?? ''));
+        $exists = $email !== '' && User::query()->where('email', $email)->exists();
+
+        return response()->json([
+            'email' => [
+                'duplicate' => $exists,
+                'message' => $exists ? 'This email address is already registered. Please sign in instead.' : null,
+            ],
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'first_name' => ['required', 'string', 'max:255', "regex:/^[A-Za-z][A-Za-z\\s'\\-]*$/"],
+            'last_name' => ['required', 'string', 'max:255', "regex:/^[A-Za-z][A-Za-z\\s'\\-]*$/"],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'agreed_to_terms' => ['accepted'],
@@ -31,9 +49,21 @@ class RegisteredUserController extends Controller
             'terms_version' => ['nullable', 'string', 'max:50'],
             'privacy_version' => ['nullable', 'string', 'max:50'],
         ], [
+            'first_name.regex' => 'First name may only contain letters, spaces, hyphens, and apostrophes.',
+            'last_name.regex' => 'Last name may only contain letters, spaces, hyphens, and apostrophes.',
+            'email.unique' => 'This email address is already registered. Please sign in instead.',
             'agreed_to_terms.accepted' => config('legal.validation_message'),
             'agreed_to_privacy.accepted' => config('legal.validation_message'),
         ]);
+
+        if ($validator->fails()) {
+            return back()
+                ->withErrors($validator, 'register')
+                ->withInput()
+                ->with('auth_modal', 'register');
+        }
+
+        $validated = $validator->validated();
 
         $fullName = trim($validated['first_name'] . ' ' . $validated['last_name']);
         $consentedAt = now();

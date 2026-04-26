@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
@@ -12,15 +13,24 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
-    Route::get('register', [RegisteredUserController::class, 'create'])
+    Route::get('register', fn () => redirect('/'));
+
+    Route::get('register/email-check', [RegisteredUserController::class, 'emailCheck'])
+        ->name('register.email-check');
+
+    Route::post('register', [RegisteredUserController::class, 'store'])
         ->name('register');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    Route::get('login', fn () => redirect('/'));
 
-    Route::get('login', [AuthenticatedSessionController::class, 'create'])
+    Route::post('login', [AuthenticatedSessionController::class, 'store'])
         ->name('login');
 
-    Route::post('login', [AuthenticatedSessionController::class, 'store']);
+    Route::get('auth/google/redirect', [GoogleAuthController::class, 'redirect'])
+        ->name('auth.google.redirect');
+
+    Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])
+        ->name('auth.google.callback');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');

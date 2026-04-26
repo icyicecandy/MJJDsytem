@@ -9,7 +9,7 @@
         <p>Track your application progress, monitor your installation schedule, and stay updated on support activity from one clean service portal.</p>
         <div class="telecom-hero-actions">
             <a href="{{ route('customer.application.show') }}" class="btn">View Application</a>
-            <a href="{{ route('customer.tickets.create') }}" class="btn secondary">Report an Issue</a>
+            <a href="{{ route('customer.tickets.index', ['create_ticket' => 1]) }}" class="btn secondary" data-open-customer-ticket-modal>Report an Issue</a>
         </div>
     </section>
 
@@ -109,21 +109,7 @@
             </div>
         </div>
     </section>
-
-    <div class="panel-card">
-        <div class="panel-header">
-            <div class="panel-title-wrap">
-                <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h18v18H3z"></path><path d="M7 15l3-3 2 2 5-5"></path></svg></span>
-                <div>
-                    <div class="panel-title">Application Timeline</div>
-                    <div class="panel-subtitle">Lifecycle progress from submission to installation.</div>
-                </div>
-            </div>
-        </div>
-        <div class="panel-body">
-            <div class="chart" data-chart="application-timeline"></div>
-        </div>
-    </div>
 </div>
+@include('customer.tickets.partials.create-ticket-modal')
 @endsection
 

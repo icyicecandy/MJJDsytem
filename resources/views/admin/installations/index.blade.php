@@ -4,6 +4,39 @@
 
 @push('styles')
 <style>
+    .admin-install-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+    }
+    .admin-install-kpi {
+        display: block;
+        padding: 1rem 1.1rem;
+        border-radius: 1rem;
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94));
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+    .admin-install-kpi:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 28px rgba(37, 99, 235, 0.10);
+        border-color: rgba(37, 99, 235, 0.26);
+    }
+    .admin-install-kpi.active {
+        background: linear-gradient(180deg, rgba(232, 240, 255, 0.98), rgba(219, 234, 254, 0.94));
+        border-color: rgba(37, 99, 235, 0.34);
+        box-shadow: 0 14px 28px rgba(37, 99, 235, 0.12);
+    }
+    .admin-install-kpi-label {
+        display: block;
+    }
+    .admin-install-kpi strong {
+        display: block;
+        font-size: 1.5rem;
+        margin-top: 0.35rem;
+    }
     .admin-installations-table {
         table-layout: auto;
     }
@@ -30,21 +63,25 @@
     }
     .admin-installations-table th,
     .admin-installations-table td {
-        padding-top: 0.85rem;
-        padding-bottom: 0.85rem;
+        padding-top: 0.78rem;
+        padding-bottom: 0.78rem;
     }
     .admin-installations-table .record-stack {
         display: grid;
-        gap: 0.2rem;
+        gap: 0.14rem;
         min-width: 0;
     }
     .admin-installations-table .record-stack .record-strong,
     .admin-installations-table .record-stack .record-muted {
         display: block;
     }
+    .admin-installations-table .record-strong {
+        font-size: 0.95rem;
+        line-height: 1.25;
+    }
     .admin-installations-table .record-muted {
-        font-size: 0.84rem;
-        line-height: 1.35;
+        font-size: 0.78rem;
+        line-height: 1.28;
     }
     .admin-installations-table .address-preview {
         max-width: 26rem;
@@ -72,7 +109,8 @@
     .table-card-head p {
         margin: 0;
         color: var(--color-text-muted);
-        font-size: 0.9rem;
+        font-size: 0.82rem;
+        line-height: 1.4;
     }
     @media (max-width: 980px) {
         .admin-installations-table .address-preview {
@@ -91,43 +129,33 @@
         </div>
     </section>
 
-    <section class="card toolbar-card">
-        <form method="GET" action="{{ route('admin.installations.index') }}" class="toolbar-row">
-            <div class="toolbar-field">
-                <label for="status">Status</label>
-                <select name="status" id="status">
-                    <option value="">All</option>
-                    <option value="scheduled" {{ request('status') === 'scheduled' ? 'selected' : '' }}>Scheduled</option>
-                    <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
-                    <option value="cancelled" {{ request('status') === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
-                </select>
-            </div>
-
-            <div class="toolbar-field grow">
-                <label for="search">Search</label>
-                <input type="text" name="search" id="search" value="{{ $search }}"
-                       placeholder="Installation ID, app ref, customer, technician">
-            </div>
-
-            <div class="toolbar-actions">
-                <button class="btn">Filter</button>
-                @if(request()->filled('status') || request()->filled('search'))
-                    <a href="{{ route('admin.installations.index') }}" class="btn secondary">Reset</a>
-                @endif
-            </div>
-        </form>
+    <section class="admin-install-kpis">
+        <a href="{{ route('admin.installations.index', array_filter(['group' => 'scheduled', 'search' => $search])) }}" class="admin-install-kpi card {{ !request()->filled('status') && $selectedGroup === 'scheduled' ? 'active' : '' }}">
+            <span class="record-muted admin-install-kpi-label">Scheduled</span>
+            <strong>{{ $scheduledCount }}</strong>
+        </a>
+        <a href="{{ route('admin.installations.index', array_filter(['group' => 'completed', 'search' => $search])) }}" class="admin-install-kpi card {{ !request()->filled('status') && $selectedGroup === 'completed' ? 'active' : '' }}">
+            <span class="record-muted admin-install-kpi-label">Installed</span>
+            <strong>{{ $completedCount }}</strong>
+        </a>
     </section>
 
     <section class="card table-card">
         <div class="table-card-head">
-            <p>Primary list view keeps scheduling and assignment data visible. Address, package, activation, and completion details remain in the existing detail page.</p>
+            <p>
+                @if($selectedGroup === 'completed')
+                    Showing completed and installed work so admin can review finished field jobs separately.
+                @else
+                    Showing scheduled and pending work so admin can focus on upcoming and incomplete jobs.
+                @endif
+            </p>
         </div>
         <div class="table-wrap">
             <table class="telecom-table admin-installations-table">
                 <thead>
                     <tr>
-                        <th>Job / Installation</th>
-                        <th>Application Reference</th>
+                        <th>Job</th>
+                        <th>App Reference</th>
                         <th>Customer</th>
                         <th>Technician</th>
                         <th>Schedule</th>
@@ -205,7 +233,13 @@
                     @empty
                         <tr>
                             <td colspan="7">
-                                <div class="empty-state compact">No installations matched the current filter.</div>
+                                <div class="empty-state compact">
+                                    @if($selectedGroup === 'completed')
+                                        No completed installation jobs yet.
+                                    @else
+                                        No scheduled or pending installation jobs yet.
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @endforelse
@@ -221,3 +255,4 @@
     @endif
 </div>
 @endsection
+

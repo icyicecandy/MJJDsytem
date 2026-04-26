@@ -12,6 +12,10 @@ class InstallationController extends Controller
     {
         $status = $request->query('status');
         $search = trim((string) $request->query('search', ''));
+        $selectedGroup = $request->query('group', 'scheduled');
+        if (! in_array($selectedGroup, ['scheduled', 'completed'], true)) {
+            $selectedGroup = 'scheduled';
+        }
 
         $query = Installation::query()
             ->with(['application', 'technician'])
@@ -21,6 +25,10 @@ class InstallationController extends Controller
 
         if ($status) {
             $query->where('status', $status);
+        } elseif ($selectedGroup === 'completed') {
+            $query->where('status', 'completed');
+        } else {
+            $query->whereIn('status', ['scheduled']);
         }
 
         if ($search !== '') {
@@ -40,8 +48,23 @@ class InstallationController extends Controller
             });
         }
 
+        $scheduledCount = Installation::query()
+            ->whereIn('status', ['scheduled'])
+            ->count();
+
+        $completedCount = Installation::query()
+            ->where('status', 'completed')
+            ->count();
+
         $installations = $query->paginate(15)->withQueryString();
 
-        return view('admin.installations.index', compact('installations', 'status', 'search'));
+        return view('admin.installations.index', compact(
+            'installations',
+            'status',
+            'search',
+            'selectedGroup',
+            'scheduledCount',
+            'completedCount'
+        ));
     }
 }

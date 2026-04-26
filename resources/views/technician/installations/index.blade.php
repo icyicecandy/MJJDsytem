@@ -71,11 +71,11 @@
 
         <section class="tech-install-kpis">
             <a href="{{ route('technician.installations.index', ['group' => 'scheduled']) }}" class="tech-install-kpi card {{ $selectedGroup === 'scheduled' ? 'active' : '' }}">
-                <span class="record-muted tech-install-kpi-label">Scheduled / Pending</span>
+                <span class="record-muted tech-install-kpi-label">Scheduled</span>
                 <strong>{{ $scheduledInstallations->count() }}</strong>
             </a>
             <a href="{{ route('technician.installations.index', ['group' => 'completed']) }}" class="tech-install-kpi card {{ $selectedGroup === 'completed' ? 'active' : '' }}">
-                <span class="record-muted tech-install-kpi-label">Completed / Installed</span>
+                <span class="record-muted tech-install-kpi-label">Installed</span>
                 <strong>{{ $completedInstallations->count() }}</strong>
             </a>
         </section>
@@ -87,6 +87,7 @@
                         <tr>
                             <th>Job</th>
                             <th>Customer</th>
+                            <th>Contact</th>
                             <th>Status</th>
                             <th>Schedule</th>
                             <th class="col-actions text-end">Action</th>
@@ -111,6 +112,13 @@
                                     @endif
                                 </td>
                                 <td>
+                                    @if($application)
+                                        <div class="record-strong">{{ $application->mobile_number ?: 'Not provided' }}</div>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <td>
                                     <span class="badge {{ $installation->status ?? 'info' }}">{{ $installation->displayStatusLabel() }}</span>
                                 </td>
                                 <td>
@@ -130,7 +138,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5">
+                                <td colspan="6">
                                     <div class="empty-state compact">
                                         {{ $selectedGroup === 'completed' ? 'No completed installation jobs yet.' : 'No scheduled or pending jobs assigned yet.' }}
                                     </div>

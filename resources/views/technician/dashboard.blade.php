@@ -32,7 +32,7 @@
                 </div>
             </div>
             <div class="panel-body">
-                @if(($tickets ?? collect())->count())
+                @if($tickets->count())
                     <table class="telecom-table">
                         <thead><tr><th>Tracking Number</th><th>Subject</th><th>Status</th><th>Action</th></tr></thead>
                         <tbody>
@@ -64,7 +64,7 @@
             </div>
             <div class="panel-body">
                 <div class="quick-link-grid">
-                    <a href="{{ route('technician.installations.index') }}" class="quick-link"><strong>Installations</strong><span>Review assigned jobs and upload completion proofs.</span></a>
+                    <a href="{{ route('technician.installations.index') }}" class="quick-link"><strong>Installations</strong><span>Review assigned jobs and complete installation records.</span></a>
                     <a href="{{ route('technician.tickets.index') }}" class="quick-link"><strong>Support Tickets</strong><span>Respond to assigned service concerns.</span></a>
                     <a href="{{ route('role.chat.index', ['role' => 'technician']) }}" class="quick-link"><strong>Live Chat</strong><span>Coordinate with support staff and customers.</span></a>
                 </div>
@@ -78,7 +78,7 @@
                 <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h18v18H3z"></path><path d="M7 15l3-3 2 2 5-5"></path></svg></span>
                 <div>
                     <div class="panel-title">Today's Workload</div>
-                    <div class="panel-subtitle">Visual placeholder for the technician’s active day schedule</div>
+                    <div class="panel-subtitle">Today's assigned installations and support workload overview</div>
                 </div>
             </div>
         </div>
@@ -88,5 +88,7 @@
     </div>
 </div>
 @endsection
+
+
 
 

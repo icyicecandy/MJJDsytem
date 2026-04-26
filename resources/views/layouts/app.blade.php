@@ -10,24 +10,31 @@
     <link rel="stylesheet" href="{{ asset('css/consent.css') }}" />
     @stack('styles')
     <script defer src="{{ asset('js/dashboard.js') }}"></script>
+    <script defer src="{{ asset('js/auth.js') }}"></script>
     <script defer src="{{ asset('js/consent.js') }}"></script>
 </head>
-<body
-    class="layout {{ auth()->check() ? 'is-auth' : 'is-guest' }}"
-    @auth
-        data-notifications-feed="{{ route('notifications.feed') }}"
-        data-notifications-index="{{ route('notifications.index') }}"
-        data-notifications-mark-all="{{ route('notifications.mark-all-read') }}"
-    @endauth
->
+<body class="layout {{ auth()->check() ? 'is-auth' : 'is-guest' }}" @auth data-notifications-feed="{{ route('notifications.feed') }}" data-notifications-index="{{ route('notifications.index') }}" data-notifications-mark-all="{{ route('notifications.mark-all-read') }}" @endauth>
     @php
         $headerNotifications = collect();
+        $notificationOverlayItems = collect();
         $unreadNotificationCount = 0;
+        $loginErrors = $errors->getBag('login');
+        $registerErrors = $errors->getBag('register');
+        $activeAuthModal = session('auth_modal');
 
         if (auth()->check() && \Illuminate\Support\Facades\Schema::hasTable('app_notifications')) {
             $notificationQuery = auth()->user()->appNotifications();
             $headerNotifications = (clone $notificationQuery)->take(8)->get();
+            $notificationOverlayItems = (clone $notificationQuery)->take(30)->get();
             $unreadNotificationCount = (clone $notificationQuery)->unread()->count();
+        }
+
+        if (! $activeAuthModal) {
+            if ($registerErrors->any()) {
+                $activeAuthModal = 'register';
+            } elseif ($loginErrors->any() || session()->has('google_auth_error')) {
+                $activeAuthModal = 'login';
+            }
         }
     @endphp
 
@@ -48,7 +55,7 @@
                 @endguest
                 <span class="logo-copy">
                     <strong><span class="brand-mjjd">MJJD</span> <span class="brand-telecom">Telecom</span></strong>
-                    <small>Powered by Surf2Sawa</small>
+                    <small>Customer Relationship Management System</small>
                 </span>
             </a>
         </div>
@@ -57,9 +64,7 @@
             @auth
                 @php
                     $chatUrl = filled(Auth::user()->role)
-                        ? (Auth::user()->role === 'customer'
-                            ? route('chat.index')
-                            : route('role.chat.index', ['role' => Auth::user()->role]))
+                        ? (Auth::user()->role === 'customer' ? route('chat.index') : route('role.chat.index', ['role' => Auth::user()->role]))
                         : route('chat.index');
                 @endphp
                 <span class="user-meta">
@@ -86,18 +91,18 @@
                                     @if($notification->message)
                                         <span class="notif-message">{{ $notification->message }}</span>
                                     @endif
-                                    <span class="notif-time">{{ $notification->created_at->diffForHumans() }}</span>
+                                    <span class="notif-time">{{ $notification->created_at->displayRelative() }}</span>
                                 </a>
                             @empty
                                 <div class="notif-empty">No notifications yet.</div>
                             @endforelse
                         </div>
                         <div class="notif-dropdown-actions">
-                            <form id="notifMarkAllForm" method="POST" action="{{ route('notifications.mark-all-read') }}">
+                            <form id="notifMarkAllForm" method="POST" action="{{ route('notifications.mark-all-read') }}" data-notif-mark-all>
                                 @csrf
                                 <button type="submit" class="btn-link">Mark all as read</button>
                             </form>
-                            <a href="{{ route('notifications.index') }}" class="notif-view-all">View all</a>
+                            <button type="button" class="notif-view-all" data-open-notifications-overlay>View all</button>
                         </div>
                     </div>
                 </div>
@@ -129,8 +134,8 @@
                         <a href="{{ url('/#support') }}">Support</a>
                     </nav>
                     <div class="guest-actions">
-                        <a href="{{ route('login') }}" class="btn secondary" data-open-login-modal>Log in</a>
-                        <a href="{{ route('register') }}" class="btn" data-open-register-modal>Register</a>
+                        <a href="{{ url('/') }}" class="btn secondary" data-open-login-modal>Log in</a>
+                        <a href="{{ url('/') }}" class="btn" data-open-register-modal>Register</a>
                     </div>
                 </div>
             @endauth
@@ -143,30 +148,22 @@
 
     <main class="main-content">
         @isset($header)
-            <section class="page-header card page-header-card">
-                {{ $header }}
-            </section>
+            <section class="page-header card page-header-card">{{ $header }}</section>
         @endisset
 
         @if(session('success') || session('error') || session('status'))
             <div class="flash-stack">
-                @if(session('success'))
-                    <div class="alert alert-success">{{ session('success') }}</div>
-                @endif
-                @if(session('error'))
-                    <div class="alert alert-error">{{ session('error') }}</div>
-                @endif
-                @if(session('status'))
-                    <div class="alert alert-info">{{ session('status') }}</div>
-                @endif
+                @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+                @if(session('error'))<div class="alert alert-error">{{ session('error') }}</div>@endif
+                @if(session('status'))<div class="alert alert-info">{{ session('status') }}</div>@endif
             </div>
         @endif
 
-        @if ($errors->any())
-            <div class="flash-stack">
-                <div class="alert alert-error">{{ $errors->first() }}</div>
-            </div>
-        @endif
+        @auth
+            @if ($errors->any())
+                <div class="flash-stack"><div class="alert alert-error">{{ $errors->first() }}</div></div>
+            @endif
+        @endauth
 
         <div class="page-body">
             @isset($slot)
@@ -177,67 +174,97 @@
         </div>
     </main>
 
+    @auth
+        <div class="notifications-overlay" id="notificationsOverlay" aria-hidden="true">
+            <div class="notifications-overlay__backdrop" data-close-notifications-overlay></div>
+            <div class="notifications-overlay__dialog" role="dialog" aria-modal="true" aria-labelledby="notificationsOverlayTitle">
+                <button type="button" class="notifications-overlay__close" data-close-notifications-overlay aria-label="Close notifications overlay">&times;</button>
+                <div class="notifications-overlay__shell">
+                    <div class="notifications-overlay__head">
+                        <div>
+                            <h2 id="notificationsOverlayTitle">Notifications</h2>
+                            <p>Open any item to go directly to the related ticket, application, installation, or account page.</p>
+                        </div>
+                        <form method="POST" action="{{ route('notifications.mark-all-read') }}" data-notif-mark-all>
+                            @csrf
+                            <button type="submit" class="btn secondary">Mark all as read</button>
+                        </form>
+                    </div>
+
+                    <div class="notifications-overlay__filters">
+                        <button type="button" class="notifications-filter-chip is-active" data-notifications-filter="all">All</button>
+                        <button type="button" class="notifications-filter-chip" data-notifications-filter="unread">Unread</button>
+                    </div>
+
+                    <div class="notifications-overlay__list notifications-page-list" id="notificationsOverlayList">
+                        @forelse($notificationOverlayItems as $notification)
+                            <a href="{{ route('notifications.redirect', $notification) }}" class="notifications-page-item notifications-compact-item {{ $notification->read_at ? '' : 'is-unread' }}" data-notification-item data-notification-unread="{{ $notification->read_at ? '0' : '1' }}">
+                                <div class="notifications-compact-dot-wrap">
+                                    <span class="notifications-compact-dot {{ $notification->read_at ? '' : 'is-unread' }}"></span>
+                                </div>
+                                <div class="notifications-page-main">
+                                    <div class="notifications-page-title-row">
+                                        <span class="notifications-page-title">{{ $notification->title }}</span>
+                                    </div>
+                                    @if($notification->message)
+                                        <p class="notifications-page-message">{{ $notification->message }}</p>
+                                    @endif
+                                    <div class="notifications-page-time">{{ $notification->created_at->displayRelative() }}</div>
+                                </div>
+                            </a>
+                        @empty
+                            <div class="notif-empty">No notifications yet.</div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endauth
+
     @guest
         @include('partials.login-modal')
         @include('partials.register-modal')
     @endguest
 
     @unless (trim($__env->yieldContent('hide_global_footer')) === '1')
-        <footer class="footer">
-            <p>&copy; {{ date('Y') }} MJJD Telecom. All rights reserved.</p>
-        </footer>
+        <footer class="footer"><p>&copy; {{ date('Y') }} MJJD Telecom. All rights reserved.</p></footer>
     @endunless
+
+    @stack('scripts')
+
     @guest
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const body = document.body;
                 const loginModal = document.getElementById('loginModal');
                 const registerModal = document.getElementById('registerModal');
-                const modals = {
-                    login: loginModal,
-                    register: registerModal
-                };
-
+                const modals = { login: loginModal, register: registerModal };
                 if (!loginModal || !registerModal) return;
 
-                const openRegisterFromErrors = {{ ((bool) (old('first_name') || old('last_name') || old('role') === 'customer' || $errors->has('first_name') || $errors->has('last_name') || $errors->has('password_confirmation'))) ? 'true' : 'false' }};
-                const openLoginFromErrors = {{ ((! (bool) (old('first_name') || old('last_name') || old('role') === 'customer' || $errors->has('first_name') || $errors->has('last_name') || $errors->has('password_confirmation'))) && ($errors->has('email') || $errors->has('password'))) ? 'true' : 'false' }};
+                const activeAuthModal = @json($activeAuthModal);
 
                 const syncBodyState = function () {
-                    const hasOpenModal = Object.values(modals).some(function (modal) {
-                        return modal && modal.classList.contains('is-open');
-                    });
-
+                    const hasOpenModal = Object.values(modals).some(function (modal) { return modal && modal.classList.contains('is-open'); });
                     body.classList.toggle('login-modal-open', hasOpenModal);
                 };
 
                 const closeModal = function (name) {
                     const modal = modals[name];
                     if (!modal) return;
-
                     modal.classList.remove('is-open');
                     modal.setAttribute('aria-hidden', 'true');
                     syncBodyState();
                 };
 
-                const closeAllModals = function () {
-                    Object.keys(modals).forEach(closeModal);
-                };
+                const closeAllModals = function () { Object.keys(modals).forEach(closeModal); };
 
                 const openModal = function (name) {
                     const modal = modals[name];
                     if (!modal) return;
-
-                    Object.keys(modals).forEach(function (key) {
-                        if (key !== name) {
-                            closeModal(key);
-                        }
-                    });
-
+                    Object.keys(modals).forEach(function (key) { if (key !== name) { closeModal(key); } });
                     modal.classList.add('is-open');
                     modal.setAttribute('aria-hidden', 'false');
                     syncBodyState();
-
                     const firstInput = modal.querySelector('input:not([type="hidden"])');
                     if (firstInput) {
                         window.setTimeout(function () { firstInput.focus(); }, 30);
@@ -259,40 +286,31 @@
                 });
 
                 Array.from(loginModal.querySelectorAll('[data-close-login-modal]')).forEach(function (trigger) {
-                    trigger.addEventListener('click', function () {
-                        closeModal('login');
-                    });
+                    trigger.addEventListener('click', function () { closeModal('login'); });
                 });
 
                 Array.from(registerModal.querySelectorAll('[data-close-register-modal]')).forEach(function (trigger) {
-                    trigger.addEventListener('click', function () {
-                        closeModal('register');
-                    });
+                    trigger.addEventListener('click', function () { closeModal('register'); });
                 });
 
                 Array.from(document.querySelectorAll('[data-switch-modal]')).forEach(function (trigger) {
                     trigger.addEventListener('click', function (event) {
                         const target = trigger.getAttribute('data-switch-modal');
                         if (!target || !modals[target]) return;
-
                         event.preventDefault();
                         openModal(target);
                     });
                 });
 
                 document.addEventListener('keydown', function (event) {
-                    if (event.key === 'Escape') {
-                        closeAllModals();
-                    }
+                    if (event.key === 'Escape') { closeAllModals(); }
                 });
 
-                window.addEventListener('pagehide', function () {
-                    body.classList.remove('login-modal-open');
-                });
+                window.addEventListener('pagehide', function () { body.classList.remove('login-modal-open'); });
 
-                if (openRegisterFromErrors) {
+                if (activeAuthModal === 'register') {
                     openModal('register');
-                } else if (openLoginFromErrors) {
+                } else if (activeAuthModal === 'login') {
                     openModal('login');
                 }
             });
@@ -303,8 +321,3 @@
     @yield('scripts')
 </body>
 </html>
-
-
-
-
-

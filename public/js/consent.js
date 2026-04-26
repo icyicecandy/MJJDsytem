@@ -25,6 +25,8 @@
 
             checkbox.disabled = false;
             checkbox.dataset.consentUnlocked = 'true';
+            checkbox.checked = true;
+            checkbox.setAttribute('aria-disabled', 'true');
         }
 
         function closeModal(modal) {
@@ -91,19 +93,33 @@
             const body = modal.querySelector('[data-consent-scroll-body]');
             const lockId = modal.dataset.consentLockId;
             const checkbox = getLockCheckbox(lockId);
+            const scrollMessage = body ? body.querySelector('[data-consent-scroll-message]') : null;
+
             if (!body || !lockId || !checkbox) {
                 return;
             }
 
-            const alreadyUnlocked = checkbox.dataset.consentUnlocked === 'true' || !checkbox.disabled;
+            if (modal.hidden || body.clientHeight === 0) {
+                return;
+            }
+
+            // Only consider it already unlocked if explicitly marked so AND the checkbox was previously checked
+            const alreadyUnlocked = checkbox.dataset.consentUnlocked === 'true' && checkbox.checked;
             if (alreadyUnlocked) {
-                setUnlocked(lockId);
+                if (scrollMessage) {
+                    scrollMessage.classList.add('hidden');
+                }
                 return;
             }
 
             const reachedEnd = body.scrollTop + body.clientHeight >= body.scrollHeight - 8;
             if (reachedEnd) {
                 setUnlocked(lockId);
+                if (scrollMessage) {
+                    scrollMessage.classList.add('hidden');
+                }
+            } else if (scrollMessage) {
+                scrollMessage.classList.remove('hidden');
             }
         }
 
@@ -122,7 +138,9 @@
             modal.classList.add('is-open');
             document.body.classList.add('consent-modal-open');
             document.addEventListener('keydown', handleModalKeydown);
-            syncScrollUnlock(modal);
+            window.requestAnimationFrame(function () {
+                syncScrollUnlock(modal);
+            });
 
             const focusable = getFocusable(modal.querySelector('.consent-modal-dialog'));
             const target = focusable[0] || modal.querySelector('.consent-modal-dialog');
@@ -150,7 +168,6 @@
                 body.addEventListener('scroll', function () {
                     syncScrollUnlock(modal);
                 });
-                window.requestAnimationFrame(() => syncScrollUnlock(modal));
             }
 
             modal.querySelectorAll('[data-consent-close]').forEach((closer) => {
@@ -221,12 +238,14 @@
 
             checkboxes.forEach((checkbox) => {
                 checkbox.addEventListener('click', function (event) {
-                    if (checkbox.disabled) {
-                        event.preventDefault();
-                    }
+                    event.preventDefault();
                 });
 
                 checkbox.addEventListener('change', function () {
+                    if (checkbox.dataset.consentUnlocked === 'true') {
+                        checkbox.checked = true;
+                    }
+
                     if (hasAllChecked()) {
                         clearState();
                     } else if (error.classList.contains('is-visible')) {
@@ -255,4 +274,3 @@
     window.initConsentSections = initConsentSections;
     window.addEventListener('DOMContentLoaded', initConsentSections);
 })();
-

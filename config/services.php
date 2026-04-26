@@ -28,6 +28,13 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+        'ca_bundle' => env('GOOGLE_OAUTH_CA_BUNDLE'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
@@ -41,5 +48,9 @@ return [
         'timeout' => env('OLLAMA_TIMEOUT', 20),
     ],
 
-];
+    'support_chat' => [
+        'presence_window_seconds' => env('SUPPORT_CHAT_PRESENCE_WINDOW_SECONDS', env('SUPPORT_CHAT_PRESENCE_WINDOW_MINUTES', env('SUPPORT_CHAT_PRESENCE_WINDOW', 2)) * 60),
+        'max_active_conversations_per_staff' => env('SUPPORT_CHAT_MAX_ACTIVE', 1),
+    ],
 
+];

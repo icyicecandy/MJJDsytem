@@ -11,7 +11,13 @@ test('profile page is displayed', function () {
         ->actingAs($user)
         ->get('/profile');
 
-    $response->assertOk();
+    $response->assertOk()
+        ->assertSee('name="date_of_birth"', false)
+        ->assertSee('name="gender"', false)
+        ->assertSee('name="language"', false)
+        ->assertSee('name="theme_preference"', false)
+        ->assertSee(route('profile.export', absolute: false), false)
+        ->assertSee(route('profile.deletion-request', absolute: false), false);
 });
 
 test('profile information can be updated with avatar preferences and privacy settings', function () {

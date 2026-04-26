@@ -12,6 +12,7 @@
     ];
     $statusValue = $technician->technician_status ?: 'available';
     $statusLabel = $statusLabels[$statusValue] ?? ucfirst(str_replace('_', ' ', $statusValue));
+    $chatStatusLabel = $technician->chatAvailabilityLabel();
 @endphp
 
 @section('content')
@@ -22,7 +23,7 @@
         <div class="telecom-chip-row">
             <span class="telecom-chip">Shift: {{ $technician->technician_shift ?: 'Not set' }}</span>
             <span class="telecom-chip">Status: {{ $statusLabel }}</span>
-            <span class="telecom-chip">Chat: {{ $technician->chat_available ? 'Available' : 'Unavailable' }}</span>
+            <span class="telecom-chip">Chat: {{ $chatStatusLabel }}</span>
         </div>
     </section>
 
@@ -88,8 +89,8 @@
                     <div class="tracking-meta"><strong>Address</strong><span>{{ $technician->address ?: 'No address on file' }}</span></div>
                     <div class="tracking-meta"><strong>Shift</strong><span>{{ $technician->technician_shift ?: 'Not set' }}</span></div>
                     <div class="tracking-meta"><strong>Status</strong><span>{{ $statusLabel }}</span></div>
-                    <div class="tracking-meta"><strong>Online Presence</strong><span>{{ $technician->is_online ? 'Online' : 'Offline' }}</span></div>
-                    <div class="tracking-meta"><strong>Live Chat Availability</strong><span>{{ $technician->chat_available ? 'Available' : 'Unavailable' }}</span></div>
+                    <div class="tracking-meta"><strong>Online Presence</strong><span>{{ $technician->hasRecentChatActivity() ? 'Online' : 'Offline' }}</span></div>
+                    <div class="tracking-meta"><strong>Live Chat Availability</strong><span>{{ $chatStatusLabel }}</span></div>
                 </div>
             </div>
         </div>
@@ -224,7 +225,7 @@
                                     </td>
                                     <td>{{ $ticket->user->name ?? 'Unknown customer' }}</td>
                                     <td><span class="badge {{ $ticket->status }}">{{ ucfirst(str_replace('_', ' ', $ticket->status)) }}</span></td>
-                                    <td>{{ $ticket->created_at?->diffForHumans() }}</td>
+                                    <td>{{ $ticket->created_at?->displayRelative() }}</td>
                                     <td><a href="{{ route('admin.tickets.show', $ticket) }}" class="btn secondary">View</a></td>
                                 </tr>
                             @endforeach
@@ -235,6 +236,10 @@
                 <div class="empty-state">No support tickets are currently assigned to this technician.</div>
             @endif
         </div>
+    </section>
+
+    <section class="card">
+        <a href="{{ route('admin.technicians.index') }}" class="btn secondary">Back</a>
     </section>
 </div>
 @endsection

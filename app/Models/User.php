@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\AppNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Models\AppNotification;
+use Illuminate\Support\Carbon;
 
 class User extends Authenticatable
 {
@@ -16,13 +17,14 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'google_id',
         'username',
         'bio',
         'phone',
         'phone_verified_at',
+        'address',
         'date_of_birth',
         'gender',
-        'address',
         'avatar_path',
         'language',
         'timezone',
@@ -43,6 +45,7 @@ class User extends Authenticatable
         'is_online',
         'last_seen',
         'chat_available',
+        'email_verified_at',
     ];
 
     protected $hidden = [
@@ -64,15 +67,15 @@ class User extends Authenticatable
             'consented_at' => 'datetime',
             'phone_verified_at' => 'datetime',
             'date_of_birth' => 'date',
+            'password' => 'hashed',
+            'last_seen' => 'datetime',
+            'is_online' => 'boolean',
+            'chat_available' => 'boolean',
             'email_notifications' => 'boolean',
             'push_notifications' => 'boolean',
             'sms_notifications' => 'boolean',
             'data_sharing_enabled' => 'boolean',
             'deletion_requested_at' => 'datetime',
-            'password' => 'hashed',
-            'last_seen' => 'datetime',
-            'is_online' => 'boolean',
-            'chat_available' => 'boolean',
         ];
     }
 
@@ -136,11 +139,6 @@ class User extends Authenticatable
         return $this->role === 'customer';
     }
 
-    public function subscription()
-    {
-        return $this->hasOne(\App\Models\Subscription::class);
-    }
-
     public function ticketMessages()
     {
         return $this->hasMany(\App\Models\TicketMessage::class);
@@ -170,6 +168,7 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\InstallationLog::class);
     }
+
     public function appNotifications()
     {
         return $this->hasMany(AppNotification::class)->latest();
@@ -183,6 +182,47 @@ class User extends Authenticatable
     public function scopeAvailableSupport($query)
     {
         return $query->whereIn('role', ['admin', 'technician'])
+            ->where('is_online', true)
             ->where('chat_available', true);
+    }
+
+    public function chatPresenceThreshold(): Carbon
+    {
+        return now()->subSeconds((int) config('services.support_chat.presence_window_seconds', 120));
+    }
+
+    public function hasRecentChatActivity(): bool
+    {
+        return $this->last_seen !== null && $this->last_seen->gte($this->chatPresenceThreshold());
+    }
+
+    public function isEffectivelyChatAvailable(): bool
+    {
+        return ($this->isAdmin() || $this->isTechnician())
+            && $this->is_online === true
+            && $this->chat_available === true
+            && $this->hasRecentChatActivity();
+    }
+
+    public function chatAvailabilityState(): string
+    {
+        if ($this->isEffectivelyChatAvailable()) {
+            return 'available';
+        }
+
+        if ($this->chat_available === false) {
+            return 'away';
+        }
+
+        return 'offline';
+    }
+
+    public function chatAvailabilityLabel(): string
+    {
+        return match ($this->chatAvailabilityState()) {
+            'available' => 'Available',
+            'away' => 'Away',
+            default => 'Offline',
+        };
     }
 }

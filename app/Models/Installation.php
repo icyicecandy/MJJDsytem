@@ -2,45 +2,48 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
 class Installation extends Model
 {
+    public const ACTIVE_SCHEDULING_STATUSES = ['scheduled', 'assigned', 'in_progress'];
+    public const TECHNICIAN_STATUS_TRANSITIONS = [
+        'scheduled' => ['in_progress'],
+        'in_progress' => ['completed'],
+        'completed' => [],
+    ];
+
+    public const AVAILABLE_TIME_SLOTS = [
+        '08:00',
+        '09:00',
+        '10:00',
+        '11:00',
+        '13:00',
+        '14:00',
+        '15:00',
+        '16:00',
+    ];
+
+    public const SLOT_DURATION_MINUTES = 60;
+
     protected $fillable = [
         'application_id',
         'technician_id',
+        'assigned_at',
         'installation_date',
         'installation_time',
         'status',
         'completed_at',
-        'installation_photo_path',
-        'speedtest_photo_path',
-        'nap_photo_path',
-        'nap_code',
-        'lp_code',
-        'np_code',
-        'full_nap_label',
-        'port_number',
-        'jo_number',
-        'activation_date',
-        'activation_status',
-        'package_name',
         'technician_remarks',
-        'router_serial',
-        'cable_reel_no',
-        'material_notes',
-        'speed_test_result',
-        'router_photo_path',
-        'acceptance_report_photo_path',
-        'cable_reel_photo_path',
-        'customer_signature_photo_path',
+        'installation_photo_path',
     ];
 
     protected function casts(): array
     {
         return [
+            'assigned_at' => 'datetime',
             'installation_date' => 'date',
-            'activation_date' => 'date',
             'completed_at' => 'datetime',
         ];
     }
@@ -53,6 +56,11 @@ class Installation extends Model
     public function technician()
     {
         return $this->belongsTo(\App\Models\User::class, 'technician_id');
+    }
+
+    public function logs()
+    {
+        return $this->hasMany(InstallationLog::class)->latest();
     }
 
     public function displayJobReference(): string
@@ -74,34 +82,50 @@ class Installation extends Model
         return $this->status === 'completed';
     }
 
-    public function activationDetails(): array
+    public function isInProgress(): bool
+    {
+        return $this->status === 'in_progress';
+    }
+
+    public function canTransitionTo(string $status): bool
+    {
+        return in_array($status, self::TECHNICIAN_STATUS_TRANSITIONS[$this->status] ?? [], true);
+    }
+
+    public function scheduledStartAt(): ?Carbon
+    {
+        if (! $this->installation_date || ! $this->installation_time) {
+            return null;
+        }
+
+        return Carbon::parse($this->installation_date->format('Y-m-d') . ' ' . $this->installation_time);
+    }
+
+    public function scheduledEndAt(): ?Carbon
+    {
+        return $this->scheduledStartAt()?->copy()->addMinutes(self::SLOT_DURATION_MINUTES);
+    }
+
+    public static function activeSchedulingStatuses(): array
+    {
+        return self::ACTIVE_SCHEDULING_STATUSES;
+    }
+
+    public function recordDetails(): array
     {
         return [
-            'NAP Code' => $this->nap_code,
-            'LP Code' => $this->lp_code,
-            'NP Code' => $this->np_code,
-            'Full NAP Label' => $this->full_nap_label,
-            'Port Number' => $this->port_number,
-            'JO Number' => $this->jo_number,
-            'Activation Date' => $this->activation_date?->format('F d, Y'),
-            'Activation Status' => $this->activation_status,
-            'Package' => $this->package_name,
-            'Router Serial' => $this->router_serial,
-            'Cable Reel No.' => $this->cable_reel_no,
-            'Speed Test Result' => $this->speed_test_result,
+            'Installation Status' => $this->displayStatusLabel(),
+            'Assigned At' => $this->assigned_at?->displayDateTime('F d, Y h:i A'),
+            'Scheduled Date' => $this->installation_date?->format('F d, Y'),
+            'Scheduled Time' => $this->installation_time ? \Carbon\Carbon::parse($this->installation_time)->format('h:i A') : null,
+            'Completed At' => $this->completed_at?->displayDateTime('F d, Y h:i A'),
         ];
     }
 
     public function proofPhotos(): array
     {
         return [
-            'Router Photo' => $this->router_photo_path,
-            'Speed Test Photo' => $this->speedtest_photo_path,
-            'NAP Box Photo' => $this->nap_photo_path,
-            'Acceptance Report Photo' => $this->acceptance_report_photo_path,
-            'Cable Reel Photo' => $this->cable_reel_photo_path,
-            'Installation Site Photo' => $this->installation_photo_path,
-            'Customer Signature Photo' => $this->customer_signature_photo_path,
+            'Installation Photo' => $this->installation_photo_path,
         ];
     }
 }

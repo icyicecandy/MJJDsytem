@@ -10,15 +10,43 @@ use Illuminate\Support\Facades\Auth;
 
 class TechnicianTicketController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $tickets = Ticket::with('user')
+        $selectedStatus = $request->query('status', 'all');
+        $search = trim((string) $request->query('search', ''));
+        if (! in_array($selectedStatus, ['all', 'queued', 'in_progress', 'resolved', 'closed'], true)) {
+            $selectedStatus = 'all';
+        }
+
+        $ticketsQuery = Ticket::with('user')
             ->assignedTo(Auth::user())
             ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 WHEN status = 'queued' THEN 1 WHEN status = 'open' THEN 2 ELSE 3 END")
-            ->oldest('created_at')
-            ->get();
+            ->oldest('created_at');
 
-        return view('technician.tickets.index', compact('tickets'));
+        if ($search !== '') {
+            $ticketsQuery->where(function ($query) use ($search) {
+                $query->where('tracking_number', 'like', '%' . $search . '%')
+                    ->orWhere('subject', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        if ($selectedStatus !== 'all') {
+            $ticketsQuery->where('status', $selectedStatus);
+        }
+
+        $tickets = $ticketsQuery->get();
+
+        $queueSummary = [
+            'queued' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_QUEUED)->count(),
+            'in_progress' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_IN_PROGRESS)->count(),
+            'resolved' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_RESOLVED)->count(),
+            'closed' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_CLOSED)->count(),
+        ];
+
+        return view('technician.tickets.index', compact('tickets', 'queueSummary', 'selectedStatus', 'search'));
     }
 
     public function resolve(Ticket $ticket)

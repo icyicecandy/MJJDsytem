@@ -54,7 +54,7 @@
                 <div>
                     <div class="metric-label">Installed Applications</div>
                     <div class="metric-value">{{ $installedApplications }}</div>
-                    <div class="metric-meta">Completed service activations</div>
+                    <div class="metric-meta">Completed installations</div>
                 </div>
                 <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 3 7v6c0 5 3.8 8.7 9 9 5.2-.3 9-4 9-9V7l-9-5Z"></path><path d="m9 12 2 2 4-4"></path></svg></div>
             </div>
@@ -108,19 +108,7 @@
         </div>
     </section>
 
-    <div class="panel-card">
-        <div class="panel-header">
-            <div class="panel-title-wrap">
-                <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h18v18H3z"></path><path d="M7 15l3-3 2 2 5-5"></path></svg></span>
-                <div>
-                    <div class="panel-title">Ticket Status Analytics</div>
-                    <div class="panel-subtitle">Visual placeholder for service support status distribution</div>
-                </div>
-            </div>
-        </div>
-        <div class="panel-body">
-            <div class="chart" data-chart="ticket-status"></div>
-        </div>
-    </div>
 </div>
 @endsection
+
+

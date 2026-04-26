@@ -62,6 +62,28 @@
         </a>`;
     }
 
+    function renderOverlayNotificationItem(notification) {
+        const unreadClass = notification.is_unread ? ' is-unread' : '';
+        const unreadValue = notification.is_unread ? '1' : '0';
+        const message = notification.message
+            ? `<p class="notifications-page-message">${escapeHtml(notification.message)}</p>`
+            : '';
+        const time = notification.time ? `<div class="notifications-page-time">${escapeHtml(notification.time)}</div>` : '';
+
+        return `<a href="${escapeHtml(notification.url)}" class="notifications-page-item notifications-compact-item${unreadClass}" data-notification-item data-notification-unread="${unreadValue}">
+            <div class="notifications-compact-dot-wrap">
+                <span class="notifications-compact-dot${notification.is_unread ? ' is-unread' : ''}"></span>
+            </div>
+            <div class="notifications-page-main">
+                <div class="notifications-page-title-row">
+                    <span class="notifications-page-title">${escapeHtml(notification.title)}</span>
+                </div>
+                ${message}
+                ${time}
+            </div>
+        </a>`;
+    }
+
     function initNotificationCenter() {
         const body = document.body;
         const feedUrl = body?.dataset.notificationsFeed;
@@ -70,13 +92,31 @@
         const notifDropdownList = document.getElementById('notifDropdownList');
         const notifUnreadLabel = document.getElementById('notifUnreadLabel');
         const notifDot = document.querySelector('.notif-dot');
-        const notifMarkAllForm = document.getElementById('notifMarkAllForm');
+        const notifMarkAllForms = document.querySelectorAll('[data-notif-mark-all]');
+        const notificationsOverlay = document.getElementById('notificationsOverlay');
+        const notificationsOverlayList = document.getElementById('notificationsOverlayList');
+        const overlayOpeners = document.querySelectorAll('[data-open-notifications-overlay]');
+        const overlayClosers = document.querySelectorAll('[data-close-notifications-overlay]');
+        const overlayFilterButtons = document.querySelectorAll('[data-notifications-filter]');
 
         if (!feedUrl || !notifDropdownList || !notifUnreadLabel || !notifDot) {
             return;
         }
 
         let isFetching = false;
+        let overlayFilter = 'all';
+
+        function applyOverlayFilter() {
+            if (!notificationsOverlayList) {
+                return;
+            }
+
+            notificationsOverlayList.querySelectorAll('[data-notification-item]').forEach((item) => {
+                const isUnread = item.getAttribute('data-notification-unread') === '1';
+                const show = overlayFilter === 'all' || isUnread;
+                item.style.display = show ? '' : 'none';
+            });
+        }
 
         function applyNotificationState(payload) {
             const unreadCount = Number(payload.unread_count || 0);
@@ -89,6 +129,18 @@
                     .join('');
             } else {
                 notifDropdownList.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+            }
+
+            if (notificationsOverlayList) {
+                const overlayNotifications = Array.isArray(payload.all_notifications) && payload.all_notifications.length > 0
+                    ? payload.all_notifications
+                    : (Array.isArray(payload.notifications) ? payload.notifications : []);
+
+                notificationsOverlayList.innerHTML = overlayNotifications.length > 0
+                    ? overlayNotifications.map(renderOverlayNotificationItem).join('')
+                    : '<div class="notif-empty">No notifications yet.</div>';
+
+                applyOverlayFilter();
             }
         }
 
@@ -120,29 +172,76 @@
             }
         }
 
-        if (notifMarkAllForm && markAllUrl && csrfToken) {
-            notifMarkAllForm.addEventListener('submit', async function (event) {
-                event.preventDefault();
+        if (notifMarkAllForms.length && markAllUrl && csrfToken) {
+            notifMarkAllForms.forEach((form) => {
+                form.addEventListener('submit', async function (event) {
+                    event.preventDefault();
 
-                try {
-                    const response = await fetch(markAllUrl, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': csrfToken,
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
-                        },
-                        credentials: 'same-origin'
-                    });
+                    try {
+                        const response = await fetch(markAllUrl, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': csrfToken,
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json'
+                            },
+                            credentials: 'same-origin'
+                        });
 
-                    if (response.ok) {
-                        refreshNotifications();
+                        if (response.ok) {
+                            refreshNotifications();
+                        }
+                    } catch (error) {
+                        console.error('Mark all as read failed.', error);
                     }
-                } catch (error) {
-                    console.error('Mark all as read failed.', error);
-                }
+                });
             });
         }
+
+        function openNotificationsOverlay() {
+            if (!notificationsOverlay) {
+                return;
+            }
+
+            notificationsOverlay.classList.add('is-open');
+            notificationsOverlay.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('ticket-overlay-open');
+        }
+
+        function closeNotificationsOverlay() {
+            if (!notificationsOverlay) {
+                return;
+            }
+
+            notificationsOverlay.classList.remove('is-open');
+            notificationsOverlay.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('ticket-overlay-open');
+        }
+
+        overlayOpeners.forEach((button) => {
+            button.addEventListener('click', function (event) {
+                event.preventDefault();
+                const notifDropdown = document.getElementById('notifDropdown');
+                if (notifDropdown) {
+                    notifDropdown.style.display = 'none';
+                }
+                openNotificationsOverlay();
+            });
+        });
+
+        overlayClosers.forEach((button) => {
+            button.addEventListener('click', closeNotificationsOverlay);
+        });
+
+        overlayFilterButtons.forEach((button) => {
+            button.addEventListener('click', function () {
+                overlayFilter = button.getAttribute('data-notifications-filter') || 'all';
+                overlayFilterButtons.forEach((filterButton) => {
+                    filterButton.classList.toggle('is-active', filterButton === button);
+                });
+                applyOverlayFilter();
+            });
+        });
 
         refreshNotifications();
         window.setInterval(() => {
@@ -170,6 +269,7 @@
         const notifToggle = document.getElementById('notifToggle');
         const notifDropdown = document.getElementById('notifDropdown');
         const chatToggle = document.getElementById('chatToggle');
+        const notificationsOverlay = document.getElementById('notificationsOverlay');
 
         function toggleSidebar() {
             if (!sidebar) return;
@@ -211,6 +311,14 @@
         document.addEventListener('click', function () {
             if (profileDropdown) profileDropdown.style.display = 'none';
             if (notifDropdown) notifDropdown.style.display = 'none';
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && notificationsOverlay && notificationsOverlay.classList.contains('is-open')) {
+                notificationsOverlay.classList.remove('is-open');
+                notificationsOverlay.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('ticket-overlay-open');
+            }
         });
 
         const links = document.querySelectorAll('.sidebar-item a');

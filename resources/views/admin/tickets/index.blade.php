@@ -7,15 +7,62 @@
     <section class="card section-title-card">
         <div>
             <h1>Support Tickets</h1>
-            <p>Review the FIFO support queue, assign technicians, and keep ticket resolution work aligned from one admin queue.</p>
+            <p>Review the queue, assign or reassign technicians, and close tickets after the assigned technician resolves them.</p>
         </div>
     </section>
 
-    @if(session('success'))
-        <section class="notice-card">
-            {{ session('success') }}
-        </section>
-    @endif
+    <section class="card ticket-queue-overview">
+        <div class="ticket-queue-overview__head">
+            <form method="GET" action="{{ route('admin.tickets.index') }}" class="toolbar-row">
+                @if($selectedStatus !== 'all')
+                    <input type="hidden" name="status" value="{{ $selectedStatus }}">
+                @endif
+                <div class="toolbar-field grow">
+                    <label for="admin_ticket_search">Search Tickets</label>
+                    <input
+                        id="admin_ticket_search"
+                        type="text"
+                        name="search"
+                        value="{{ $search }}"
+                        placeholder="Tracking number, customer name, or subject"
+                    >
+                </div>
+                <div class="toolbar-actions">
+                    <button type="submit" class="btn">Search</button>
+                    @if($search !== '' || $selectedStatus !== 'all')
+                        <a href="{{ route('admin.tickets.index') }}" class="btn secondary">Reset</a>
+                    @endif
+                </div>
+            </form>
+        </div>
+        <div class="ticket-queue-overview__grid">
+            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'unassigned', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'unassigned' ? 'is-active' : '' }}">
+                <span class="ticket-queue-metric__label">Unassigned</span>
+                <strong class="ticket-queue-metric__value">{{ $queueSummary['unassigned'] }}</strong>
+                <span class="ticket-queue-metric__meta">Waiting for admin review or technician assignment</span>
+            </a>
+            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'queued', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'queued' ? 'is-active' : '' }}">
+                <span class="ticket-queue-metric__label">Queued</span>
+                <strong class="ticket-queue-metric__value">{{ $queueSummary['queued'] }}</strong>
+                <span class="ticket-queue-metric__meta">Assigned tickets waiting for technician work to begin</span>
+            </a>
+            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'in_progress', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'in_progress' ? 'is-active' : '' }}">
+                <span class="ticket-queue-metric__label">In Progress</span>
+                <strong class="ticket-queue-metric__value">{{ $queueSummary['in_progress'] }}</strong>
+                <span class="ticket-queue-metric__meta">Currently being worked by assigned technicians</span>
+            </a>
+            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'resolved', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'resolved' ? 'is-active' : '' }}">
+                <span class="ticket-queue-metric__label">Resolved</span>
+                <strong class="ticket-queue-metric__value">{{ $queueSummary['resolved'] }}</strong>
+                <span class="ticket-queue-metric__meta">Completed and waiting for final closure if needed</span>
+            </a>
+            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'closed', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'closed' ? 'is-active' : '' }}">
+                <span class="ticket-queue-metric__label">Closed</span>
+                <strong class="ticket-queue-metric__value">{{ $queueSummary['closed'] }}</strong>
+                <span class="ticket-queue-metric__meta">Finished tickets kept for record history</span>
+            </a>
+        </div>
+    </section>
 
     <section class="card table-card">
         <div class="table-wrap">
@@ -25,9 +72,11 @@
                         <th>Tracking Number</th>
                         <th>Customer</th>
                         <th>Subject</th>
+                        <th>Urgency</th>
                         <th>Status</th>
                         <th>Technician</th>
-                        <th class="col-actions">Actions</th>
+                        <th>Submitted</th>
+                        <th class="col-actions">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -35,35 +84,41 @@
                     <tr>
                         <td><span class="record-strong">{{ $ticket->publicReference() }}</span></td>
                         <td><span class="record-strong">{{ $ticket->user->name }}</span></td>
-                        <td><a href="{{ route('admin.tickets.show', $ticket) }}" class="record-strong">{{ $ticket->subject }}</a></td>
+                        <td>{{ $ticket->subject }}</td>
+                        <td><span class="badge urgency-{{ $ticket->displayUrgencyClass() }}">{{ $ticket->displayUrgencyLabel() }}</span></td>
                         <td><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></td>
-                        <td>{{ optional($ticket->technician)->name ?? 'Unassigned Queue' }}</td>
+                        <td>
+                            @if($ticket->technician)
+                                <span class="record-strong">{{ $ticket->technician->name }}</span>
+                            @else
+                                <span class="ticket-queue-pill">Unassigned Queue</span>
+                            @endif
+                        </td>
+                        <td>{{ $ticket->created_at->displayDateTime() }}</td>
                         <td class="actions-cell">
-                            <form method="POST" action="{{ route('admin.tickets.update', $ticket) }}" class="admin-ticket-actions">
-                                @csrf
-                                @method('PATCH')
-                                <select name="status">
-                                    <option value="queued" {{ $ticket->status=='queued'?'selected':'' }}>Queued</option>
-                                    <option value="open" {{ $ticket->status=='open'?'selected':'' }}>Open</option>
-                                    <option value="in_progress" {{ $ticket->status=='in_progress'?'selected':'' }}>In Progress</option>
-                                    <option value="resolved" {{ $ticket->status=='resolved'?'selected':'' }}>Resolved</option>
-                                    <option value="closed" {{ $ticket->status=='closed'?'selected':'' }}>Closed</option>
-                                </select>
-
-                                <select name="technician_id">
-                                    <option value="">Unassigned Queue</option>
-                                    @foreach($technicians as $tech)
-                                        <option value="{{ $tech->id }}" {{ $ticket->technician_id==$tech->id?'selected':'' }}>{{ $tech->name }}</option>
-                                    @endforeach
-                                </select>
-
-                                <button class="btn secondary">Update</button>
-                            </form>
+                            <button
+                                type="button"
+                                class="btn secondary"
+                                data-ticket-overlay-open
+                                data-ticket-id="{{ $ticket->id }}"
+                                data-ticket-reference="{{ $ticket->publicReference() }}"
+                                data-ticket-customer="{{ $ticket->user->name }}"
+                                data-ticket-subject="{{ e($ticket->subject) }}"
+                                data-ticket-status="{{ $ticket->displayStatusLabel() }}"
+                                data-ticket-status-value="{{ $ticket->status }}"
+                                data-ticket-urgency="{{ $ticket->displayUrgencyLabel() }}"
+                                data-ticket-technician-id="{{ $ticket->technician_id ?? '' }}"
+                                data-ticket-technician-name="{{ optional($ticket->technician)->name ?? 'Unassigned Queue' }}"
+                                data-ticket-update-url="{{ route('admin.tickets.update', $ticket) }}"
+                                data-ticket-show-url="{{ route('admin.tickets.show', $ticket) }}"
+                            >
+                                View
+                            </button>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6"><div class="empty-state compact">No support tickets available.</div></td>
+                        <td colspan="8"><div class="empty-state compact">No support tickets available.</div></td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -71,4 +126,136 @@
         </div>
     </section>
 </div>
+
+<div class="admin-ticket-modal" data-ticket-overlay aria-hidden="true">
+    <div class="admin-ticket-modal__backdrop" data-ticket-overlay-close></div>
+    <div class="admin-ticket-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="adminTicketOverlayTitle">
+        <button type="button" class="admin-ticket-modal__close" data-ticket-overlay-close aria-label="Close assignment overlay">&times;</button>
+        <div class="admin-ticket-modal__shell">
+            <div class="admin-ticket-modal__intro">
+                <h2 id="adminTicketOverlayTitle">Ticket Assignment</h2>
+                <p>Assign or reassign the ticket from this overlay. Technician work-progress updates remain in the assigned technician workspace.</p>
+            </div>
+
+            <div class="admin-ticket-modal__summary">
+                <div class="tracking-meta"><strong>Tracking Number</strong><span data-overlay-reference>-</span></div>
+                <div class="tracking-meta"><strong>Customer</strong><span data-overlay-customer>-</span></div>
+                <div class="tracking-meta"><strong>Subject</strong><span data-overlay-subject>-</span></div>
+                <div class="tracking-meta"><strong>Urgency</strong><span data-overlay-urgency>-</span></div>
+                <div class="tracking-meta"><strong>Status</strong><span data-overlay-status>-</span></div>
+                <div class="tracking-meta"><strong>Assigned To</strong><span data-overlay-technician>-</span></div>
+            </div>
+
+            <form method="POST" class="admin-ticket-modal__form" data-overlay-assign-form>
+                @csrf
+                @method('PATCH')
+                <input type="hidden" name="admin_action" value="save">
+                <label for="overlayTechnicianId">Assign Technician</label>
+                <select id="overlayTechnicianId" name="technician_id" class="technician-load-select" data-overlay-technician-select>
+                    <option value="">Unassigned Queue</option>
+                    @foreach($technicians as $tech)
+                        <option value="{{ $tech->id }}">
+                            {{ $tech->name }} ({{ $tech->active_ticket_load }} active)
+                        </option>
+                    @endforeach
+                </select>
+                <div class="admin-ticket-modal__actions">
+                    <button type="submit" class="btn" data-overlay-assign-submit>Save Assignment</button>
+                    <a href="#" class="btn secondary" data-overlay-detail-link>Open Full Ticket</a>
+                </div>
+            </form>
+
+            <form method="POST" class="admin-ticket-modal__form admin-ticket-modal__close-form" data-overlay-close-form hidden>
+                @csrf
+                @method('PATCH')
+                <input type="hidden" name="admin_action" value="close">
+                <input type="hidden" name="technician_id" value="" data-overlay-close-technician-id>
+                <div class="admin-ticket-modal__actions">
+                    <button type="submit" class="btn secondary">Close Ticket</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
+
+@push('scripts')
+<script>
+    (function () {
+        const overlay = document.querySelector('[data-ticket-overlay]');
+        if (!overlay) {
+            return;
+        }
+
+        const assignForm = overlay.querySelector('[data-overlay-assign-form]');
+        const closeForm = overlay.querySelector('[data-overlay-close-form]');
+        const technicianSelect = overlay.querySelector('[data-overlay-technician-select]');
+        const detailLink = overlay.querySelector('[data-overlay-detail-link]');
+        const assignSubmit = overlay.querySelector('[data-overlay-assign-submit]');
+        const closeTechnicianInput = overlay.querySelector('[data-overlay-close-technician-id]');
+
+        const summaryTargets = {
+            reference: overlay.querySelector('[data-overlay-reference]'),
+            customer: overlay.querySelector('[data-overlay-customer]'),
+            subject: overlay.querySelector('[data-overlay-subject]'),
+            urgency: overlay.querySelector('[data-overlay-urgency]'),
+            status: overlay.querySelector('[data-overlay-status]'),
+            technician: overlay.querySelector('[data-overlay-technician]'),
+        };
+
+        const setSummary = (key, value) => {
+            if (summaryTargets[key]) {
+                summaryTargets[key].textContent = value || '-';
+            }
+        };
+
+        const openOverlay = (button) => {
+            assignForm.action = button.dataset.ticketUpdateUrl;
+            technicianSelect.value = button.dataset.ticketTechnicianId || '';
+            detailLink.href = button.dataset.ticketShowUrl || '#';
+            closeTechnicianInput.value = button.dataset.ticketTechnicianId || '';
+
+            setSummary('reference', button.dataset.ticketReference);
+            setSummary('customer', button.dataset.ticketCustomer);
+            setSummary('subject', button.dataset.ticketSubject);
+            setSummary('urgency', button.dataset.ticketUrgency);
+            setSummary('status', button.dataset.ticketStatus);
+            setSummary('technician', button.dataset.ticketTechnicianName);
+
+            assignSubmit.textContent = button.dataset.ticketTechnicianId ? 'Save Reassignment' : 'Assign Technician';
+
+            if (button.dataset.ticketStatusValue === 'resolved') {
+                closeForm.hidden = false;
+                closeForm.action = button.dataset.ticketUpdateUrl;
+            } else {
+                closeForm.hidden = true;
+                closeForm.action = '';
+            }
+
+            overlay.classList.add('is-open');
+            overlay.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('ticket-overlay-open');
+        };
+
+        const closeOverlay = () => {
+            overlay.classList.remove('is-open');
+            overlay.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('ticket-overlay-open');
+        };
+
+        document.querySelectorAll('[data-ticket-overlay-open]').forEach((button) => {
+            button.addEventListener('click', () => openOverlay(button));
+        });
+
+        overlay.querySelectorAll('[data-ticket-overlay-close]').forEach((button) => {
+            button.addEventListener('click', closeOverlay);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && overlay.classList.contains('is-open')) {
+                closeOverlay();
+            }
+        });
+    })();
+</script>
+@endpush

@@ -5,21 +5,34 @@
             display: grid;
             gap: 1rem;
         }
-        .workflow-hero {
+        .workflow-header,
+        .workflow-card {
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 1rem;
+            background: #fff;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+        }
+        .workflow-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             gap: 1rem;
+            padding: 1.5rem;
             flex-wrap: wrap;
         }
-        .workflow-hero > div:first-child {
+        .workflow-header-copy {
             flex: 1 1 34rem;
         }
-        .workflow-hero-meta {
-            display: grid;
-            gap: 0.65rem;
-            justify-items: end;
-            min-width: 13rem;
+        .workflow-eyebrow,
+        .workflow-label,
+        .workflow-field label,
+        .workflow-coordinate-label {
+            font-size: 0.75rem;
+            line-height: 1.2;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #6b7280;
+            font-weight: 700;
         }
         .workflow-ref {
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -28,136 +41,217 @@
             text-transform: uppercase;
             color: #475569;
         }
-        .workflow-panel .job-card-header {
-            padding-bottom: 0.95rem;
+        .workflow-header h1 {
+            margin: 0.35rem 0 0.45rem;
+        }
+        .workflow-subtitle,
+        .workflow-note,
+        .workflow-card p,
+        .workflow-empty p,
+        .workflow-success p {
+            margin: 0;
+            color: #64748b;
+        }
+        .workflow-header-meta {
+            display: grid;
+            gap: 0.55rem;
+            justify-items: end;
+            min-width: 14rem;
+        }
+        .workflow-schedule-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.45rem 0.8rem;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .workflow-badge--scheduled {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        .workflow-badge--in_progress {
+            background: #fef3c7;
+            color: #b45309;
+        }
+        .workflow-badge--completed {
+            background: #dcfce7;
+            color: #15803d;
         }
         .workflow-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1.15fr) minmax(20rem, 0.85fr);
+            grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
             gap: 1rem;
             align-items: start;
         }
-        .workflow-overview-grid,
-        .workflow-form-grid,
-        .workflow-upload-grid {
-            display: grid;
-            gap: 0.85rem;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-        .workflow-overview-grid .full,
-        .workflow-form-grid .full,
-        .workflow-upload-grid .full {
-            grid-column: 1 / -1;
-        }
-        .workflow-summary-grid {
+        .workflow-column {
             display: grid;
             gap: 1rem;
-            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
         }
-        .workflow-review-grid {
+        .workflow-card {
             display: grid;
             gap: 1rem;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            padding: 1.25rem;
         }
-        .workflow-review-box {
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            border-radius: 14px;
-            padding: 1rem;
-            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-        }
-        .workflow-review-box strong {
-            display: block;
-            margin-bottom: 0.55rem;
-        }
-        .workflow-checklist {
-            display: grid;
-            gap: 0.75rem;
-            margin-top: 1rem;
-        }
-        .workflow-checklist li {
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            border-radius: 14px;
-            padding: 0.85rem 0.95rem;
-            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-        }
-        .workflow-nav-actions {
+        .workflow-card-head {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             gap: 1rem;
-            margin-top: 1.25rem;
-            flex-wrap: wrap;
         }
-        .workflow-section-note {
-            color: #64748b;
+        .workflow-card-head h2,
+        .workflow-card-head h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            line-height: 1.3;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .workflow-overview-grid,
+        .workflow-summary-grid,
+        .workflow-form-grid,
+        .workflow-review-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.9rem 1rem;
+        }
+        .workflow-detail,
+        .workflow-summary-box {
+            display: grid;
+            gap: 0.3rem;
+        }
+        .workflow-detail.full,
+        .workflow-field.full,
+        .workflow-summary-box.full {
+            grid-column: 1 / -1;
+        }
+        .workflow-value {
+            color: #0f172a;
+            font-size: 0.98rem;
+            line-height: 1.5;
+            font-weight: 500;
+            word-break: break-word;
+        }
+        .workflow-overview-grid .workflow-detail,
+        .workflow-summary-grid .workflow-summary-box {
+            padding: 0.95rem 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.9rem;
+            background: #f8fafc;
+        }
+        .workflow-address-line {
+            color: #0f172a;
+            font-size: 1rem;
+            line-height: 1.6;
+            font-weight: 500;
+        }
+        .workflow-address-meta {
+            color: #6b7280;
             font-size: 0.88rem;
-            max-width: 36rem;
+        }
+        .workflow-action-card {
+            border: 1px solid rgba(59, 130, 246, 0.16);
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        }
+        .workflow-action-panel,
+        .workflow-success,
+        .workflow-empty,
+        .workflow-errors {
+            display: grid;
+            gap: 0.75rem;
+            padding: 1rem;
+            border-radius: 0.9rem;
+        }
+        .workflow-action-panel {
+            border: 1px solid rgba(37, 99, 235, 0.16);
+            background: #f8fbff;
+        }
+        .workflow-success {
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            background: #f0fdf4;
+        }
+        .workflow-empty {
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
         }
         .workflow-errors {
             border: 1px solid rgba(220, 38, 38, 0.18);
             background: rgba(254, 242, 242, 0.96);
-            border-radius: 16px;
-            padding: 0.9rem 1rem;
             color: #991b1b;
         }
         .workflow-errors ul {
-            margin: 0.5rem 0 0;
+            margin: 0;
             padding-left: 1.1rem;
         }
-        .workflow-form-grid .upload-field,
-        .workflow-upload-grid .upload-field {
-            height: 100%;
+        .workflow-primary-action {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
-        .workflow-form-grid .upload-field input:not([type="file"]),
-        .workflow-form-grid .upload-field select,
-        .workflow-form-grid .upload-field textarea,
-        .workflow-upload-grid .upload-field input[type="file"] {
+        .workflow-primary-action .btn {
+            min-width: 200px;
+            justify-content: center;
+        }
+        .workflow-field {
+            display: grid;
+            gap: 0.45rem;
+        }
+        .workflow-field input:not([type="file"]),
+        .workflow-field textarea,
+        .workflow-field input[type="file"] {
             width: 100%;
             padding: 0.85rem 0.9rem;
             border-radius: 12px;
             border: 1px solid rgba(148, 163, 184, 0.28);
             background: #fff;
         }
-        .workflow-upload-grid .upload-field input[type="file"] {
-            min-height: 3.35rem;
+        .workflow-field textarea {
+            min-height: 128px;
         }
-        .workflow-grid .location-map-card {
-            height: 100%;
-            align-content: start;
-            border-radius: 12px;
-        }
-        .workflow-grid .location-map-header {
+        .workflow-map-card {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            align-items: start;
-            gap: 0.8rem;
+            gap: 1rem;
         }
-        .workflow-grid .location-map-link {
-            align-self: start;
+        .workflow-map-canvas {
+            height: 220px;
+            border-radius: 0.9rem;
+            border: 1px solid #dbe2ea;
+            overflow: hidden;
         }
-        .workflow-grid .location-map-canvas {
-            min-height: 14.5rem;
-            height: 14.5rem;
-            border-radius: 12px;
+        .workflow-map-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
         }
-        .workflow-grid .location-map-meta-grid {
-            margin-top: 0.15rem;
+        .workflow-coordinates {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem 1rem;
+            font-size: 0.84rem;
+            color: #64748b;
+        }
+        .workflow-proof img {
+            width: 100%;
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
         }
         @media (max-width: 980px) {
             .workflow-grid,
             .workflow-overview-grid,
+            .workflow-summary-grid,
             .workflow-form-grid,
-            .workflow-upload-grid {
+            .workflow-review-grid {
                 grid-template-columns: 1fr;
             }
-            .workflow-hero-meta {
+            .workflow-header-meta {
                 justify-items: start;
-            }
-        }
-        @media (max-width: 640px) {
-            .workflow-nav-actions > .btn,
-            .workflow-nav-actions > span {
-                width: 100%;
             }
         }
     </style>
@@ -166,345 +260,263 @@
 <x-app-layout>
     @php
         $application = $installation->application;
-        $customerName = $application
-            ? trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''))
-            : '-';
-        $contact = $application
-            ? trim(($application->email ?? '-') . ' / ' . ($application->mobile_number ?? '-'))
-            : '-';
-        $address = $application ? $application->fullServiceAddress() : '-';
+        $customerName = $application ? trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? '')) : '-';
+        $fullAddress = $application ? $application->fullServiceAddress() : '-';
+        $cityProvince = $application
+            ? collect([$application->municipality ?? null, $application->province ?? null])->filter()->implode(', ')
+            : '';
         $proofPhotos = collect($installation->proofPhotos())->filter();
+        $hasLocation = $application && filled($application->lat) && filled($application->lng);
+        $osmUrl = $hasLocation
+            ? 'https://www.openstreetmap.org/?mlat=' . $application->lat . '&mlon=' . $application->lng . '#map=16/' . $application->lat . '/' . $application->lng
+            : null;
+        $statusClass = match ($installation->status) {
+            'scheduled' => 'workflow-badge--scheduled',
+            'in_progress' => 'workflow-badge--in_progress',
+            'completed' => 'workflow-badge--completed',
+            default => 'workflow-badge--scheduled',
+        };
     @endphp
 
     <div class="job-page workflow-shell">
-        <section class="card job-header workflow-hero">
-            <div>
-                <div class="workflow-ref">{{ $installation->displayJobReference() }}</div>
-                <h1>{{ $installation->isCompleted() ? 'Completed Installation Record' : 'Installation Work Order' }}</h1>
-                <p>Review the job, record activation details, upload proof photos, and complete the installation from one page.</p>
+        <section class="workflow-header">
+            <div class="workflow-header-copy">
+                <div class="workflow-eyebrow">{{ $installation->displayJobReference() }}</div>
+                <h1>Installation Work Order</h1>
+                <p class="workflow-subtitle">Use this work order to confirm the customer, navigate to the service point, and move the job through the installation workflow.</p>
             </div>
-            <div class="workflow-hero-meta">
-                <span class="badge {{ $installation->status ?? 'info' }}">{{ $installation->displayStatusLabel() }}</span>
+            <div class="workflow-header-meta">
+                <span class="badge {{ $installation->status ?? 'info' }} {{ $statusClass }}">{{ $installation->displayStatusLabel() }}</span>
                 <span class="workflow-ref">Application Ref: {{ $application->reference_no ?? 'N/A' }}</span>
                 @if($installation->installation_date)
-                    <span class="badge info">{{ $installation->installation_date->format('M d, Y') }}</span>
+                    <span class="workflow-schedule-chip">{{ $installation->installation_date->format('M d, Y') }}</span>
                 @endif
             </div>
         </section>
 
-        @if(! $installation->isCompleted())
-            @if($errors->any())
-                <section class="workflow-errors">
-                    <strong>Completion form needs attention.</strong>
-                    <ul>
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </section>
-            @endif
-
-            <section class="workflow-panel card">
-                <div class="job-card-header">
-                    <div>
-                        <h2>Job Overview</h2>
-                        <p>Review the job context before recording the final field completion details.</p>
-                    </div>
-                </div>
-                <div class="job-card-body workflow-grid">
-                    <div class="workflow-overview-grid">
-                        <div class="job-detail">
-                            <span class="job-detail-label">Job Reference</span>
-                            <div class="job-detail-value">{{ $installation->displayJobReference() }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Application Reference</span>
-                            <div class="job-detail-value">{{ $application->reference_no ?? 'N/A' }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Customer Name</span>
-                            <div class="job-detail-value">{{ $customerName ?: '-' }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Contact</span>
-                            <div class="job-detail-value">{{ $contact }}</div>
-                        </div>
-                        <div class="job-detail full">
-                            <span class="job-detail-label">Full Service Address</span>
-                            <div class="job-detail-value">{{ $address ?: '-' }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Region</span>
-                            <div class="job-detail-value">{{ $application->region ?: '-' }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Province</span>
-                            <div class="job-detail-value">{{ $application->province ?: '-' }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Municipality / City</span>
-                            <div class="job-detail-value">{{ $application->municipality ?: '-' }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Barangay / Zone</span>
-                            <div class="job-detail-value">{{ $application->barangay ?: '-' }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Package</span>
-                            <div class="job-detail-value">{{ $installation->package_name ?? $application->plan_code ?? 'N/A' }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Scheduled Date</span>
-                            <div class="job-detail-value">{{ $installation->installation_date?->format('F d, Y') ?? '-' }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Scheduled Time</span>
-                            <div class="job-detail-value">{{ $installation->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('h:i A') : 'Time to be confirmed' }}</div>
-                        </div>
-                        <div class="job-detail">
-                            <span class="job-detail-label">Current Status</span>
-                            <div class="job-detail-value">{{ $installation->displayStatusLabel() }}</div>
-                        </div>
-                    </div>
-
-                    @include('partials.location-map-card', [
-                        'mapId' => 'technicianApplicationMap',
-                        'lat' => $application->lat ?? null,
-                        'lng' => $application->lng ?? null,
-                        'title' => 'Pinned Service Location',
-                        'subtitle' => 'Use the saved service point as your field navigation reference.',
-                        'address' => $address,
-                        'containerClass' => 'job-card',
-                    ])
-                </div>
-            </section>
-
-            <form method="POST" enctype="multipart/form-data" action="{{ route('technician.installations.complete', $installation->id) }}" id="installationWorkflowForm">
-                @csrf
-
-                <section class="workflow-panel card">
-                    <div class="job-card-header">
-                        <div>
-                            <h2>Field Activation Details</h2>
-                            <p>Capture the NAP, JO, activation, and remarks data from the field record.</p>
-                        </div>
-                    </div>
-                    <div class="job-card-body">
-                        <div class="workflow-form-grid">
-                            <div class="upload-field">
-                                <label for="nap_code">NAP Code</label>
-                                <input id="nap_code" type="text" name="nap_code" value="{{ old('nap_code', $installation->nap_code) }}" required>
-                            </div>
-                            <div class="upload-field">
-                                <label for="lp_code">LP Code</label>
-                                <input id="lp_code" type="text" name="lp_code" value="{{ old('lp_code', $installation->lp_code) }}">
-                            </div>
-                            <div class="upload-field">
-                                <label for="np_code">NP Code</label>
-                                <input id="np_code" type="text" name="np_code" value="{{ old('np_code', $installation->np_code) }}">
-                            </div>
-                            <div class="upload-field">
-                                <label for="full_nap_label">Full NAP Label</label>
-                                <input id="full_nap_label" type="text" name="full_nap_label" value="{{ old('full_nap_label', $installation->full_nap_label) }}" required>
-                            </div>
-                            <div class="upload-field">
-                                <label for="port_number">Port Number</label>
-                                <input id="port_number" type="text" name="port_number" value="{{ old('port_number', $installation->port_number) }}" required>
-                            </div>
-                            <div class="upload-field">
-                                <label for="jo_number">JO Number</label>
-                                <input id="jo_number" type="text" name="jo_number" value="{{ old('jo_number', $installation->jo_number) }}" required>
-                            </div>
-                            <div class="upload-field">
-                                <label for="activation_date">Activation Date</label>
-                                <input id="activation_date" type="date" name="activation_date" value="{{ old('activation_date', optional($installation->activation_date)->format('Y-m-d')) }}" required>
-                            </div>
-                            <div class="upload-field">
-                                <label for="activation_status">Activation Status</label>
-                                <select id="activation_status" name="activation_status" required>
-                                    <option value="">Select status</option>
-                                    @foreach(['Activated', 'Activated with Observation', 'For Follow-up'] as $statusOption)
-                                        <option value="{{ $statusOption }}" {{ old('activation_status', $installation->activation_status) === $statusOption ? 'selected' : '' }}>{{ $statusOption }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="upload-field">
-                                <label for="package_name">Package Confirmation</label>
-                                <input id="package_name" type="text" name="package_name" value="{{ old('package_name', $installation->package_name ?? $application->plan_code) }}" required>
-                            </div>
-                            <div class="upload-field">
-                                <label for="router_serial">Router Serial</label>
-                                <input id="router_serial" type="text" name="router_serial" value="{{ old('router_serial', $installation->router_serial) }}">
-                            </div>
-                            <div class="upload-field">
-                                <label for="cable_reel_no">Cable Reel No.</label>
-                                <input id="cable_reel_no" type="text" name="cable_reel_no" value="{{ old('cable_reel_no', $installation->cable_reel_no) }}">
-                            </div>
-                            <div class="upload-field">
-                                <label for="speed_test_result">Speed Test Result</label>
-                                <input id="speed_test_result" type="text" name="speed_test_result" value="{{ old('speed_test_result', $installation->speed_test_result) }}" placeholder="Example: 92 Mbps down / 94 Mbps up">
-                            </div>
-                            <div class="upload-field full">
-                                <label for="technician_remarks">Technician Remarks</label>
-                                <textarea id="technician_remarks" name="technician_remarks" rows="4" required>{{ old('technician_remarks', $installation->technician_remarks) }}</textarea>
-                            </div>
-                            <div class="upload-field full">
-                                <label for="material_notes">Material Notes</label>
-                                <textarea id="material_notes" name="material_notes" rows="3">{{ old('material_notes', $installation->material_notes) }}</textarea>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="workflow-panel card">
-                    <div class="job-card-header">
-                        <div>
-                            <h2>Proof Uploads</h2>
-                            <p>Upload the required proof set. Optional field photos can also be attached here.</p>
-                        </div>
-                    </div>
-                    <div class="job-card-body">
-                        <div class="workflow-upload-grid">
-                            <div class="upload-field">
-                                <label for="router_photo">Router Photo</label>
-                                <input id="router_photo" type="file" name="router_photo" accept=".jpg,.jpeg,.png" required>
-                            </div>
-                            <div class="upload-field">
-                                <label for="speed_test_photo">Speed Test Photo</label>
-                                <input id="speed_test_photo" type="file" name="speed_test_photo" accept=".jpg,.jpeg,.png" required>
-                            </div>
-                            <div class="upload-field">
-                                <label for="nap_box_photo">NAP Box Photo</label>
-                                <input id="nap_box_photo" type="file" name="nap_box_photo" accept=".jpg,.jpeg,.png" required>
-                            </div>
-                            <div class="upload-field">
-                                <label for="acceptance_report_photo">Acceptance Report Photo</label>
-                                <input id="acceptance_report_photo" type="file" name="acceptance_report_photo" accept=".jpg,.jpeg,.png" required>
-                            </div>
-                            <div class="upload-field">
-                                <label for="cable_reel_photo">Cable Reel Photo</label>
-                                <input id="cable_reel_photo" type="file" name="cable_reel_photo" accept=".jpg,.jpeg,.png">
-                            </div>
-                            <div class="upload-field">
-                                <label for="installation_site_photo">Installation Site Photo</label>
-                                <input id="installation_site_photo" type="file" name="installation_site_photo" accept=".jpg,.jpeg,.png">
-                            </div>
-                            <div class="upload-field">
-                                <label for="customer_signature_photo">Customer Signature Photo</label>
-                                <input id="customer_signature_photo" type="file" name="customer_signature_photo" accept=".jpg,.jpeg,.png">
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="workflow-panel card">
-                    <div class="job-card-header">
-                        <div>
-                            <h2>Review & Complete</h2>
-                            <p>Confirm the summary and checklist before submitting the completed installation record.</p>
-                        </div>
-                    </div>
-                    <div class="job-card-body">
-                        <div class="workflow-review-grid">
-                            <div class="workflow-review-box">
-                                <strong>Activation Summary</strong>
-                                <div class="record-muted" data-review-field="nap_code">NAP Code: -</div>
-                                <div class="record-muted" data-review-field="port_number">Port Number: -</div>
-                                <div class="record-muted" data-review-field="jo_number">JO Number: -</div>
-                                <div class="record-muted" data-review-field="activation_date">Activation Date: -</div>
-                                <div class="record-muted" data-review-field="activation_status">Activation Status: -</div>
-                                <div class="record-muted" data-review-field="package_name">Package: -</div>
-                            </div>
-                            <div class="workflow-review-box">
-                                <strong>Optional Notes</strong>
-                                <div class="record-muted" data-review-field="router_serial">Router Serial: -</div>
-                                <div class="record-muted" data-review-field="cable_reel_no">Cable Reel No.: -</div>
-                                <div class="record-muted" data-review-field="speed_test_result">Speed Test Result: -</div>
-                            </div>
-                        </div>
-
-                        <ul class="workflow-checklist">
-                            <li>Required structured fields must be complete: NAP code, full NAP label, port number, JO number, activation date, activation status, package confirmation, and technician remarks.</li>
-                            <li>Required proofs must be attached: router photo, speed test photo, NAP box photo, and acceptance report photo.</li>
-                            <li>Final submit uses the same completion logic and will be rejected server-side if any required item is missing.</li>
-                        </ul>
-                    </div>
-                    <div class="workflow-nav-actions">
-                        <span class="workflow-section-note">Once submitted, the installation will be marked completed and the customer and admins will receive the usual status updates.</span>
-                        <button type="submit" class="btn">Complete Installation</button>
-                    </div>
-                </section>
-            </form>
-        @else
-            <section class="card">
-                <div class="job-card-header">
-                    <div>
-                        <h2>Completed Job Overview</h2>
-                        <p>The installation is already marked completed. Review the final field record below.</p>
-                    </div>
-                </div>
-                <div class="job-card-body workflow-summary-grid">
-                    <div class="job-detail">
-                        <span class="job-detail-label">Job Reference</span>
-                        <div class="job-detail-value">{{ $installation->displayJobReference() }}</div>
-                    </div>
-                    <div class="job-detail">
-                        <span class="job-detail-label">Application Reference</span>
-                        <div class="job-detail-value">{{ $application->reference_no ?? 'N/A' }}</div>
-                    </div>
-                    <div class="job-detail">
-                        <span class="job-detail-label">Customer</span>
-                        <div class="job-detail-value">{{ $customerName }}</div>
-                    </div>
-                    <div class="job-detail">
-                        <span class="job-detail-label">Completed At</span>
-                        <div class="job-detail-value">{{ $installation->completed_at?->format('F d, Y h:i A') ?? '-' }}</div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="card">
-                <div class="job-card-header">
-                    <div>
-                        <h2>Field Activation Record</h2>
-                        <p>Saved structured field data for this completed installation.</p>
-                    </div>
-                </div>
-                <div class="job-card-body job-detail-grid">
-                    @foreach($installation->activationDetails() as $label => $value)
-                        <div class="job-detail">
-                            <span class="job-detail-label">{{ $label }}</span>
-                            <div class="job-detail-value">{{ $value ?: '-' }}</div>
-                        </div>
+        @if($errors->any())
+            <section class="workflow-errors">
+                <strong>Installation workflow needs attention.</strong>
+                <ul>
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
                     @endforeach
-                    <div class="job-detail full">
-                        <span class="job-detail-label">Technician Remarks</span>
-                        <div class="job-detail-value">{{ $installation->technician_remarks ?: '-' }}</div>
-                    </div>
-                    <div class="job-detail full">
-                        <span class="job-detail-label">Material Notes</span>
-                        <div class="job-detail-value">{{ $installation->material_notes ?: '-' }}</div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="card">
-                <div class="job-card-header">
-                    <div>
-                        <h2>Proof Photos</h2>
-                        <p>Uploaded field evidence and acceptance records.</p>
-                    </div>
-                </div>
-                <div class="job-card-body proof-grid">
-                    @foreach($proofPhotos as $label => $path)
-                        <div class="proof-card">
-                            <strong>{{ $label }}</strong>
-                            <img src="{{ asset('storage/'.$path) }}" alt="{{ $label }}">
-                        </div>
-                    @endforeach
-                </div>
+                </ul>
             </section>
         @endif
+
+        <div class="workflow-grid">
+            <div class="workflow-column">
+                <section class="workflow-card">
+                    <div class="workflow-card-head">
+                        <div>
+                            <h2>Job Overview</h2>
+                            <p>Keep the core work-order details visible while you prepare for the visit.</p>
+                        </div>
+                    </div>
+
+                    <div class="workflow-overview-grid">
+                        <div class="workflow-detail">
+                            <span class="workflow-label">Customer Name</span>
+                            <div class="workflow-value">{{ $customerName ?: '-' }}</div>
+                        </div>
+                        <div class="workflow-detail">
+                            <span class="workflow-label">Contact</span>
+                            <div class="workflow-value">
+                                {{ $application->email ?? 'No email provided' }}<br>
+                                {{ $application->mobile_number ?? 'No mobile number provided' }}
+                            </div>
+                        </div>
+                        <div class="workflow-detail">
+                            <span class="workflow-label">Scheduled Date</span>
+                            <div class="workflow-value">{{ $installation->installation_date?->format('F d, Y') ?? '-' }}</div>
+                        </div>
+                        <div class="workflow-detail">
+                            <span class="workflow-label">Scheduled Time</span>
+                            <div class="workflow-value">{{ $installation->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('h:i A') : 'Time to be confirmed' }}</div>
+                        </div>
+                        <div class="workflow-detail">
+                            <span class="workflow-label">Current Status</span>
+                            <div class="workflow-value">{{ $installation->displayStatusLabel() }}</div>
+                        </div>
+                        <div class="workflow-detail">
+                            <span class="workflow-label">Assigned At</span>
+                            <div class="workflow-value">{{ $installation->assigned_at?->displayDateTime('F d, Y h:i A') ?? '-' }}</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="workflow-card">
+                    <div class="workflow-card-head">
+                        <div>
+                            <h2>Service Address</h2>
+                            <p>Use the confirmed service address as the main field reference.</p>
+                        </div>
+                    </div>
+
+                    <div class="workflow-address-line">{{ $fullAddress ?: '-' }}</div>
+                    @if($cityProvince !== '')
+                        <div class="workflow-address-meta">{{ $cityProvince }}</div>
+                    @endif
+                </section>
+
+                @if($installation->status === 'scheduled')
+                    <section class="workflow-card workflow-action-card">
+                        <div class="workflow-card-head">
+                            <div>
+                                <h2>Installation Workflow</h2>
+                                <p>This job is scheduled and ready to begin once you are onsite.</p>
+                            </div>
+                        </div>
+
+                        <div class="workflow-action-panel">
+                            <div class="workflow-primary-action">
+                                <span class="workflow-note">Starting the installation updates the work order status to in progress.</span>
+                                <form method="POST" action="{{ route('technician.installations.status', $installation->id) }}">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="hidden" name="status" value="in_progress">
+                                    <button type="submit" class="btn">Start Installation</button>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+                @elseif($installation->isInProgress())
+                    <form method="POST" enctype="multipart/form-data" action="{{ route('technician.installations.complete', $installation->id) }}" id="installationWorkflowForm" class="workflow-column">
+                        @csrf
+
+                        <section class="workflow-card workflow-action-card">
+                            <div class="workflow-card-head">
+                                <div>
+                                    <h2>Installation Workflow</h2>
+                                    <p>Capture the completion details, then close the work order when the install is finished.</p>
+                                </div>
+                            </div>
+
+                            <div class="workflow-form-grid">
+                                <div class="workflow-field full">
+                                    <label for="technician_remarks">Technician Remarks</label>
+                                    <textarea id="technician_remarks" name="technician_remarks" rows="5" required>{{ old('technician_remarks', $installation->technician_remarks) }}</textarea>
+                                </div>
+                                <div class="workflow-field full">
+                                    <label for="installation_photo">Installation Photo <span class="field-badge optional">Optional</span></label>
+                                    <input id="installation_photo" type="file" name="installation_photo" accept=".jpg,.jpeg,.png">
+                                    <p class="workflow-note">Attach one photo if you want a simple proof of completion on record.</p>
+                                </div>
+                            </div>
+
+                            <div class="workflow-review-grid">
+                                <div class="workflow-detail full">
+                                    <span class="workflow-label">Technician Remarks Preview</span>
+                                    <div class="workflow-value" data-review-field="technician_remarks">-</div>
+                                </div>
+                                <div class="workflow-detail full">
+                                    <span class="workflow-label">Selected Photo</span>
+                                    <div class="workflow-value" data-review-photo>No file selected.</div>
+                                </div>
+                            </div>
+
+                            <div class="workflow-action-panel">
+                                <div class="workflow-primary-action">
+                                    <span class="workflow-note">Submitting this form marks the installation as completed and updates the customer application status to installed.</span>
+                                    <button type="submit" class="btn">Mark as Completed</button>
+                                </div>
+                            </div>
+                        </section>
+                    </form>
+                @else
+                    <section class="workflow-card workflow-action-card">
+                        <div class="workflow-card-head">
+                            <div>
+                                <h2>Installation Workflow</h2>
+                                <p>The work order is complete. Actions are now locked.</p>
+                            </div>
+                        </div>
+
+                        <div class="workflow-success">
+                            <strong>Installation completed successfully.</strong>
+                            <p>This job is now read-only. Review the final record and attached proof below.</p>
+                        </div>
+                    </section>
+
+                    <section class="workflow-card">
+                        <div class="workflow-card-head">
+                            <div>
+                                <h2>Installation Summary</h2>
+                                <p>Saved completion details for technician and admin review.</p>
+                            </div>
+                        </div>
+
+                        <div class="workflow-summary-grid">
+                            @foreach($installation->recordDetails() as $label => $value)
+                                <div class="workflow-summary-box">
+                                    <span class="workflow-label">{{ $label }}</span>
+                                    <div class="workflow-value">{{ $value ?: '-' }}</div>
+                                </div>
+                            @endforeach
+                            <div class="workflow-summary-box full">
+                                <span class="workflow-label">Technician Remarks</span>
+                                <div class="workflow-value">{{ $installation->technician_remarks ?: '-' }}</div>
+                            </div>
+                        </div>
+                    </section>
+                @endif
+
+                @if($installation->isCompleted())
+                    <section class="workflow-card">
+                        <div class="workflow-card-head">
+                            <div>
+                                <h2>Installation Photo</h2>
+                                <p>Optional proof of completion attached to the work order.</p>
+                            </div>
+                        </div>
+
+                        <div class="workflow-proof">
+                            @forelse($proofPhotos as $label => $path)
+                                <div>
+                                    <strong>{{ $label }}</strong>
+                                    <img src="{{ asset('storage/' . $path) }}" alt="{{ $label }}">
+                                </div>
+                            @empty
+                                <div class="empty-state compact">No installation photo uploaded.</div>
+                            @endforelse
+                        </div>
+                    </section>
+                @endif
+            </div>
+
+            <div class="workflow-column">
+                <section class="workflow-card workflow-map-card">
+                    <div class="workflow-card-head">
+                        <div>
+                            <h2>Pinned Service Location</h2>
+                            <p>Keep the map secondary and use it as a field navigation reference when needed.</p>
+                        </div>
+                    </div>
+
+                    @if($hasLocation)
+                        <div id="technicianApplicationMap" class="workflow-map-canvas js-readonly-location-map" data-lat="{{ $application->lat }}" data-lng="{{ $application->lng }}"></div>
+                        <div class="workflow-map-actions">
+                            <span class="workflow-note">Open the saved pin in OpenStreetMap for full navigation.</span>
+                            <a href="{{ $osmUrl }}" target="_blank" rel="noopener noreferrer" class="btn secondary">Open in OpenStreetMap</a>
+                        </div>
+                        <div class="workflow-coordinates">
+                            <span><span class="workflow-coordinate-label">Latitude</span> {{ number_format((float) $application->lat, 6) }}</span>
+                            <span><span class="workflow-coordinate-label">Longitude</span> {{ number_format((float) $application->lng, 6) }}</span>
+                        </div>
+                    @else
+                        <div class="workflow-empty">
+                            <strong>No pinned service location</strong>
+                            <p>No map coordinates were saved for this application.</p>
+                        </div>
+                    @endif
+                </section>
+            </div>
+        </div>
+
+        <section class="card">
+            <a href="{{ route('technician.installations.index') }}" class="btn secondary">Back</a>
+        </section>
     </div>
 </x-app-layout>
 
@@ -558,23 +570,28 @@
             }
 
             function initInstallationWorkflow() {
-                const reviewFields = Array.from(document.querySelectorAll('[data-review-field]'));
+                const remarksNode = document.querySelector('[data-review-field="technician_remarks"]');
+                const photoNode = document.querySelector('[data-review-photo]');
+                const remarksField = document.getElementById('technician_remarks');
+                const photoField = document.getElementById('installation_photo');
 
-                function updateReview() {
-                    reviewFields.forEach((node) => {
-                        const field = document.getElementById(node.dataset.reviewField);
-                        const label = node.textContent.split(':')[0];
-                        const value = field ? (((field.value || '').trim()) || '-') : '-';
-                        node.textContent = label + ': ' + value;
-                    });
+                if (remarksNode && remarksField) {
+                    const updateRemarks = function () {
+                        remarksNode.textContent = (remarksField.value || '').trim() || '-';
+                    };
+                    remarksField.addEventListener('input', updateRemarks);
+                    remarksField.addEventListener('change', updateRemarks);
+                    updateRemarks();
                 }
 
-                document.querySelectorAll('#installationWorkflowForm input, #installationWorkflowForm select, #installationWorkflowForm textarea').forEach((field) => {
-                    field.addEventListener('input', updateReview);
-                    field.addEventListener('change', updateReview);
-                });
+                if (photoNode && photoField) {
+                    const updatePhoto = function () {
+                        photoNode.textContent = photoField.files && photoField.files[0] ? photoField.files[0].name : 'No file selected.';
+                    };
+                    photoField.addEventListener('change', updatePhoto);
+                    updatePhoto();
+                }
 
-                updateReview();
                 initReadonlyMaps();
             }
 

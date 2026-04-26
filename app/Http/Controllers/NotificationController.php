@@ -12,12 +12,20 @@ class NotificationController extends Controller
 {
     public function index(Request $request): View
     {
-        $notifications = $request->user()
-            ->appNotifications()
+        $filter = $request->string('filter')->toString();
+        $query = $request->user()->appNotifications();
+
+        if ($filter === 'unread') {
+            $query->unread();
+        } else {
+            $filter = 'all';
+        }
+
+        $notifications = $query
             ->paginate(20)
             ->withQueryString();
 
-        return view('notifications.index', compact('notifications'));
+        return view('notifications.index', compact('notifications', 'filter'));
     }
 
     public function feed(Request $request): JsonResponse
@@ -28,6 +36,11 @@ class NotificationController extends Controller
             'unread_count' => (clone $query)->unread()->count(),
             'notifications' => (clone $query)
                 ->take(8)
+                ->get()
+                ->map(fn (AppNotification $notification) => $this->serializeNotification($notification))
+                ->values(),
+            'all_notifications' => (clone $query)
+                ->take(30)
                 ->get()
                 ->map(fn (AppNotification $notification) => $this->serializeNotification($notification))
                 ->values(),
@@ -67,7 +80,7 @@ class NotificationController extends Controller
             'id' => $notification->id,
             'title' => $notification->title,
             'message' => $notification->message,
-            'time' => $notification->created_at?->diffForHumans(),
+            'time' => $notification->created_at?->displayRelative(),
             'is_unread' => $notification->read_at === null,
             'url' => route('notifications.redirect', $notification),
         ];

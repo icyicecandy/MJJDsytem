@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Support\AppNotificationSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class CustomerApplicationController extends Controller
 {
@@ -38,6 +39,7 @@ class CustomerApplicationController extends Controller
     {
         $user = Auth::user();
         $existing = $user->application;
+        $existingId = $existing?->id;
 
         if ($this->hasActiveApplication($existing)) {
             return redirect()->route('customer.dashboard')
@@ -45,10 +47,20 @@ class CustomerApplicationController extends Controller
         }
 
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:100'],
-            'last_name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:150'],
-            'mobile_number' => ['required', 'string', 'max:30'],
+            'first_name' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z][A-Za-z\s\'-]*$/'],
+            'last_name' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z][A-Za-z\s\'-]*$/'],
+            'email' => [
+                'required',
+                'email',
+                'max:150',
+                Rule::unique('applications', 'email')->ignore($existingId),
+            ],
+            'mobile_number' => [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('applications', 'mobile_number')->ignore($existingId),
+            ],
             'region' => ['required', 'string', 'max:100'],
             'province' => ['required', 'string', 'max:100'],
             'municipality' => ['required', 'string', 'max:100'],
@@ -58,13 +70,11 @@ class CustomerApplicationController extends Controller
             'lng' => ['required', 'numeric'],
             'plan_code' => ['required', 'in:S2S_50,S2S_100'],
             'id_image' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
-            'agreed_to_terms' => ['accepted'],
-            'agreed_to_privacy' => ['accepted'],
-            'terms_version' => ['nullable', 'string', 'max:50'],
-            'privacy_version' => ['nullable', 'string', 'max:50'],
         ], [
-            'agreed_to_terms.accepted' => config('legal.validation_message'),
-            'agreed_to_privacy.accepted' => config('legal.validation_message'),
+            'first_name.regex' => 'First name may only contain letters, spaces, hyphens, and apostrophes.',
+            'last_name.regex' => 'Last name may only contain letters, spaces, hyphens, and apostrophes.',
+            'email.unique' => 'This email address is already used in another application.',
+            'mobile_number.unique' => 'This mobile number is already used in another application.',
             'id_image.required' => 'Please upload a valid ID image before submitting your application.',
         ]);
 
@@ -93,7 +103,7 @@ class CustomerApplicationController extends Controller
         }
 
         $idPath = $request->file('id_image')->store('applications/ids', 'public');
-        $consentedAt = now();
+        $consentedAt = $user->consented_at ?? now();
 
         $payload = [
             'reference_no' => $reference,
@@ -110,11 +120,11 @@ class CustomerApplicationController extends Controller
             'lng' => $lng,
             'plan_code' => $validated['plan_code'],
             'id_image_path' => $idPath,
-            'agreed_to_terms' => true,
-            'agreed_to_privacy' => true,
+            'agreed_to_terms' => (bool) $user->agreed_to_terms,
+            'agreed_to_privacy' => (bool) $user->agreed_to_privacy,
             'consented_at' => $consentedAt,
-            'terms_version' => $validated['terms_version'] ?? config('legal.terms_version'),
-            'privacy_version' => $validated['privacy_version'] ?? config('legal.privacy_version'),
+            'terms_version' => $user->terms_version ?? config('legal.terms_version'),
+            'privacy_version' => $user->privacy_version ?? config('legal.privacy_version'),
             'status' => 'submitted',
             'rejection_reason' => null,
             'serviceability_status' => null,
@@ -144,6 +154,41 @@ class CustomerApplicationController extends Controller
         );
 
         return redirect()->route('customer.apply.done', ['reference' => $application->reference_no]);
+    }
+
+    public function contactCheck(Request $request)
+    {
+        $user = Auth::user();
+        $existingId = $user->application?->id;
+
+        $validated = $request->validate([
+            'email' => ['nullable', 'email', 'max:150'],
+            'mobile_number' => ['nullable', 'string', 'max:30'],
+        ]);
+
+        $email = trim((string) ($validated['email'] ?? ''));
+        $mobileNumber = trim((string) ($validated['mobile_number'] ?? ''));
+
+        $emailExists = $email !== '' && Application::query()
+            ->where('email', $email)
+            ->when($existingId, fn ($query) => $query->whereKeyNot($existingId))
+            ->exists();
+
+        $mobileExists = $mobileNumber !== '' && Application::query()
+            ->where('mobile_number', $mobileNumber)
+            ->when($existingId, fn ($query) => $query->whereKeyNot($existingId))
+            ->exists();
+
+        return response()->json([
+            'email' => [
+                'duplicate' => $emailExists,
+                'message' => $emailExists ? 'This email address is already used in another application.' : null,
+            ],
+            'mobile_number' => [
+                'duplicate' => $mobileExists,
+                'message' => $mobileExists ? 'This mobile number is already used in another application.' : null,
+            ],
+        ]);
     }
 
     public function done(Request $request)
@@ -195,6 +240,10 @@ class CustomerApplicationController extends Controller
                         ->filter()
                         ->values()
                         ->all();
+
+                    if (empty($barangayNames)) {
+                        return trim($barangay) !== '';
+                    }
 
                     return in_array($barangay, $barangayNames, true);
                 }

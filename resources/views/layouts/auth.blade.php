@@ -31,9 +31,9 @@
                     <div class="auth-nav-links">
                         <a href="{{ url('/') }}">Home</a>
                         @if($isRegisterPage)
-                            <a href="{{ route('login') }}">Log In</a>
+                            <a href="{{ url('/') }}">Home</a>
                         @else
-                            <a href="{{ route('register') }}">Register</a>
+                            <a href="{{ url('/') }}">Home</a>
                         @endif
                     </div>
                 </nav>
@@ -50,3 +50,5 @@
     @stack('scripts')
 </body>
 </html>
+
+

@@ -11,7 +11,15 @@
         $selectedMunicipality = old('municipality', $application->municipality ?? '');
         $selectedBarangay = old('barangay', $application->barangay ?? '');
         $luzonBounds = $mapBounds ?? ['south' => 11.8, 'west' => 118.8, 'north' => 19.9, 'east' => 123.9, 'center' => [16.2, 121.0], 'zoom' => 7];
-        $initialStep = ($errors->has('agreed_to_terms') || $errors->has('agreed_to_privacy')) ? 5 : 1;
+        $initialStep = 1;
+        $regions = $addressCatalog ?? [];
+        $selectedRegionItem = collect($regions)->firstWhere('name', $selectedRegion);
+        $provinceItems = $selectedRegionItem['provinces'] ?? [];
+        $selectedProvinceItem = collect($provinceItems)->firstWhere('name', $selectedProvince);
+        $municipalityItems = $selectedProvinceItem['municipalities'] ?? [];
+        $selectedMunicipalityItem = collect($municipalityItems)->firstWhere('name', $selectedMunicipality);
+        $barangayItems = $selectedMunicipalityItem['barangays'] ?? [];
+        $hasConfiguredBarangays = !empty($barangayItems);
     @endphp
 
     <div class="apply-wizard-shell">
@@ -45,26 +53,38 @@
                 <div class="apply-form-grid">
                     <div class="apply-field">
                         <label for="first_name">First Name</label>
-                        <input id="first_name" type="text" name="first_name" value="{{ old('first_name', $application->first_name ?? '') }}" required>
-                        @error('first_name')<span class="error">{{ $message }}</span>@enderror
+                        <input id="first_name" type="text" name="first_name" value="{{ old('first_name', $application->first_name ?? '') }}" required maxlength="100" pattern="^[A-Za-z][A-Za-z\s'\-]*$">
+                        @error('first_name')
+                            <span class="error">{{ $message }}</span>
+                        @enderror
+                        <span class="error" id="firstNameLiveError" hidden></span>
                     </div>
 
                     <div class="apply-field">
                         <label for="last_name">Last Name</label>
-                        <input id="last_name" type="text" name="last_name" value="{{ old('last_name', $application->last_name ?? '') }}" required>
-                        @error('last_name')<span class="error">{{ $message }}</span>@enderror
+                        <input id="last_name" type="text" name="last_name" value="{{ old('last_name', $application->last_name ?? '') }}" required maxlength="100" pattern="^[A-Za-z][A-Za-z\s'\-]*$">
+                        @error('last_name')
+                            <span class="error">{{ $message }}</span>
+                        @enderror
+                        <span class="error" id="lastNameLiveError" hidden></span>
                     </div>
 
                     <div class="apply-field">
                         <label for="email">Email Address</label>
                         <input id="email" type="email" name="email" value="{{ old('email', $application->email ?? auth()->user()->email) }}" required>
-                        @error('email')<span class="error">{{ $message }}</span>@enderror
+                        @error('email')
+                            <span class="error">{{ $message }}</span>
+                        @enderror
+                        <span class="error" id="emailDuplicateError" hidden></span>
                     </div>
 
                     <div class="apply-field">
                         <label for="mobile_number">Mobile Number</label>
                         <input id="mobile_number" type="text" name="mobile_number" value="{{ old('mobile_number', $application->mobile_number ?? auth()->user()->phone) }}" placeholder="09XX XXX XXXX" required>
-                        @error('mobile_number')<span class="error">{{ $message }}</span>@enderror
+                        @error('mobile_number')
+                            <span class="error">{{ $message }}</span>
+                        @enderror
+                        <span class="error" id="mobileDuplicateError" hidden></span>
                     </div>
                 </div>
 
@@ -84,32 +104,84 @@
                 <div class="apply-form-grid">
                     <div class="apply-field">
                         <label for="region">Region</label>
-                        <select id="region" name="region" required></select>
-                        @error('region')<span class="error">{{ $message }}</span>@enderror
+                        <select id="region" name="region" required>
+                            <option value="">Select Region</option>
+                            @foreach($regions as $region)
+                                <option value="{{ $region['name'] }}" @selected($selectedRegion === ($region['name'] ?? ''))>
+                                    {{ $region['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('region')
+                            <span class="error">{{ $message }}</span>
+                        @enderror
                     </div>
 
                     <div class="apply-field">
                         <label for="province">Province</label>
-                        <select id="province" name="province" required disabled></select>
-                        @error('province')<span class="error">{{ $message }}</span>@enderror
+                        <select id="province" name="province" required @disabled(empty($provinceItems))>
+                            <option value="">Select Province</option>
+                            @foreach($provinceItems as $province)
+                                <option value="{{ $province['name'] }}" @selected($selectedProvince === ($province['name'] ?? ''))>
+                                    {{ $province['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('province')
+                            <span class="error">{{ $message }}</span>
+                        @enderror
                     </div>
 
                     <div class="apply-field">
                         <label for="municipality">Municipality / City</label>
-                        <select id="municipality" name="municipality" required disabled></select>
-                        @error('municipality')<span class="error">{{ $message }}</span>@enderror
+                        <select id="municipality" name="municipality" required @disabled(empty($municipalityItems))>
+                            <option value="">Select Municipality / City</option>
+                            @foreach($municipalityItems as $municipality)
+                                <option value="{{ $municipality['name'] }}" @selected($selectedMunicipality === ($municipality['name'] ?? ''))>
+                                    {{ $municipality['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('municipality')
+                            <span class="error">{{ $message }}</span>
+                        @enderror
                     </div>
 
                     <div class="apply-field">
-                        <label for="barangay">Barangay / Zone</label>
-                        <select id="barangay" name="barangay" required disabled></select>
-                        @error('barangay')<span class="error">{{ $message }}</span>@enderror
+                        <label for="barangay_select">Barangay / Zone</label>
+                        <input type="hidden" id="barangay" name="barangay" value="{{ $selectedBarangay }}">
+                        <select id="barangay_select" required @disabled(empty($barangayItems)) @if(! $hasConfiguredBarangays) hidden @endif>
+                            <option value="">Select Barangay / Zone</option>
+                            @foreach($barangayItems as $barangay)
+                                @php
+                                    $barangayName = is_array($barangay) ? ($barangay['name'] ?? '') : $barangay;
+                                @endphp
+                                <option value="{{ $barangayName }}" @selected($selectedBarangay === $barangayName)>
+                                    {{ $barangayName }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <input
+                            id="barangay_manual"
+                            type="text"
+                            value="{{ $selectedBarangay }}"
+                            placeholder="Enter Barangay / Zone"
+                            @if($hasConfiguredBarangays) hidden @endif
+                        >
+                        <p class="text-muted mt-1" id="barangayHelper">
+                            {{ $hasConfiguredBarangays ? 'Choose your Barangay / Zone from the list.' : 'Type the Barangay / Zone manually for this municipality.' }}
+                        </p>
+                        @error('barangay')
+                            <span class="error">{{ $message }}</span>
+                        @enderror
                     </div>
 
                     <div class="apply-field full-span">
                         <label for="street_landmark">Street / Landmark / House Details</label>
                         <input id="street_landmark" type="text" name="street_landmark" value="{{ old('street_landmark', $application->street_landmark ?? '') }}" placeholder="House #, street name, purok, nearby landmarks">
-                        @error('street_landmark')<span class="error">{{ $message }}</span>@enderror
+                        @error('street_landmark')
+                            <span class="error">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
 
@@ -124,8 +196,12 @@
                     <div class="tracking-meta full-width"><strong>Map Preview</strong><span id="applyLocationPreview">Click the map to load the nearest location details.</span></div>
                 </div>
                 <p class="apply-map-status" id="applyMapStatus">Pinning is limited to Luzon operational coverage.</p>
-                @error('lat')<span class="error">{{ $message }}</span>@enderror
-                @error('lng')<span class="error">{{ $message }}</span>@enderror
+                @error('lat')
+                    <span class="error">{{ $message }}</span>
+                @enderror
+                @error('lng')
+                    <span class="error">{{ $message }}</span>
+                @enderror
 
                 <div class="apply-step-actions between">
                     <button type="button" class="apply-link-btn" data-prev-step="1" onclick="return window.customerApplyWizardPrev ? window.customerApplyWizardPrev(1) : false;">Back</button>
@@ -145,7 +221,7 @@
                     <label class="apply-plan-option {{ old('plan_code', $application->plan_code ?? '') === 'S2S_50' ? 'selected' : '' }}">
                         <input type="radio" name="plan_code" value="S2S_50" {{ old('plan_code', $application->plan_code ?? '') === 'S2S_50' ? 'checked' : '' }} required>
                         <div>
-                            <strong>Surf2Sawa Prepaid 50 Mbps</strong>
+                            <strong>Superfiber 50 Mbps</strong>
                             <span>Good for daily browsing, messaging, streaming, and home use.</span>
                         </div>
                         <div class="apply-plan-price">PHP 700</div>
@@ -154,13 +230,15 @@
                     <label class="apply-plan-option {{ old('plan_code', $application->plan_code ?? '') === 'S2S_100' ? 'selected' : '' }}">
                         <input type="radio" name="plan_code" value="S2S_100" {{ old('plan_code', $application->plan_code ?? '') === 'S2S_100' ? 'checked' : '' }} required>
                         <div>
-                            <strong>Surf2Sawa Prepaid 100 Mbps</strong>
+                            <strong>Extraboost 100 Mbps</strong>
                             <span>Higher-speed access for multiple users, devices, and heavier streaming.</span>
                         </div>
                         <div class="apply-plan-price">PHP 999</div>
                     </label>
                 </div>
-                @error('plan_code')<span class="error">{{ $message }}</span>@enderror
+                @error('plan_code')
+                    <span class="error">{{ $message }}</span>
+                @enderror
 
                 <div class="apply-step-actions between">
                     <button type="button" class="apply-link-btn" data-prev-step="2" onclick="return window.customerApplyWizardPrev ? window.customerApplyWizardPrev(2) : false;">Back</button>
@@ -179,7 +257,9 @@
                 <div class="upload-field apply-upload-field">
                     <label for="id_image">Valid ID Image</label>
                     <input id="id_image" type="file" name="id_image" accept=".jpg,.jpeg,.png" required>
-                    @error('id_image')<span class="error">{{ $message }}</span>@enderror
+                    @error('id_image')
+                        <span class="error">{{ $message }}</span>
+                    @enderror
                 </div>
 
                 <div class="apply-step-actions between">
@@ -205,12 +285,6 @@
                     <div class="tracking-meta"><strong>ID Upload</strong><span id="reviewId">Required</span></div>
                 </div>
 
-                @include('partials.consent-agreement', [
-                    'consentPrefix' => 'application_consent',
-                    'formId' => 'customerApplyWizard',
-                    'helperText' => 'Please read and agree to the Terms and Conditions and Privacy Notice before proceeding.'
-                ])
-
                 <div class="apply-step-actions between">
                     <button type="button" class="apply-link-btn" data-prev-step="4" onclick="return window.customerApplyWizardPrev ? window.customerApplyWizardPrev(4) : false;">Back</button>
                     <button type="submit" class="btn">Submit Application</button>
@@ -235,11 +309,23 @@
         const statusText = document.getElementById('applyMapStatus');
         const mapElement = document.getElementById('customerApplyMap');
         const fileInput = document.getElementById('id_image');
+        const firstNameInput = document.getElementById('first_name');
+        const lastNameInput = document.getElementById('last_name');
+        const emailInput = document.getElementById('email');
+        const mobileInput = document.getElementById('mobile_number');
+        const firstNameLiveError = document.getElementById('firstNameLiveError');
+        const lastNameLiveError = document.getElementById('lastNameLiveError');
+        const emailDuplicateError = document.getElementById('emailDuplicateError');
+        const mobileDuplicateError = document.getElementById('mobileDuplicateError');
         const regionSelect = document.getElementById('region');
         const provinceSelect = document.getElementById('province');
         const municipalitySelect = document.getElementById('municipality');
-        const barangaySelect = document.getElementById('barangay');
+        const barangayValueInput = document.getElementById('barangay');
+        const barangaySelect = document.getElementById('barangay_select');
+        const barangayManualInput = document.getElementById('barangay_manual');
+        const barangayHelper = document.getElementById('barangayHelper');
         const streetInput = document.getElementById('street_landmark');
+        const contactCheckUrl = @json(route('customer.apply.contact-check'));
         const addressCatalog = @json($addressCatalog ?? []);
         const selectedValues = {
             region: @json($selectedRegion),
@@ -258,6 +344,116 @@
         let marker = null;
         let map = null;
         let reverseLookupTimer = null;
+        let contactCheckTimer = null;
+        let latestContactRequest = 0;
+        let contactCheckPromise = null;
+        const namePattern = /^[A-Za-z][A-Za-z\s'-]*$/;
+
+        function setLiveError(field, errorEl, message) {
+            if (!field) return;
+            field.setCustomValidity(message || '');
+            field.classList.toggle('is-invalid', Boolean(message));
+            if (errorEl) {
+                errorEl.textContent = message || '';
+                errorEl.hidden = !message;
+            }
+        }
+
+        function setDuplicateState(field, errorEl, message) {
+            if (!field) return;
+            field.setCustomValidity(message || '');
+            field.classList.toggle('is-invalid', Boolean(message));
+            if (errorEl) {
+                errorEl.textContent = message || '';
+                errorEl.hidden = !message;
+            }
+        }
+
+        function validateNameField(field, errorEl, label) {
+            if (!field) return true;
+
+            const value = field.value.trim();
+            if (value === '') {
+                setLiveError(field, errorEl, '');
+                return true;
+            }
+
+            if (!namePattern.test(value)) {
+                setLiveError(field, errorEl, `${label} may only contain letters, spaces, hyphens, and apostrophes.`);
+                return false;
+            }
+
+            setLiveError(field, errorEl, '');
+            return true;
+        }
+
+        function shouldCheckDuplicate(field) {
+            if (!field) return false;
+            const value = field.value.trim();
+            if (value === '') return false;
+            if (field.type === 'email') {
+                return field.checkValidity();
+            }
+            return value.length >= 10;
+        }
+
+        function runContactDuplicateCheck() {
+            if (!emailInput || !mobileInput) {
+                return Promise.resolve(true);
+            }
+
+            const payload = new URLSearchParams();
+            if (shouldCheckDuplicate(emailInput)) {
+                payload.set('email', emailInput.value.trim());
+            }
+            if (shouldCheckDuplicate(mobileInput)) {
+                payload.set('mobile_number', mobileInput.value.trim());
+            }
+
+            if ([...payload.keys()].length === 0) {
+                setDuplicateState(emailInput, emailDuplicateError, '');
+                setDuplicateState(mobileInput, mobileDuplicateError, '');
+                return Promise.resolve(true);
+            }
+
+            const requestId = ++latestContactRequest;
+            contactCheckPromise = fetch(`${contactCheckUrl}?${payload.toString()}`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            })
+                .then(response => response.ok ? response.json() : Promise.reject())
+                .then(data => {
+                    if (requestId !== latestContactRequest) {
+                        return true;
+                    }
+
+                    const emailMessage = data?.email?.duplicate ? (data.email.message || 'This email address is already used in another application.') : '';
+                    const mobileMessage = data?.mobile_number?.duplicate ? (data.mobile_number.message || 'This mobile number is already used in another application.') : '';
+
+                    setDuplicateState(emailInput, emailDuplicateError, emailMessage);
+                    setDuplicateState(mobileInput, mobileDuplicateError, mobileMessage);
+
+                    return !emailMessage && !mobileMessage;
+                })
+                .catch(() => true)
+                .finally(() => {
+                    if (requestId === latestContactRequest) {
+                        contactCheckPromise = null;
+                    }
+                });
+
+            return contactCheckPromise;
+        }
+
+        function scheduleContactDuplicateCheck() {
+            clearTimeout(contactCheckTimer);
+            contactCheckTimer = setTimeout(() => {
+                runContactDuplicateCheck();
+            }, 350);
+        }
 
         function setText(id, value) {
             const el = document.getElementById(id);
@@ -318,7 +514,20 @@
             return false;
         }
 
-        function validateApplicantStep() {
+        async function validateApplicantStep() {
+            const namesValid = [
+                validateNameField(firstNameInput, firstNameLiveError, 'First name'),
+                validateNameField(lastNameInput, lastNameLiveError, 'Last name'),
+            ].every(Boolean);
+
+            if (!namesValid) {
+                const invalidNameField = [firstNameInput, lastNameInput].find(field => field && !field.checkValidity());
+                if (invalidNameField) {
+                    invalidNameField.reportValidity();
+                }
+                return false;
+            }
+
             const ids = ['first_name', 'last_name', 'email', 'mobile_number'];
             for (const id of ids) {
                 const field = document.getElementById(id);
@@ -327,17 +536,37 @@
                     return false;
                 }
             }
+
+            const contactCheckPassed = await runContactDuplicateCheck();
+            if (!contactCheckPassed) {
+                const invalidField = [emailInput, mobileInput].find(field => field && !field.checkValidity());
+                if (invalidField) {
+                    invalidField.reportValidity();
+                }
+                return false;
+            }
+
             return true;
         }
 
         function validateLocationStep() {
-            const ids = ['region', 'province', 'municipality', 'barangay'];
+            const ids = ['region', 'province', 'municipality'];
             for (const id of ids) {
                 const field = document.getElementById(id);
                 if (field && !field.checkValidity()) {
                     field.reportValidity();
                     return false;
                 }
+            }
+
+            if (barangaySelect && !barangaySelect.hidden && !barangaySelect.value) {
+                barangaySelect.reportValidity();
+                return false;
+            }
+
+            if (barangayManualInput && !barangayManualInput.hidden && !barangayManualInput.value.trim()) {
+                barangayManualInput.reportValidity();
+                return false;
             }
 
             if (!latInput || !lngInput || !latInput.value || !lngInput.value) {
@@ -474,6 +703,19 @@
             return (municipality.barangays || []).find(item => (typeof item === 'string' ? item : item.name) === barangayName) || null;
         }
 
+        function syncBarangayValue() {
+            if (!barangayValueInput) {
+                return '';
+            }
+
+            const nextValue = barangaySelect && !barangaySelect.hidden
+                ? barangaySelect.value
+                : (barangayManualInput ? barangayManualInput.value.trim() : '');
+
+            barangayValueInput.value = nextValue;
+            return nextValue;
+        }
+
         function focusMapTarget(target, options = {}) {
             if (!map || !target) {
                 return;
@@ -514,7 +756,37 @@
         function populateBarangays(selectedBarangayValue) {
             const municipality = getMunicipalityItem(regionSelect.value, provinceSelect.value, municipalitySelect.value);
             const barangays = municipality ? (municipality.barangays || []) : [];
-            setOptions(barangaySelect, barangays, 'Select Barangay / Zone', selectedBarangayValue || '');
+
+            if (!barangaySelect || !barangayManualInput) {
+                return;
+            }
+
+            if (barangays.length) {
+                setOptions(barangaySelect, barangays, 'Select Barangay / Zone', selectedBarangayValue || '');
+                barangaySelect.hidden = false;
+                barangaySelect.disabled = false;
+                barangayManualInput.hidden = true;
+                barangayManualInput.value = '';
+                barangayManualInput.required = false;
+                if (barangayHelper) {
+                    barangayHelper.textContent = 'Choose your Barangay / Zone from the list.';
+                }
+            } else {
+                barangaySelect.innerHTML = '<option value="">Select Barangay / Zone</option>';
+                barangaySelect.hidden = true;
+                barangaySelect.disabled = true;
+                barangaySelect.required = false;
+                barangayManualInput.hidden = false;
+                barangayManualInput.value = selectedBarangayValue || '';
+                barangayManualInput.required = Boolean(municipalitySelect.value);
+                if (barangayHelper) {
+                    barangayHelper.textContent = municipalitySelect.value
+                        ? 'Type the Barangay / Zone manually for this municipality.'
+                        : 'Select Municipality / City first.';
+                }
+            }
+
+            syncBarangayValue();
         }
 
         function handleRegionChange() {
@@ -562,9 +834,9 @@
         }
 
         function handleBarangayChange() {
-            selectedValues.barangay = barangaySelect.value;
+            selectedValues.barangay = syncBarangayValue();
             const municipality = getMunicipalityItem(regionSelect.value, provinceSelect.value, municipalitySelect.value);
-            const barangay = getBarangayItem(regionSelect.value, provinceSelect.value, municipalitySelect.value, barangaySelect.value);
+            const barangay = getBarangayItem(regionSelect.value, provinceSelect.value, municipalitySelect.value, selectedValues.barangay);
             const target = barangay && typeof barangay === 'object' && barangay.lat && barangay.lng
                 ? barangay
                 : municipality
@@ -573,16 +845,20 @@
 
             focusMapTarget(target, {
                 placePin: Boolean(target),
-                message: barangaySelect.value ? `Starter pin aligned to ${barangaySelect.value}. Adjust it for the exact house or installation point.` : '',
-                previewMessage: barangaySelect.value ? `Map focused on ${barangaySelect.value}.` : 'Select a barangay to refine the map.',
+                message: selectedValues.barangay ? `Starter pin aligned to ${selectedValues.barangay}. Adjust it for the exact house or installation point.` : '',
+                previewMessage: selectedValues.barangay ? `Map focused on ${selectedValues.barangay}.` : 'Select a barangay to refine the map.',
                 zoom: target && target.zoom ? target.zoom : 14,
             });
             updateReview();
         }
 
         window.customerApplyWizardNext = function (step) {
-            if (!validateStep(currentStep)) return false;
-            return setStep(step);
+            Promise.resolve(validateStep(currentStep)).then(valid => {
+                if (valid) {
+                    setStep(step);
+                }
+            });
+            return false;
         };
 
         window.customerApplyWizardPrev = function (step) {
@@ -603,7 +879,7 @@
             });
         });
 
-        if (regionSelect && provinceSelect && municipalitySelect && barangaySelect) {
+        if (regionSelect && provinceSelect && municipalitySelect && barangayValueInput) {
             populateRegions();
             populateProvinces(selectedValues.province);
             populateMunicipalities(selectedValues.municipality);
@@ -612,7 +888,16 @@
             regionSelect.addEventListener('change', handleRegionChange);
             provinceSelect.addEventListener('change', handleProvinceChange);
             municipalitySelect.addEventListener('change', handleMunicipalityChange);
-            barangaySelect.addEventListener('change', handleBarangayChange);
+            if (barangaySelect) {
+                barangaySelect.addEventListener('change', handleBarangayChange);
+            }
+            if (barangayManualInput) {
+                barangayManualInput.addEventListener('input', function () {
+                    syncBarangayValue();
+                    updateReview();
+                });
+                barangayManualInput.addEventListener('blur', handleBarangayChange);
+            }
         }
 
         try {
@@ -678,10 +963,41 @@
             field.addEventListener('change', updateReview);
         });
 
+        [emailInput, mobileInput].forEach(field => {
+            if (!field) return;
+
+            field.addEventListener('input', function () {
+                setDuplicateState(field, field === emailInput ? emailDuplicateError : mobileDuplicateError, '');
+                scheduleContactDuplicateCheck();
+            });
+
+            field.addEventListener('blur', function () {
+                runContactDuplicateCheck();
+            });
+        });
+
+        [
+            [firstNameInput, firstNameLiveError, 'First name'],
+            [lastNameInput, lastNameLiveError, 'Last name'],
+        ].forEach(([field, errorEl, label]) => {
+            if (!field) return;
+
+            field.addEventListener('input', function () {
+                validateNameField(field, errorEl, label);
+            });
+
+            field.addEventListener('blur', function () {
+                validateNameField(field, errorEl, label);
+            });
+        });
+
         updateReview();
         setStep(currentStep);
     })();
 </script>
+
+
+
 
 
 

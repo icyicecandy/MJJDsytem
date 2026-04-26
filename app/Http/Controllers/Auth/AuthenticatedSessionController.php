@@ -30,6 +30,14 @@ class AuthenticatedSessionController extends Controller
 
         $user = $request->user();
 
+        if ($user->isAdmin() || $user->isTechnician()) {
+            $user->forceFill([
+                'is_online' => true,
+                'last_seen' => now(),
+                'chat_available' => $user->chat_available ?? true,
+            ])->save();
+        }
+
         // If user originally tried to access a protected page
         if (session()->has('url.intended')) {
             return redirect()->intended();
@@ -55,6 +63,16 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $user = $request->user();
+
+        if ($user && ($user->isAdmin() || $user->isTechnician())) {
+            $user->forceFill([
+                'is_online' => false,
+                'chat_available' => false,
+                'last_seen' => null,
+            ])->save();
+        }
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

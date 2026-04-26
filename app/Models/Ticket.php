@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 
 class Ticket extends Model
 {
@@ -13,6 +14,49 @@ class Ticket extends Model
     public const STATUS_IN_PROGRESS = 'in_progress';
     public const STATUS_RESOLVED = 'resolved';
     public const STATUS_CLOSED = 'closed';
+    public const URGENCY_LOW = 'low';
+    public const URGENCY_MEDIUM = 'medium';
+    public const URGENCY_HIGH = 'high';
+    public const URGENCY_CRITICAL = 'critical';
+
+    public const SUBJECT_CATALOG = [
+        'no_internet_connection' => [
+            'label' => 'No Internet Connection',
+            'urgency' => self::URGENCY_HIGH,
+        ],
+        'slow_or_intermittent_connection' => [
+            'label' => 'Slow or Intermittent Connection',
+            'urgency' => self::URGENCY_MEDIUM,
+        ],
+        'service_outage_in_area' => [
+            'label' => 'Service Outage in Area',
+            'urgency' => self::URGENCY_CRITICAL,
+        ],
+        'damaged_line_or_equipment' => [
+            'label' => 'Damaged Line or Equipment',
+            'urgency' => self::URGENCY_HIGH,
+        ],
+        'installation_follow_up' => [
+            'label' => 'Installation Follow-up',
+            'urgency' => self::URGENCY_MEDIUM,
+        ],
+        'account_access_issue' => [
+            'label' => 'Account Access or Login Issue',
+            'urgency' => self::URGENCY_MEDIUM,
+        ],
+        'relocation_request' => [
+            'label' => 'Relocation Request',
+            'urgency' => self::URGENCY_LOW,
+        ],
+        'plan_upgrade_downgrade' => [
+            'label' => 'Plan Upgrade or Downgrade',
+            'urgency' => self::URGENCY_LOW,
+        ],
+        'other_technical_concern' => [
+            'label' => 'Other Technical Concern',
+            'urgency' => self::URGENCY_MEDIUM,
+        ],
+    ];
 
     protected $fillable = [
         'user_id',
@@ -21,6 +65,8 @@ class Ticket extends Model
         'subject',
         'description',
         'status',
+        'urgency',
+        'photo_path',
     ];
 
     protected static function booted(): void
@@ -93,6 +139,48 @@ class Ticket extends Model
     public function displayStatusClass(): string
     {
         return $this->isQueued() ? 'warning' : $this->status;
+    }
+
+    public static function subjectOptions(): array
+    {
+        return self::SUBJECT_CATALOG;
+    }
+
+    public static function subjectKeys(): array
+    {
+        return array_keys(self::SUBJECT_CATALOG);
+    }
+
+    public static function resolveSubjectLabel(string $subjectKeyOrLabel): string
+    {
+        return self::SUBJECT_CATALOG[$subjectKeyOrLabel]['label'] ?? $subjectKeyOrLabel;
+    }
+
+    public static function resolveUrgencyForSubject(string $subjectKeyOrLabel): string
+    {
+        if (isset(self::SUBJECT_CATALOG[$subjectKeyOrLabel])) {
+            return self::SUBJECT_CATALOG[$subjectKeyOrLabel]['urgency'];
+        }
+
+        $matched = collect(self::SUBJECT_CATALOG)
+            ->firstWhere('label', $subjectKeyOrLabel);
+
+        return $matched['urgency'] ?? self::URGENCY_MEDIUM;
+    }
+
+    public function displayUrgencyLabel(): string
+    {
+        return ucfirst($this->urgency ?: self::resolveUrgencyForSubject($this->subject));
+    }
+
+    public function displayUrgencyClass(): string
+    {
+        return $this->urgency ?: self::resolveUrgencyForSubject($this->subject);
+    }
+
+    public function photoUrl(): ?string
+    {
+        return $this->photo_path ? Storage::disk('public')->url($this->photo_path) : null;
     }
 
     public function syncAssignmentStatus(?int $technicianId = null, ?string $status = null): array

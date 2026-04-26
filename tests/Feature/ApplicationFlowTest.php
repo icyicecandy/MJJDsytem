@@ -10,7 +10,9 @@ function firstServiceArea(): array
 {
     $region = config('luzon_service_areas.regions')[0];
     $province = $region['provinces'][0];
-    $municipality = $province['municipalities'][0];
+    $municipality = collect($province['municipalities'])
+        ->first(fn (array $item) => ! empty($item['barangays']))
+        ?? $province['municipalities'][0];
     $barangay = $municipality['barangays'][0];
 
     return [
@@ -101,4 +103,49 @@ test('rejected applications cannot be scheduled', function () {
 
     expect(Installation::count())->toBe(0)
         ->and($application->refresh()->status)->toBe('rejected');
+});
+
+test('approved applications cannot be rejected afterward', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $customer = User::factory()->create(['role' => 'customer']);
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-0002',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane2@example.com',
+        'mobile_number' => '09171234567',
+        'region' => 'Test Region',
+        'province' => 'Test Province',
+        'municipality' => 'Test Municipality',
+        'barangay' => 'Test Barangay',
+        'street_landmark' => 'Test Landmark',
+        'lat' => 16.2,
+        'lng' => 121.0,
+        'plan_code' => 'S2S_50',
+        'status' => 'approved',
+        'serviceability_status' => 'serviceable',
+        'slot_availability_status' => 'available',
+        'assessment_notes' => 'Ready for installation.',
+        'assessed_at' => now(),
+        'assessed_by' => $admin->id,
+    ]);
+
+    $response = $this
+        ->actingAs($admin)
+        ->from(route('admin.applications.show', $application, false))
+        ->patch(route('admin.applications.status', $application, false), [
+            'status' => 'rejected',
+            'serviceability_status' => 'serviceable',
+            'slot_availability_status' => 'available',
+            'assessment_notes' => 'Attempted change.',
+            'rejection_reason' => 'Should not be allowed',
+        ]);
+
+    $response
+        ->assertRedirect(route('admin.applications.show', $application, false))
+        ->assertSessionHasErrors('status');
+
+    expect($application->refresh()->status)->toBe('approved');
 });

@@ -1,3 +1,8 @@
+@php
+    $loginErrors = $errors->getBag('login');
+    $loginModalActive = session('auth_modal') === 'login' || $loginErrors->any();
+@endphp
+
 <div class="login-modal" id="loginModal" aria-hidden="true">
     <div class="login-modal-backdrop" data-close-login-modal></div>
     <div class="login-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="loginModalTitle">
@@ -10,19 +15,40 @@
 
         <div class="login-modal-shell">
             <div class="login-modal-intro">
-                <span class="login-modal-kicker">MJJD Telecom</span>
                 <h2 id="loginModalTitle">Welcome back</h2>
                 <p>Sign in to manage your account, applications, and service updates without leaving the homepage.</p>
             </div>
 
             <x-auth-session-status class="login-modal-status" :status="session('status')" />
 
-            <form method="POST" action="{{ route('login') }}" class="login-modal-form">
+            @if (session('google_auth_error'))
+                <div class="alert alert-error">{{ session('google_auth_error') }}</div>
+            @endif
+
+            <div class="form-group login-modal-submit-row login-modal-social-row">
+                <a href="{{ route('auth.google.redirect', ['mode' => 'login']) }}" class="btn secondary auth-social-btn">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.2-.9 2.3-1.9 3.1l3.1 2.4c1.8-1.7 2.8-4.1 2.8-6.9 0-.7-.1-1.4-.2-2H12Z"/>
+                        <path fill="#34A853" d="M6.5 14.3l-.7.6-2.5 2c1.6 3.1 4.8 5.1 8.7 5.1 2.5 0 4.7-.8 6.3-2.3l-3.1-2.4c-.9.6-2 .9-3.2.9-2.4 0-4.5-1.6-5.2-3.9Z"/>
+                        <path fill="#4A90E2" d="M3.3 7.1A10 10 0 0 0 3.3 17l3.2-2.6a6 6 0 0 1 0-4.8Z"/>
+                        <path fill="#FBBC05" d="M12 5.8c1.4 0 2.7.5 3.7 1.4l2.8-2.8C16.7 2.8 14.5 2 12 2 8.1 2 4.9 4 3.3 7.1l3.2 2.6c.7-2.3 2.8-3.9 5.5-3.9Z"/>
+                    </svg>
+                    <span>Continue with Google</span>
+                </a>
+            </div>
+
+            <div class="auth-divider" aria-hidden="true">
+                <span>or sign in with your email</span>
+            </div>
+
+            <form method="POST" action="{{ route('login') }}" class="login-modal-form login-modal-auth-form">
                 @csrf
                 <div class="form-group">
                     <label for="modal_email">Email Address</label>
-                    <input id="modal_email" type="email" name="email" value="{{ old('email') }}" required autofocus placeholder="you@example.com" />
-                    @error('email')<span class="error">{{ $message }}</span>@enderror
+                    <input id="modal_email" type="email" name="email" value="{{ $loginModalActive ? old('email') : '' }}" required autofocus placeholder="you&#64;example.com" />
+                    @error('email', 'login')
+                        <span class="error">{{ $message }}</span>
+                    @enderror
                 </div>
 
                 <div class="form-group password-group">
@@ -47,22 +73,23 @@
                             <path d="m3.3 4.5 16.2 15-1.1 1.2-3-2.8A12.8 12.8 0 0 1 12 19c-5.5 0-9.9-3.4-11-7 .5-1.8 1.9-3.5 3.8-4.7L2.2 5.7l1.1-1.2Zm7 6.5 3.2 3a2.5 2.5 0 0 1-3.2-3Zm1.7-6c5.5 0 9.9 3.4 11 7-.4 1.4-1.4 2.8-2.8 4l-2.2-2c.7-.6 1.3-1.3 1.6-2-1.1-2.7-4.6-5.3-8.6-5.3-1 0-2 .2-2.9.5L6.4 5.9c1.7-.6 3.6-.9 5.6-.9Zm-.5 2.8a4.2 4.2 0 0 1 4.1 5l-1.6-1.5a2.5 2.5 0 0 0-2.8-2.7l-1.6-1.5c.6-.2 1.2-.3 1.9-.3Z"/>
                         </svg>
                     </button>
-                    @error('password')<span class="error">{{ $message }}</span>@enderror
+                    @error('password', 'login')
+                        <span class="error">{{ $message }}</span>
+                    @enderror
                 </div>
 
                 <div class="form-group checkbox-group login-modal-options-row">
                     <label>
-                        <input type="checkbox" name="remember" {{ old('remember') ? 'checked' : '' }} /> Keep me signed in
+                        <input type="checkbox" name="remember" {{ $loginModalActive && old('remember') ? 'checked' : '' }} /> Keep me signed in
                     </label>
                 </div>
 
-                <div class="form-group login-modal-submit-row">
+                <div class="form-group login-modal-submit-row login-modal-primary-action">
                     <button type="submit" class="btn">Sign In</button>
                 </div>
 
-                <p class="small-text">Need an account? <a href="{{ route('register') }}" data-switch-modal="register">Create one here</a></p>
+                <p class="small-text login-modal-footer">Need an account? <a href="{{ url('/') }}" data-switch-modal="register">Create one here</a></p>
             </form>
         </div>
     </div>
 </div>
-

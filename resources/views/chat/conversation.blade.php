@@ -1,196 +1,175 @@
 @extends('layouts.app')
 
-@section('title','Support Chat')
+@section('title', 'Support Chat')
 
 @section('content')
 @php
-    $isCustomer = auth()->user()->role === 'customer';
+    use Illuminate\Support\Str;
+
+    $me = auth()->user();
+    $isCustomer = $me->role === 'customer';
     $isRoleChat = ! $isCustomer;
-    $sendRoute = $isRoleChat ? route('role.chat.send', ['role' => auth()->user()->role, 'user' => $user]) : route('chat.send', $user);
-    $takeoverRoute = $isRoleChat ? route('role.chat.takeover', ['role' => auth()->user()->role, 'user' => $user]) : null;
-    $assignRoute = $isRoleChat && auth()->user()->isAdmin() ? route('role.chat.assign', ['role' => auth()->user()->role, 'user' => $user]) : null;
-    $availabilityRoute = $isRoleChat ? route('role.chat.availability', ['role' => auth()->user()->role]) : null;
+    $search = $search ?? '';
+    $scope = $scope ?? '';
+    $sendRoute = $isRoleChat ? route('role.chat.send', ['role' => $me->role, 'user' => $user]) : route('chat.send', $user);
+    $snapshotRoute = $isRoleChat ? route('role.chat.snapshot', ['role' => $me->role, 'user' => $user, 'search' => $search, 'scope' => $scope]) : route('chat.snapshot', ['user' => $user]);
+    $takeoverRoute = $isRoleChat ? route('role.chat.takeover', ['role' => $me->role, 'user' => $user]) : null;
+    $assignRoute = $isRoleChat && $me->isAdmin() ? route('role.chat.assign', ['role' => $me->role, 'user' => $user]) : null;
+    $availabilityRoute = $isRoleChat ? route('role.chat.availability', ['role' => $me->role]) : null;
+    $noteRoute = $isRoleChat ? route('role.chat.note', ['role' => $me->role, 'user' => $user]) : null;
+    $closeRoute = $isRoleChat ? route('role.chat.close', ['role' => $me->role, 'user' => $user]) : null;
+    $reopenRoute = $isRoleChat ? route('role.chat.reopen', ['role' => $me->role, 'user' => $user]) : null;
     $mode = $chatState['mode'] ?? 'ai_active';
-    $statusLabel = $chatState['status_label'] ?? 'MJJD AI Assistant';
-    $statusClass = $chatState['status_class'] ?? 'info';
+    $statusLabel = $isCustomer
+        ? ($chatState['customer_status_label'] ?? $chatState['status_label'] ?? 'AI assistant is helping')
+        : ($chatState['status_label'] ?? 'AI assistant is helping');
     $humanModes = ['assigned', 'active_human'];
     $assignableStaff = $assignableStaff ?? collect();
-    $canAdminTakeOver = $isRoleChat && auth()->user()->isAdmin() && (optional($chatState['assigned_staff'])->id !== auth()->id() || ! in_array($mode, $humanModes, true));
+    $conversations = $conversations ?? collect();
+    $staffStatus = $isRoleChat ? $me->chatAvailabilityLabel() : null;
+    $canAdminTakeOver = $isRoleChat && $me->isAdmin() && (optional($chatState['assigned_staff'])->id !== $me->id || ! in_array($mode, $humanModes, true));
+    $canTechnicianTakeOver = $isRoleChat && $me->isTechnician() && ! in_array($mode, $humanModes, true);
+
+    $pageTitle = $isCustomer ? 'Live chat' : ($me->isAdmin() ? 'Support queue' : 'Assigned conversations');
+    $pageSubtitle = $isCustomer
+        ? 'Chat with MJJD support from one thread. If no staff member is available, the AI assistant will respond first.'
+        : ($me->isAdmin()
+            ? 'Review the queue, reassign conversations, and manage active support work.'
+            : 'Stay focused on your assigned customer conversations and respond quickly.');
+
+    $headerActions = null;
+    if ($isRoleChat) {
+        $headerActions = '<form method="POST" action="' . $availabilityRoute . '">'
+            . '<span class="chat-ui__button chat-ui__button--secondary" style="pointer-events:none;">' . e($staffStatus) . '</span>'
+            . csrf_field()
+            . '<input type="hidden" name="chat_available" value="' . ($me->chat_available ? '0' : '1') . '">'
+            . '<button type="submit" class="chat-ui__button ' . ($me->chat_available ? 'chat-ui__button--secondary' : 'chat-ui__button--primary') . '">'
+            . ($me->chat_available ? 'Set away' : 'Set available')
+            . '</button></form>';
+
+        if (($canAdminTakeOver && ! $me->isAdmin()) || $canTechnicianTakeOver) {
+            $headerActions .= '<form method="POST" action="' . $takeoverRoute . '">'
+                . csrf_field()
+                . '<button type="submit" class="chat-ui__button chat-ui__button--secondary">'
+                . ($me->isAdmin() ? 'Assign to me' : 'Take over')
+                . '</button></form>';
+        }
+    }
+
+    $panelActions = '';
+    $reassignModal = '';
+    if ($isRoleChat && $me->isAdmin() && $assignRoute && $assignableStaff->isNotEmpty()) {
+        $panelActions .= '<button type="button" class="chat-ui__button chat-ui__button--secondary" data-open-reassign-modal>Reassign</button>';
+
+        $modalStaff = $assignableStaff->keyBy('id');
+        if (! $modalStaff->has($me->id)) {
+            $modalStaff->put($me->id, $me);
+        }
+
+        $reassignModal = '<div class="chat-ui__modal" id="reassignModal" aria-hidden="true">'
+            . '<div class="chat-ui__modal-backdrop" data-close-reassign-modal></div>'
+            . '<div class="chat-ui__modal-dialog" role="dialog" aria-modal="true" aria-labelledby="reassignModalTitle">'
+            . '<div class="chat-ui__modal-head">'
+            . '<div><h3 id="reassignModalTitle">Reassign conversation</h3><p>Select who should handle this customer conversation.</p></div>'
+            . '<button type="button" class="chat-ui__modal-close" data-close-reassign-modal aria-label="Close reassignment modal">&times;</button>'
+            . '</div>'
+            . '<div class="chat-ui__modal-body">'
+            . '<form method="POST" action="' . $assignRoute . '" class="chat-ui__filters">'
+            . csrf_field()
+            . '<label for="assigned_staff_id">Assign to</label>'
+            . '<select name="assigned_staff_id" id="assigned_staff_id">';
+        foreach ($modalStaff as $staffOption) {
+            $selected = optional($chatState['assigned_staff'])->id === $staffOption->id ? ' selected' : '';
+            $reassignModal .= '<option value="' . e($staffOption->id) . '"' . $selected . '>' . e($staffOption->name . ' (' . ucfirst($staffOption->role) . ')') . '</option>';
+        }
+        $reassignModal .= '</select>'
+            . '<div class="chat-ui__modal-actions">'
+            . '<button class="chat-ui__button chat-ui__button--primary" type="submit">Save reassignment</button>'
+            . '<button type="button" class="chat-ui__button chat-ui__button--secondary" data-close-reassign-modal>Cancel</button>'
+            . '</div>'
+            . '</form>'
+            . '<form method="POST" action="' . $assignRoute . '">'
+            . csrf_field()
+            . '<input type="hidden" name="assigned_staff_id" value="' . e($me->id) . '">'
+            . '<button type="submit" class="chat-ui__button chat-ui__button--secondary">Assign to me</button>'
+            . '</form>'
+            . '</div>'
+            . '</div>'
+            . '</div>';
+    }
+
+    if ($isRoleChat) {
+        $panelActions .= '<form method="POST" action="' . ($mode === 'closed' ? $reopenRoute : $closeRoute) . '">'
+            . csrf_field()
+            . '<button type="submit" class="chat-ui__button chat-ui__button--secondary">'
+            . ($mode === 'closed' ? 'Reopen' : 'Close')
+            . '</button></form>';
+    }
+
+    $contextItems = $isCustomer ? [] : array_values(array_filter([
+        ['label' => 'Customer', 'value' => $customerContext['customer_name'] ?? $customer->name],
+        ['label' => 'Email', 'value' => $customerContext['customer_email'] ?? null],
+        ['label' => 'Phone', 'value' => $customerContext['customer_phone'] ?? null],
+        ['label' => 'Application', 'value' => $customerContext['application_reference'] ?? null],
+        ['label' => 'Application status', 'value' => $customerContext['application_status'] ?? null],
+        ['label' => 'Plan', 'value' => $customerContext['application_plan'] ?? null],
+        ['label' => 'Ticket', 'value' => $customerContext['ticket_reference'] ?? null],
+        ['label' => 'Ticket status', 'value' => $customerContext['ticket_status'] ?? null],
+        ['label' => 'Assigned technician', 'value' => $customerContext['assigned_technician'] ?? null],
+        ['label' => 'Address', 'value' => $customerContext['service_address'] ?? null, 'full' => true],
+        ['label' => 'Latest ticket topic', 'value' => $customerContext['ticket_subject'] ?? null, 'full' => true],
+    ], fn (array $item) => filled($item['value'] ?? null)));
+
+    $sidebarContent = null;
+    if ($isRoleChat) {
+        $sidebarContent = view('chat.components.conversation-list', [
+            'viewerRole' => $me->role,
+            'sidebarTitle' => $me->isAdmin() ? 'Customer queue' : 'My chats',
+            'sidebarMeta' => $conversations->count() . ' active conversation' . ($conversations->count() === 1 ? '' : 's'),
+            'conversations' => $conversations,
+            'activeConversationId' => $user->id,
+            'filterAction' => route('role.chat.index', ['role' => $me->role]),
+            'search' => $search,
+            'scope' => $scope,
+            'showFilters' => true,
+            'showScopeFilter' => $me->isAdmin(),
+            'emptyTitle' => $me->isAdmin() ? 'No queued conversations' : 'No assigned conversations',
+            'emptyMessage' => $me->isAdmin() ? 'Customer chats will appear here when someone starts a conversation.' : 'New customer chats assigned to you will appear here.',
+        ])->render();
+    }
+
+    $panelContent = view('chat.components.chat-panel', [
+        'role' => $me->role,
+        'user' => $user,
+        'messages' => $messages,
+        'chatState' => $chatState,
+        'mode' => $mode,
+        'statusLabel' => $statusLabel,
+        'sendRoute' => $sendRoute,
+        'isCustomer' => $isCustomer,
+        'quickReplies' => $quickReplies,
+        'panelTitle' => $isCustomer ? ($chatState['identity_name'] ?? 'MJJD AI Assistant') : $user->name,
+        'panelMeta' => $isCustomer
+            ? 'A single thread for AI and live support.'
+            : ($me->isAdmin() ? 'Review the thread and route it to the right staff member.' : 'Respond directly to the customer from this thread.'),
+        'panelActions' => $panelActions,
+        'contextItems' => $contextItems,
+        'contextTitle' => $isCustomer ? null : 'Customer context',
+        'noteRoute' => $noteRoute,
+        'showNoteForm' => $isRoleChat,
+    ])->render();
 @endphp
 
-<div class="support-chat-page {{ $isCustomer ? 'support-chat-page-customer' : 'support-chat-page-staff' }}">
-    <section class="card support-chat-header-card support-chat-hero-card">
-        <div class="support-chat-hero-copy">
-            <span class="application-status-kicker">{{ $isCustomer ? 'Live Support' : 'Support Workspace' }}</span>
-            <h1>{{ $isCustomer ? 'MJJD Support Chat' : ($user->name . ' Conversation') }}</h1>
-            <p>
-                @if($isCustomer)
-                    @if(in_array($mode, $humanModes, true))
-                        You are currently connected to a human support staff member.
-                    @elseif($mode === 'waiting_for_human')
-                        MJJD AI could not fully resolve the concern. Your conversation is waiting in the human support queue.
-                    @else
-                        You are currently chatting with the MJJD AI Assistant until a human support staff member is assigned.
-                    @endif
-                @else
-                    {{ auth()->user()->isAdmin() ? 'Track AI handling, oversee queue status, and reassign support without leaving this conversation view.' : 'Focus on this assigned customer thread, reply quickly, and keep the issue moving toward resolution.' }}
-                @endif
-            </p>
-            <div class="support-hero-stat-row">
-                <span class="support-hero-stat">
-                    <strong>{{ $statusLabel }}</strong>
-                    <span>Current conversation state</span>
-                </span>
-                <span class="support-hero-stat">
-                    <strong>{{ $isCustomer ? ($chatState['identity_name'] ?? 'MJJD AI Assistant') : $user->name }}</strong>
-                    <span>{{ $isCustomer ? 'Support identity' : 'Customer in focus' }}</span>
-                </span>
-            </div>
-        </div>
-        <div class="support-chat-header-actions">
-            <div class="support-identity-card">
-                <strong>{{ $chatState['identity_name'] ?? 'MJJD AI Assistant' }}</strong>
-                <span>{{ $chatState['identity_role'] ?? 'AI Assistant' }}</span>
-                <span class="badge {{ $statusClass }}">{{ $statusLabel }}</span>
-            </div>
-            @if($isRoleChat)
-                <div class="support-header-buttons">
-                    <form method="POST" action="{{ $availabilityRoute }}">
-                        @csrf
-                        <input type="hidden" name="chat_available" value="{{ auth()->user()->chat_available ? 0 : 1 }}">
-                        <button type="submit" class="btn secondary">{{ auth()->user()->chat_available ? 'Set Unavailable' : 'Set Available' }}</button>
-                    </form>
-                    @if($canAdminTakeOver)
-                        <form method="POST" action="{{ $takeoverRoute }}">
-                            @csrf
-                            <button type="submit" class="btn">Assign to Me</button>
-                        </form>
-                    @endif
-                </div>
-            @endif
-        </div>
-    </section>
-
-    <div class="support-chat-layout {{ $isCustomer ? 'support-chat-layout-customer' : 'support-chat-layout-staff' }}">
-        @if($isRoleChat)
-            <aside class="support-conversation-sidebar card">
-                <div class="support-sidebar-head">
-                    <div>
-                        <h3>{{ auth()->user()->isAdmin() ? 'Customer Conversations' : 'Assigned Conversations' }}</h3>
-                        <p>{{ auth()->user()->isAdmin() ? 'Jump between customer threads and rebalance support when needed.' : 'Stay focused on the queue assigned to you.' }}</p>
-                    </div>
-                    <span class="badge info">{{ $conversations->count() }}</span>
-                </div>
-                <div class="support-conversation-list">
-                    @forelse($conversations as $conversation)
-                        @php
-                            $customerItem = $conversation['customer'];
-                            $latest = $conversation['latest_message'];
-                        @endphp
-                        <a href="{{ route('role.chat.conversation', ['role' => auth()->user()->role, 'user' => $customerItem]) }}" class="support-conversation-item {{ $customerItem->id === $user->id ? 'active' : '' }}">
-                            <div class="support-conversation-top">
-                                <strong>{{ $customerItem->name }}</strong>
-                                <span class="badge {{ $conversation['status_class'] }}">{{ $conversation['status_label'] }}</span>
-                            </div>
-                            <div class="support-conversation-meta">
-                                <span>{{ $conversation['assigned_staff']?->name ? 'Connected to: ' . $conversation['assigned_staff']->name : 'Waiting for human support' }}</span>
-                                @if($conversation['is_mine'])
-                                    <span class="badge success">Mine</span>
-                                @endif
-                            </div>
-                            <p>{{ \Illuminate\Support\Str::limit($latest->message, 92) }}</p>
-                        </a>
-                    @empty
-                        <div class="support-sidebar-empty">
-                            <div class="support-sidebar-empty-icon">...</div>
-                            <strong>{{ auth()->user()->isAdmin() ? 'No customer conversations yet' : 'No assigned conversations yet' }}</strong>
-                            <p>{{ auth()->user()->isAdmin() ? 'Customer threads will appear here once a new support conversation starts.' : 'When a thread is assigned to you, it will appear here automatically.' }}</p>
-                        </div>
-                    @endforelse
-                </div>
-            </aside>
-        @endif
-
-        <section class="support-chat-main card {{ $isCustomer ? 'support-chat-main-customer' : 'support-chat-main-staff' }}">
-            <div class="support-chat-panel-head">
-                <div>
-                    <h2>{{ $isCustomer ? ($chatState['identity_name'] ?? 'MJJD AI Assistant') : $user->name }}</h2>
-                    <p>
-                        @if($isCustomer)
-                            {{ $statusLabel }}
-                        @else
-                            Customer support thread with {{ $user->name }}.
-                        @endif
-                    </p>
-                </div>
-                <div class="support-chat-panel-actions">
-                    @if($isRoleChat)
-                        <div class="support-chip">{{ $chatState['assigned_staff'] ? 'Connected to: ' . $chatState['assigned_staff']->name : 'Waiting for human support' }}</div>
-                        @if(auth()->user()->isAdmin() && $assignRoute && $assignableStaff->isNotEmpty())
-                            <form method="POST" action="{{ $assignRoute }}" class="support-assignment-form">
-                                @csrf
-                                <select name="assigned_staff_id">
-                                    @foreach($assignableStaff as $staffOption)
-                                        <option value="{{ $staffOption->id }}" {{ optional($chatState['assigned_staff'])->id === $staffOption->id ? 'selected' : '' }}>{{ $staffOption->name }} ({{ ucfirst($staffOption->role) }})</option>
-                                    @endforeach
-                                </select>
-                                <button class="btn secondary" type="submit">Reassign</button>
-                            </form>
-                        @endif
-                    @endif
-                </div>
-            </div>
-
-            <div id="chat-window" class="support-chat-window">
-                @if($messages->isEmpty())
-                    <div class="support-system-banner">
-                        @if(in_array($mode, $humanModes, true))
-                            A human support staff member is assigned to this conversation.
-                        @elseif($mode === 'waiting_for_human')
-                            Your message has been received. Please wait while human support becomes available.
-                        @else
-                            Hello, I am the MJJD AI Assistant. I can help answer common support questions while our staff are offline.
-                        @endif
-                    </div>
-                @endif
-
-                @foreach($messages as $msg)
-                    @php
-                        $self = $msg->sender_type === 'customer' && auth()->user()->id === $msg->from_user_id;
-                        $bubbleClass = $msg->sender_type === 'system' ? 'system' : ($self ? 'self' : ($msg->sender_type === 'ai' ? 'ai' : 'agent'));
-                    @endphp
-                    <article class="support-message-row {{ $bubbleClass }}">
-                        @if($msg->sender_type === 'system')
-                            <div class="support-system-banner">{{ $msg->message }}</div>
-                        @else
-                            <div class="support-message-bubble {{ $bubbleClass }}">
-                                <div class="support-message-meta">
-                                    <strong>{{ $msg->senderLabel() }}</strong>
-                                    <span>{{ $msg->created_at->format('M d, h:i A') }}</span>
-                                </div>
-                                <div class="support-message-text">{{ $msg->message }}</div>
-                            </div>
-                        @endif
-                    </article>
-                @endforeach
-            </div>
-
-            @if($isCustomer && !empty($quickReplies) && $mode === 'ai_active')
-                <div class="support-quick-replies" id="support-quick-replies">
-                    @foreach($quickReplies as $quickReply)
-                        <button type="button" class="support-quick-btn" data-quick-reply="{{ $quickReply }}">{{ $quickReply }}</button>
-                    @endforeach
-                </div>
-            @endif
-
-            <form id="chat-form" method="POST" action="{{ $sendRoute }}" class="support-chat-composer">
-                @csrf
-                <textarea name="message" rows="2" placeholder="Type your message..." required></textarea>
-                <button type="submit" class="btn">Send Message</button>
-            </form>
-        </section>
-    </div>
-</div>
+@include('chat.layouts.chat-layout', [
+    'role' => $me->role,
+    'eyebrow' => $isCustomer ? 'Customer' : ucfirst($me->role),
+    'title' => $pageTitle,
+    'subtitle' => $pageSubtitle,
+    'headerActions' => $headerActions,
+    'sidebarContent' => $sidebarContent,
+    'panelContent' => $panelContent,
+])
+{!! $reassignModal !!}
 @endsection
 
 @section('scripts')
@@ -198,14 +177,49 @@
     (function () {
         const chatWindow = document.getElementById('chat-window');
         const form = document.getElementById('chat-form');
+        const conversationList = document.getElementById('chat-conversation-list');
         const quickButtons = document.querySelectorAll('[data-quick-reply]');
         const quickRepliesWrap = document.getElementById('support-quick-replies');
+        const statusBadge = document.getElementById('chat-status-badge');
+        const reassignModal = document.getElementById('reassignModal');
+        const reassignOpeners = document.querySelectorAll('[data-open-reassign-modal]');
+        const reassignClosers = document.querySelectorAll('[data-close-reassign-modal]');
         const meId = {{ auth()->id() }};
         const isCustomer = {{ $isCustomer ? 'true' : 'false' }};
+        const viewerRole = @json($me->role);
+        const snapshotUrl = @json($snapshotRoute);
+        let pollTimer = null;
+        let lastSignature = '';
 
         if (chatWindow) {
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
+
+        function openReassignModal() {
+            if (!reassignModal) return;
+            reassignModal.classList.add('is-open');
+            reassignModal.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeReassignModal() {
+            if (!reassignModal) return;
+            reassignModal.classList.remove('is-open');
+            reassignModal.setAttribute('aria-hidden', 'true');
+        }
+
+        reassignOpeners.forEach((button) => {
+            button.addEventListener('click', openReassignModal);
+        });
+
+        reassignClosers.forEach((button) => {
+            button.addEventListener('click', closeReassignModal);
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeReassignModal();
+            }
+        });
 
         quickButtons.forEach((button) => {
             button.addEventListener('click', function () {
@@ -215,13 +229,23 @@
             });
         });
 
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function appendMessage(message) {
             if (!chatWindow) return;
 
             if (message.sender_type === 'system') {
                 const row = document.createElement('article');
-                row.className = 'support-message-row system';
-                row.innerHTML = '<div class="support-system-banner">' + message.message + '</div>';
+                row.className = 'chat-ui__message-row system';
+                row.dataset.messageId = message.id;
+                row.innerHTML = '<div class="chat-ui__system-banner">' + escapeHtml(message.message) + '</div>';
                 chatWindow.appendChild(row);
                 chatWindow.scrollTop = chatWindow.scrollHeight;
                 return;
@@ -232,18 +256,141 @@
                 : (message.sender_type === 'ai' ? 'ai' : 'agent');
 
             const row = document.createElement('article');
-            row.className = 'support-message-row ' + bubbleClass;
+            row.className = 'chat-ui__message-row ' + bubbleClass;
+            row.dataset.messageId = message.id;
             row.innerHTML = `
-                <div class="support-message-bubble ${bubbleClass}">
-                    <div class="support-message-meta">
-                        <strong>${message.sender_label}</strong>
-                        <span>${message.created_at}</span>
+                <div class="chat-ui__message-bubble ${bubbleClass}">
+                    <div class="chat-ui__message-meta">
+                        <strong>${escapeHtml(message.sender_label)}</strong>
+                        <span>${escapeHtml(message.created_at)}</span>
                     </div>
-                    <div class="support-message-text">${message.message}</div>
+                    <div class="chat-ui__message-text">${escapeHtml(message.message)}</div>
                 </div>
             `;
             chatWindow.appendChild(row);
             chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function badgeClass(statusLabel) {
+            const normalized = String(statusLabel || '').toLowerCase();
+
+            if (normalized.includes('waiting')) return 'chat-ui__badge--gray';
+            if (normalized.includes('assigned') || normalized.includes('connected')) return 'chat-ui__badge--blue';
+            if (normalized.includes('active') || normalized.includes('progress')) return 'chat-ui__badge--yellow';
+            if (normalized.includes('closed') || normalized.includes('resolved')) return 'chat-ui__badge--green';
+            if (normalized.includes('attention')) return 'chat-ui__badge--red';
+            if (normalized.includes('urgent')) return 'chat-ui__badge--red';
+
+            return 'chat-ui__badge--gray';
+        }
+
+        function renderMessage(message) {
+            if (message.sender_type === 'system') {
+                return `
+                    <article class="chat-ui__message-row system" data-message-id="${message.id}">
+                        <div class="chat-ui__system-banner">${escapeHtml(message.message)}</div>
+                    </article>
+                `;
+            }
+
+            const bubbleClass = message.sender_type === 'customer' && message.from_user_id === meId
+                ? 'self'
+                : (message.sender_type === 'ai' ? 'ai' : 'agent');
+
+            return `
+                <article class="chat-ui__message-row ${bubbleClass}" data-message-id="${message.id}">
+                    <div class="chat-ui__message-bubble ${bubbleClass}">
+                        <div class="chat-ui__message-meta">
+                            <strong>${escapeHtml(message.sender_label)}</strong>
+                            <span>${escapeHtml(message.created_at)}</span>
+                        </div>
+                        <div class="chat-ui__message-text">${escapeHtml(message.message)}</div>
+                    </div>
+                </article>
+            `;
+        }
+
+        function renderMessages(messages) {
+            if (!chatWindow) return;
+
+            const nearBottom = (chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight) < 120;
+            const signature = JSON.stringify((messages || []).map((message) => [message.id, message.message, message.created_at]));
+
+            if (signature === lastSignature) {
+                return;
+            }
+
+            chatWindow.innerHTML = (messages || []).map(renderMessage).join('');
+            lastSignature = signature;
+
+            if (nearBottom) {
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }
+        }
+
+        function renderConversationList(conversations) {
+            if (!conversationList || !Array.isArray(conversations)) return;
+
+            conversationList.innerHTML = conversations.map((conversation) => {
+                const statusClass = badgeClass(conversation.status_label);
+                const primaryText = viewerRole === 'admin'
+                    ? (conversation.assigned_staff_name ? `Assigned to ${escapeHtml(conversation.assigned_staff_name)}` : 'Unassigned')
+                    : escapeHtml(conversation.last_activity || 'Recent activity');
+                const secondaryText = escapeHtml(conversation.queue_age || conversation.application_reference || 'Recent');
+                const submeta = viewerRole === 'admin'
+                    ? `
+                        <div class="chat-ui__conversation-submeta" data-conversation-submeta>
+                            ${conversation.application_reference ? `<span>${escapeHtml(conversation.application_reference)}</span>` : ''}
+                            ${conversation.open_ticket_count ? `<span>${conversation.open_ticket_count} open ticket${conversation.open_ticket_count === 1 ? '' : 's'}</span>` : ''}
+                        </div>
+                    `
+                    : '';
+
+                return `
+                    <a href="${escapeHtml(conversation.url)}" class="chat-ui__conversation-item ${conversation.is_active ? 'is-active' : ''}" data-conversation-item data-customer-id="${conversation.customer_id}">
+                        <div class="chat-ui__conversation-top">
+                            <strong>${escapeHtml(conversation.customer_name)}</strong>
+                            <span class="chat-ui__badge ${statusClass}" data-conversation-status>${escapeHtml(conversation.status_label)}</span>
+                        </div>
+                        <p class="chat-ui__conversation-preview" data-conversation-preview>${escapeHtml(conversation.latest_message || '')}</p>
+                        <div class="chat-ui__conversation-meta">
+                            <span data-conversation-meta-primary>${primaryText}</span>
+                            <span data-conversation-meta-secondary>${secondaryText}</span>
+                        </div>
+                        ${submeta}
+                    </a>
+                `;
+            }).join('');
+        }
+
+        function updateChatState(chatState) {
+            if (!chatState || !statusBadge) return;
+
+            statusBadge.textContent = chatState.status_label || statusBadge.textContent;
+            statusBadge.className = 'chat-ui__badge ' + badgeClass(chatState.status_label);
+
+            if (isCustomer && quickRepliesWrap && chatState.mode !== 'ai_active') {
+                quickRepliesWrap.classList.add('is-hidden');
+            }
+        }
+
+        function pollSnapshot() {
+            if (!snapshotUrl) return;
+
+            fetch(snapshotUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            })
+                .then((response) => response.ok ? response.json() : null)
+                .then((payload) => {
+                    if (!payload) return;
+                    renderMessages(payload.messages || []);
+                    updateChatState(payload.chat_state || null);
+                    renderConversationList(payload.conversations || null);
+                })
+                .catch(() => {});
         }
 
         if (form) {
@@ -267,9 +414,9 @@
                     .then((payload) => {
                         textarea.value = '';
                         (payload.messages || []).forEach(appendMessage);
-                        if (isCustomer && payload.chat_state && payload.chat_state.mode !== 'ai_active' && quickRepliesWrap) {
-                            quickRepliesWrap.classList.add('is-hidden');
-                        }
+                        lastSignature = '';
+                        updateChatState(payload.chat_state || null);
+                        pollSnapshot();
                     })
                     .catch((error) => console.error(error));
             });
@@ -282,9 +429,18 @@
                     if (!message || !chatWindow) return;
                     if (form && message.from_user_id === meId) return;
                     appendMessage(message);
+                    lastSignature = '';
+                    pollSnapshot();
                 });
         }
+
+        pollSnapshot();
+        pollTimer = window.setInterval(pollSnapshot, 3000);
+        window.addEventListener('beforeunload', function () {
+            if (pollTimer) {
+                window.clearInterval(pollTimer);
+            }
+        });
     })();
 </script>
 @endsection
-

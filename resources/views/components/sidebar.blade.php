@@ -12,9 +12,7 @@
         ];
         $role = Auth::user()->role ?? '';
         $chatIndexRoute = filled($role)
-            ? ($role === 'customer'
-                ? route('chat.index')
-                : route('role.chat.index', ['role' => $role]))
+            ? ($role === 'customer' ? route('chat.index') : route('role.chat.index', ['role' => $role]))
             : route('chat.index');
         $chatActive = $role === 'customer'
             ? request()->is('chat*')
@@ -26,24 +24,20 @@
                 <li class="sidebar-item {{ request()->is('customer/dashboard') ? 'active' : '' }}"><a href="{{ route('customer.dashboard') }}"><span class="nav-icon">{!! $icons['dashboard'] !!}</span><span class="nav-label">Dashboard</span></a></li>
                 <li class="sidebar-item {{ request()->is('customer/apply*') ? 'active' : '' }}"><a href="{{ route('customer.apply') }}"><span class="nav-icon">{!! $icons['document'] !!}</span><span class="nav-label">Apply</span></a></li>
                 <li class="sidebar-item {{ request()->is('customer/tickets*') ? 'active' : '' }}"><a href="{{ route('customer.tickets.index') }}"><span class="nav-icon">{!! $icons['ticket'] !!}</span><span class="nav-label">Support Tickets</span></a></li>
-                <li class="sidebar-item {{ request()->is('notifications*') ? 'active' : '' }}"><a href="{{ route('notifications.index') }}"><span class="nav-icon">{!! $icons['bell'] !!}</span><span class="nav-label">Notifications</span></a></li>
                 <li class="sidebar-item {{ $chatActive ? 'active' : '' }}"><a href="{{ $chatIndexRoute }}"><span class="nav-icon">{!! $icons['chat'] !!}</span><span class="nav-label">Live Chat</span></a></li>
                 <li class="sidebar-item {{ request()->is('profile*') ? 'active' : '' }}"><a href="{{ route('profile.edit') }}"><span class="nav-icon">{!! $icons['user'] !!}</span><span class="nav-label">Profile</span></a></li>
             @elseif($role === 'technician')
                 <li class="sidebar-item {{ request()->is('technician/dashboard') ? 'active' : '' }}"><a href="{{ route('technician.dashboard') }}"><span class="nav-icon">{!! $icons['dashboard'] !!}</span><span class="nav-label">Dashboard</span></a></li>
                 <li class="sidebar-item {{ request()->is('technician/installations*') ? 'active' : '' }}"><a href="{{ route('technician.installations.index') }}"><span class="nav-icon">{!! $icons['tool'] !!}</span><span class="nav-label">Installations</span></a></li>
                 <li class="sidebar-item {{ request()->is('technician/tickets*') ? 'active' : '' }}"><a href="{{ route('technician.tickets.index') }}"><span class="nav-icon">{!! $icons['ticket'] !!}</span><span class="nav-label">Tickets</span></a></li>
-                <li class="sidebar-item {{ request()->is('notifications*') ? 'active' : '' }}"><a href="{{ route('notifications.index') }}"><span class="nav-icon">{!! $icons['bell'] !!}</span><span class="nav-label">Notifications</span></a></li>
                 <li class="sidebar-item {{ $chatActive ? 'active' : '' }}"><a href="{{ $chatIndexRoute }}"><span class="nav-icon">{!! $icons['chat'] !!}</span><span class="nav-label">Live Chat</span></a></li>
                 <li class="sidebar-item {{ request()->is('profile*') ? 'active' : '' }}"><a href="{{ route('profile.edit') }}"><span class="nav-icon">{!! $icons['user'] !!}</span><span class="nav-label">Profile</span></a></li>
             @elseif($role === 'admin')
                 <li class="sidebar-item {{ request()->is('admin/dashboard') ? 'active' : '' }}"><a href="{{ route('admin.dashboard') }}"><span class="nav-icon">{!! $icons['dashboard'] !!}</span><span class="nav-label">Dashboard</span></a></li>
                 <li class="sidebar-item {{ request()->is('admin/applications*') ? 'active' : '' }}"><a href="{{ route('admin.applications.index') }}"><span class="nav-icon">{!! $icons['document'] !!}</span><span class="nav-label">Applications</span></a></li>
                 <li class="sidebar-item {{ request()->is('admin/installations*') ? 'active' : '' }}"><a href="{{ route('admin.installations.index') }}"><span class="nav-icon">{!! $icons['tool'] !!}</span><span class="nav-label">Installations</span></a></li>
-                <li class="sidebar-item {{ request()->is('admin/customers*') ? 'active' : '' }}"><a href="{{ route('admin.customers.index') }}"><span class="nav-icon">{!! $icons['users'] !!}</span><span class="nav-label">Customers</span></a></li>
                 <li class="sidebar-item {{ request()->is('admin/technicians*') ? 'active' : '' }}"><a href="{{ route('admin.technicians.index') }}"><span class="nav-icon">{!! $icons['users'] !!}</span><span class="nav-label">Technicians</span></a></li>
                 <li class="sidebar-item {{ request()->is('admin/tickets*') ? 'active' : '' }}"><a href="{{ route('admin.tickets.index') }}"><span class="nav-icon">{!! $icons['ticket'] !!}</span><span class="nav-label">Tickets</span></a></li>
-                <li class="sidebar-item {{ request()->is('notifications*') ? 'active' : '' }}"><a href="{{ route('notifications.index') }}"><span class="nav-icon">{!! $icons['bell'] !!}</span><span class="nav-label">Notifications</span></a></li>
                 <li class="sidebar-item {{ $chatActive ? 'active' : '' }}"><a href="{{ $chatIndexRoute }}"><span class="nav-icon">{!! $icons['chat'] !!}</span><span class="nav-label">Live Chat</span></a></li>
                 <li class="sidebar-item {{ request()->is('profile*') ? 'active' : '' }}"><a href="{{ route('profile.edit') }}"><span class="nav-icon">{!! $icons['user'] !!}</span><span class="nav-label">Profile</span></a></li>
             @endif

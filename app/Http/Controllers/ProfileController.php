@@ -10,7 +10,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -21,26 +20,6 @@ class ProfileController extends Controller
     {
         return view('profile.edit', [
             'user' => $request->user(),
-            'languageOptions' => [
-                'en' => 'English',
-                'fil' => 'Filipino',
-            ],
-            'themeOptions' => [
-                'system' => 'System',
-                'light' => 'Light',
-                'dark' => 'Dark',
-            ],
-            'visibilityOptions' => [
-                'private' => 'Private',
-                'public' => 'Public',
-            ],
-            'genderOptions' => [
-                'male' => 'Male',
-                'female' => 'Female',
-                'non_binary' => 'Non-binary',
-                'prefer_not_to_say' => 'Prefer not to say',
-            ],
-            'timezones' => timezone_identifiers_list(),
             'twoFactorAvailable' => false,
         ]);
     }
@@ -83,6 +62,48 @@ class ProfileController extends Controller
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }
 
+    public function export(Request $request): JsonResponse
+    {
+        $user = $request->user()->fresh();
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'address' => $user->address,
+                'bio' => $user->bio,
+                'date_of_birth' => $user->date_of_birth?->toDateString(),
+                'gender' => $user->gender,
+                'language' => $user->language,
+                'timezone' => $user->timezone,
+                'theme_preference' => $user->theme_preference,
+                'email_notifications' => (bool) $user->email_notifications,
+                'push_notifications' => (bool) $user->push_notifications,
+                'sms_notifications' => (bool) $user->sms_notifications,
+                'profile_visibility' => $user->profile_visibility,
+                'data_sharing_enabled' => (bool) $user->data_sharing_enabled,
+                'deletion_requested_at' => $user->deletion_requested_at?->toDateTimeString(),
+                'role' => $user->role,
+            ],
+        ]);
+    }
+
+    public function requestDeletionReview(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user->deletion_requested_at) {
+            $user->forceFill([
+                'deletion_requested_at' => now(),
+            ])->save();
+        }
+
+        return Redirect::route('profile.edit')->with('status', 'deletion-requested');
+    }
+
     public function usernameCheck(Request $request): JsonResponse
     {
         $candidate = ProfileSanitizer::username($request->string('username')->toString());
@@ -123,67 +144,6 @@ class ProfileController extends Controller
             'sanitized' => $candidate,
             'message' => 'Username is available.',
         ]);
-    }
-
-    public function export(Request $request)
-    {
-        $user = $request->user()->loadMissing(['application', 'tickets', 'installations']);
-
-        $payload = [
-            'exported_at' => now()->toIso8601String(),
-            'account' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'username' => $user->username,
-                'email' => $user->email,
-                'email_verified_at' => $user->email_verified_at?->toIso8601String(),
-                'phone' => $user->phone,
-                'phone_verified_at' => $user->phone_verified_at?->toIso8601String(),
-                'bio' => $user->bio,
-                'date_of_birth' => $user->date_of_birth?->toDateString(),
-                'gender' => $user->gender,
-                'address' => $user->address,
-                'language' => $user->language,
-                'timezone' => $user->timezone,
-                'theme_preference' => $user->theme_preference,
-                'email_notifications' => $user->email_notifications,
-                'push_notifications' => $user->push_notifications,
-                'sms_notifications' => $user->sms_notifications,
-                'profile_visibility' => $user->profile_visibility,
-                'data_sharing_enabled' => $user->data_sharing_enabled,
-                'role' => $user->role,
-                'created_at' => $user->created_at?->toIso8601String(),
-                'updated_at' => $user->updated_at?->toIso8601String(),
-            ],
-            'application' => $user->application,
-            'tickets' => $user->tickets,
-            'installations' => $user->installations,
-        ];
-
-        if (Schema::hasTable('subscriptions')) {
-            $payload['subscription'] = $user->subscription;
-        }
-
-        $filename = 'account-export-' . now()->format('Ymd-His') . '.json';
-
-        return response()->streamDownload(function () use ($payload) {
-            echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        }, $filename, [
-            'Content-Type' => 'application/json',
-        ]);
-    }
-
-    public function requestDeletion(Request $request): RedirectResponse
-    {
-        $user = $request->user();
-
-        if (! $user->deletion_requested_at) {
-            $user->forceFill([
-                'deletion_requested_at' => now(),
-            ])->save();
-        }
-
-        return Redirect::route('profile.edit')->with('status', 'deletion-requested');
     }
 
     public function destroy(Request $request): RedirectResponse

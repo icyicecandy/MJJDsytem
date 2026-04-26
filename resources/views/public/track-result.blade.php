@@ -18,7 +18,7 @@
                 <div class="tracking-meta"><strong>Reference Number</strong>{{ $application->reference_no }}</div>
                 <div class="tracking-meta"><strong>Plan</strong>{{ $application->plan_code }}</div>
                 <div class="tracking-meta"><strong>Service Area</strong>{{ $application->barangay }}, {{ $application->municipality }}</div>
-                <div class="tracking-meta"><strong>Submitted</strong>{{ $application->created_at->format('Y-m-d H:i') }}</div>
+                <div class="tracking-meta"><strong>Submitted</strong>{{ $application->created_at->displayDateTime() }}</div>
             </div>
         </div>
 

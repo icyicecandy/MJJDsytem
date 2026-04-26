@@ -11,8 +11,8 @@
             <div class="tracking-grid mt-1">
                 <div class="tracking-meta"><strong>Tracking Number</strong>{{ $ticket->publicReference() }}</div>
                 <div class="tracking-meta"><strong>Subject</strong>{{ $ticket->subject }}</div>
-                <div class="tracking-meta"><strong>Created</strong>{{ $ticket->created_at->format('Y-m-d H:i') }}</div>
-                <div class="tracking-meta"><strong>Latest Update</strong>{{ $ticket->updated_at->format('Y-m-d H:i') }}</div>
+                <div class="tracking-meta"><strong>Created</strong>{{ $ticket->created_at->displayDateTime() }}</div>
+                <div class="tracking-meta"><strong>Latest Update</strong>{{ $ticket->updated_at->displayDateTime() }}</div>
             </div>
         </div>
 
