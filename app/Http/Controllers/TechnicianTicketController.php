@@ -14,13 +14,13 @@ class TechnicianTicketController extends Controller
     {
         $selectedStatus = $request->query('status', 'all');
         $search = trim((string) $request->query('search', ''));
-        if (! in_array($selectedStatus, ['all', 'queued', 'in_progress', 'resolved', 'closed'], true)) {
+        if (! in_array($selectedStatus, ['all', 'open', 'queued', 'in_progress', 'resolved', 'closed'], true)) {
             $selectedStatus = 'all';
         }
 
         $ticketsQuery = Ticket::with('user')
             ->assignedTo(Auth::user())
-            ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 WHEN status = 'queued' THEN 1 WHEN status = 'open' THEN 2 ELSE 3 END")
+            ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 WHEN status IN ('open', 'queued') THEN 1 ELSE 3 END")
             ->oldest('created_at');
 
         if ($search !== '') {
@@ -33,14 +33,16 @@ class TechnicianTicketController extends Controller
             });
         }
 
-        if ($selectedStatus !== 'all') {
+        if ($selectedStatus === 'open' || $selectedStatus === 'queued') {
+            $ticketsQuery->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED]);
+        } elseif ($selectedStatus !== 'all') {
             $ticketsQuery->where('status', $selectedStatus);
         }
 
         $tickets = $ticketsQuery->get();
 
         $queueSummary = [
-            'queued' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_QUEUED)->count(),
+            'open' => Ticket::assignedTo(Auth::user())->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED])->count(),
             'in_progress' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_IN_PROGRESS)->count(),
             'resolved' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_RESOLVED)->count(),
             'closed' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_CLOSED)->count(),
@@ -49,14 +51,57 @@ class TechnicianTicketController extends Controller
         return view('technician.tickets.index', compact('tickets', 'queueSummary', 'selectedStatus', 'search'));
     }
 
-    public function resolve(Ticket $ticket)
+    public function start(Ticket $ticket)
     {
         abort_unless($ticket->technician_id === Auth::id(), 403);
-        abort_if($ticket->status === Ticket::STATUS_CLOSED, 422, 'Closed tickets cannot be updated.');
+        abort_unless($ticket->isOpenForWork(), 422, 'Only open tickets can be started.');
 
-        $ticket->update([
-            'status' => Ticket::STATUS_RESOLVED,
+        $ticket->forceFill(array_merge([
+            'status' => Ticket::STATUS_IN_PROGRESS,
+        ], $ticket->lifecycleAttributes([
+            'started_at' => now(),
+        ])))->save();
+
+        $ticket->messages()->create([
+            'user_id' => Auth::id(),
+            'message' => 'Technician started work on this ticket.',
         ]);
+
+        return back()->with('success', 'Ticket work started.');
+    }
+
+    public function resolve(Request $request, Ticket $ticket)
+    {
+        abort_unless($ticket->technician_id === Auth::id(), 403);
+
+        if ($ticket->status === Ticket::STATUS_RESOLVED) {
+            return redirect()
+                ->route('technician.tickets.show', $ticket)
+                ->with('success', 'Ticket is already marked as resolved.');
+        }
+
+        if ($ticket->status !== Ticket::STATUS_IN_PROGRESS) {
+            return back()
+                ->withInput()
+                ->with('error', 'Start work on this ticket before marking it as resolved.');
+        }
+
+        $validated = $request->validate([
+            'resolution_notes' => ['required', 'string', 'max:4000'],
+        ]);
+
+        $ticket->forceFill(array_merge([
+            'status' => Ticket::STATUS_RESOLVED,
+        ], $ticket->lifecycleAttributes([
+            'resolved_at' => now(),
+            'resolution_notes' => $validated['resolution_notes'],
+        ])))->save();
+
+        $ticket->messages()->create([
+            'user_id' => Auth::id(),
+            'message' => 'Technician marked this ticket as resolved. Notes: ' . $validated['resolution_notes'],
+        ]);
+
         $ticket->refresh();
 
         if ($ticket->user) {
@@ -100,7 +145,7 @@ class TechnicianTicketController extends Controller
     public function reply(Request $request, Ticket $ticket)
     {
         abort_unless($ticket->technician_id === Auth::id(), 403);
-        abort_if($ticket->status === Ticket::STATUS_CLOSED, 422, 'Closed tickets cannot receive new replies.');
+        abort_unless($ticket->canReceiveReplies(), 422, 'Closed tickets cannot receive new replies.');
 
         $request->validate([
             'message' => 'required|string',
@@ -111,7 +156,7 @@ class TechnicianTicketController extends Controller
             'message' => $request->message,
         ]);
 
-        $ticket->update($ticket->syncAssignmentStatus($ticket->technician_id, Ticket::STATUS_IN_PROGRESS));
+        $ticket->touch();
 
         return back();
     }

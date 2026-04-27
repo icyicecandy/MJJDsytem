@@ -14,7 +14,7 @@ class AdminTicketController extends Controller
     {
         $selectedStatus = $request->query('status', 'all');
         $search = trim((string) $request->query('search', ''));
-        if (! in_array($selectedStatus, ['all', 'unassigned', 'queued', 'in_progress', 'resolved', 'closed'], true)) {
+        if (! in_array($selectedStatus, ['all', 'unassigned', 'open', 'queued', 'in_progress', 'resolved', 'closed'], true)) {
             $selectedStatus = 'all';
         }
 
@@ -35,10 +35,10 @@ class AdminTicketController extends Controller
             $ticketsQuery
                 ->whereNull('technician_id')
                 ->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED]);
-        } elseif ($selectedStatus === 'queued') {
+        } elseif ($selectedStatus === 'open' || $selectedStatus === 'queued') {
             $ticketsQuery
                 ->whereNotNull('technician_id')
-                ->where('status', Ticket::STATUS_QUEUED);
+                ->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED]);
         } elseif ($selectedStatus === 'in_progress') {
             $ticketsQuery->where('status', Ticket::STATUS_IN_PROGRESS);
         } elseif ($selectedStatus === 'resolved') {
@@ -65,8 +65,8 @@ class AdminTicketController extends Controller
             'unassigned' => Ticket::whereNull('technician_id')
                 ->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED])
                 ->count(),
-            'queued' => Ticket::whereNotNull('technician_id')
-                ->where('status', Ticket::STATUS_QUEUED)
+            'open' => Ticket::whereNotNull('technician_id')
+                ->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED])
                 ->count(),
             'in_progress' => Ticket::whereNotNull('technician_id')
                 ->where('status', Ticket::STATUS_IN_PROGRESS)
@@ -92,6 +92,8 @@ class AdminTicketController extends Controller
         $technician = null;
         $adminAction = $validated['admin_action'] ?? 'save';
 
+        abort_if($ticket->status === Ticket::STATUS_CLOSED && $adminAction !== 'close', 422, 'Closed tickets cannot be updated.');
+
         if ($technicianId) {
             $technician = User::findOrFail($technicianId);
             abort_unless($technician->isTechnician(), 422);
@@ -100,15 +102,22 @@ class AdminTicketController extends Controller
         if ($adminAction === 'close') {
             abort_unless($ticket->status === Ticket::STATUS_RESOLVED, 422, 'Only resolved tickets can be closed by admin.');
 
-            $ticket->update([
+            $ticket->forceFill(array_merge([
                 'status' => Ticket::STATUS_CLOSED,
+            ], $ticket->lifecycleAttributes([
+                'closed_at' => now(),
+            ])))->save();
+
+            $ticket->messages()->create([
+                'user_id' => auth()->id(),
+                'message' => 'Ticket closed by admin.',
             ]);
         } else {
             $nextStatus = match ($ticket->status) {
-                Ticket::STATUS_IN_PROGRESS => $technicianId ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_QUEUED,
+                Ticket::STATUS_IN_PROGRESS => $technicianId ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_OPEN,
                 Ticket::STATUS_RESOLVED => Ticket::STATUS_RESOLVED,
                 Ticket::STATUS_CLOSED => Ticket::STATUS_CLOSED,
-                default => Ticket::STATUS_QUEUED,
+                default => Ticket::STATUS_OPEN,
             };
 
             $ticket->update([
@@ -170,7 +179,7 @@ class AdminTicketController extends Controller
 
     public function reply(Request $request, Ticket $ticket)
     {
-        abort_if($ticket->status === Ticket::STATUS_CLOSED, 422, 'Closed tickets cannot receive new replies.');
+        abort_unless($ticket->canReceiveReplies(), 422, 'Closed tickets cannot receive new replies.');
 
         $request->validate([
             'message' => 'required|string',

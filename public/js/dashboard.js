@@ -1,4 +1,29 @@
 (function () {
+    function setReadonlyMapEmpty(element) {
+        if (!element) {
+            return;
+        }
+
+        if (element._readonlyLeafletMap) {
+            element._readonlyLeafletMap.remove();
+            element._readonlyLeafletMap = null;
+        }
+
+        element.classList.add('is-empty');
+        element.textContent = element.dataset.emptyLabel || 'No pinned location available.';
+    }
+
+    function readonlyMapIsVisible(element) {
+        return Boolean(element.offsetWidth && element.offsetHeight);
+    }
+
+    function buildReadonlyMapPopup(element) {
+        const popupNode = document.createElement('div');
+        popupNode.textContent = element.dataset.popup || 'Pinned service location';
+
+        return popupNode;
+    }
+
     function initReadonlyLocationMaps() {
         if (typeof window.L === 'undefined') {
             return;
@@ -8,13 +33,23 @@
             const lat = parseFloat(element.dataset.lat);
             const lng = parseFloat(element.dataset.lng);
             if (Number.isNaN(lat) || Number.isNaN(lng)) {
+                setReadonlyMapEmpty(element);
                 return;
             }
 
             if (element._readonlyLeafletMap) {
-                setTimeout(() => element._readonlyLeafletMap.invalidateSize(), 120);
+                if (readonlyMapIsVisible(element)) {
+                    setTimeout(() => element._readonlyLeafletMap.invalidateSize(), 120);
+                }
                 return;
             }
+
+            if (!readonlyMapIsVisible(element)) {
+                return;
+            }
+
+            element.classList.remove('is-empty');
+            element.textContent = '';
 
             const map = L.map(element, {
                 center: [lat, lng],
@@ -33,7 +68,10 @@
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
 
-            L.marker([lat, lng]).addTo(map);
+            L.marker([lat, lng])
+                .addTo(map)
+                .bindPopup(buildReadonlyMapPopup(element))
+                .openPopup();
             element._readonlyLeafletMap = map;
             setTimeout(() => map.invalidateSize(), 120);
         });

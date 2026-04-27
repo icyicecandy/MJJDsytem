@@ -38,7 +38,7 @@ class TicketController extends Controller
             'user_id' => Auth::id(),
             'subject' => Ticket::resolveSubjectLabel($subjectKey),
             'description' => $request->description,
-            'status' => Ticket::STATUS_QUEUED,
+            'status' => Ticket::STATUS_OPEN,
             'urgency' => Ticket::resolveUrgencyForSubject($subjectKey),
             'photo_path' => $photoPath,
         ]);
@@ -73,7 +73,7 @@ class TicketController extends Controller
     public function reply(Request $request, Ticket $ticket)
     {
         abort_unless(Auth::id() === $ticket->user_id, 403);
-        abort_if($ticket->status === Ticket::STATUS_CLOSED, 422, 'Closed tickets cannot receive new replies.');
+        abort_unless($ticket->canReceiveReplies(), 422, 'Closed tickets cannot receive new replies.');
 
         $request->validate([
             'message' => 'required|string',
@@ -84,7 +84,47 @@ class TicketController extends Controller
             'message' => $request->message,
         ]);
 
-        $ticket->update($ticket->syncAssignmentStatus($ticket->technician_id, $ticket->technician_id ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_QUEUED));
+        $ticket->touch();
+
+        return back();
+    }
+
+    public function close(Ticket $ticket)
+    {
+        abort_unless(Auth::id() === $ticket->user_id, 403);
+        abort_unless($ticket->status === Ticket::STATUS_RESOLVED, 422, 'Only resolved tickets can be closed.');
+
+        $ticket->forceFill(array_merge([
+            'status' => Ticket::STATUS_CLOSED,
+        ], $ticket->lifecycleAttributes([
+            'closed_at' => now(),
+        ])))->save();
+
+        $ticket->messages()->create([
+            'user_id' => Auth::id(),
+            'message' => 'Ticket closed by customer.',
+        ]);
+
+        return back()->with('success', 'Ticket closed.');
+    }
+
+    public function reopen(Request $request, Ticket $ticket)
+    {
+        abort_unless(Auth::id() === $ticket->user_id, 403);
+        abort_unless($ticket->status === Ticket::STATUS_RESOLVED, 422, 'Only resolved tickets can be reopened.');
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:4000'],
+        ]);
+
+        $ticket->forceFill([
+            'status' => Ticket::STATUS_IN_PROGRESS,
+        ])->save();
+
+        $ticket->messages()->create([
+            'user_id' => Auth::id(),
+            'message' => 'Ticket reopened by customer. Reason: ' . $validated['reason'],
+        ]);
 
         return back();
     }

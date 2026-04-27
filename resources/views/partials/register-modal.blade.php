@@ -44,18 +44,11 @@
                 <input type="hidden" name="role" value="customer" />
 
                 @if ($registerErrors->any())
-                    <div class="register-error-summary">
-                        <div class="register-error-summary-header">
-                            <svg viewBox="0 0 24 24" class="register-error-summary-icon" aria-hidden="true" focusable="false">
-                                <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                            </svg>
-                            <span>Please fix the following errors:</span>
-                        </div>
-                        <ul class="register-error-summary-list">
-                            @foreach ($registerErrors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
+                    <div class="register-error-banner" role="alert">
+                        <svg viewBox="0 0 24 24" class="register-error-banner-icon" aria-hidden="true" focusable="false">
+                            <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                        </svg>
+                        <span>Please complete the highlighted fields.</span>
                     </div>
                 @endif
 
@@ -171,6 +164,7 @@
                 const lastNameError = document.getElementById('registerLastNameLiveError');
                 const emailError = document.getElementById('registerEmailLiveError');
                 const emailCheckUrl = @json(route('register.email-check'));
+                const hasServerErrors = @json($registerErrors->any());
                 const namePattern = /^[A-Za-z][A-Za-z\s'\-]*$/;
                 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 let emailCheckTimer = null;
@@ -277,6 +271,20 @@
                     }, 350);
                 }
 
+                function focusFirstInvalidField() {
+                    const modal = document.getElementById('registerModal');
+                    const firstInvalid = form.querySelector('.register-field.has-error input, .register-consent-panel.has-error [data-consent-open], .register-consent-panel.has-error [data-consent-error]');
+
+                    if (!modal || !firstInvalid || !modal.classList.contains('is-open')) {
+                        return;
+                    }
+
+                    firstInvalid.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    window.setTimeout(function () {
+                        firstInvalid.focus({ preventScroll: true });
+                    }, 180);
+                }
+
                 if (firstNameInput) {
                     firstNameInput.addEventListener('input', function () {
                         validateNameField(firstNameInput, firstNameError, 'First name');
@@ -345,6 +353,10 @@
                         form.submit();
                     });
                 });
+
+                if (hasServerErrors) {
+                    window.setTimeout(focusFirstInvalidField, 80);
+                }
             });
         </script>
     @endpush

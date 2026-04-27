@@ -46,6 +46,90 @@ test('one available technician gets assigned to the customer conversation', func
         ->and($result['state']['assigned_staff']->id)->toBe($technician->id);
 });
 
+test('staff becoming available auto assigns the oldest unassigned conversation once', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = User::factory()->create([
+        'role' => 'technician',
+        'chat_available' => false,
+        'is_online' => false,
+        'last_seen' => null,
+    ]);
+    $service = app(SupportChatService::class);
+
+    $service->handleCustomerMessage($customer, 'hi');
+    expect($service->latestConversationMessage($customer)->assigned_staff_id)->toBeNull();
+
+    $service->setAvailability($technician, true);
+    $latest = $service->latestConversationMessage($customer);
+
+    expect($latest->assigned_staff_id)->toBe($technician->id)
+        ->and($latest->conversation_status)->toBe('assigned');
+
+    expect(ChatMessage::query()
+        ->where('customer_id', $customer->id)
+        ->where('message_type', 'status')
+        ->where('message', 'You are now connected to ' . $technician->name)
+        ->count())->toBe(1);
+});
+
+test('customer polling auto assigns an unassigned ai conversation when staff is available', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = User::factory()->create([
+        'role' => 'technician',
+        'chat_available' => false,
+        'is_online' => false,
+        'last_seen' => null,
+    ]);
+    $service = app(SupportChatService::class);
+
+    $service->handleCustomerMessage($customer, 'What internet plans do you offer?');
+    $technician->forceFill([
+        'chat_available' => true,
+        'is_online' => true,
+        'last_seen' => now(),
+    ])->save();
+
+    $response = $this
+        ->actingAs($customer)
+        ->getJson(route('chat.snapshot', ['user' => $customer], absolute: false));
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('chat_state.status_label', 'Connected to support');
+
+    $latest = $service->latestConversationMessage($customer);
+
+    expect($latest->assigned_staff_id)->toBe($technician->id)
+        ->and($latest->conversation_status)->toBe('assigned');
+});
+
+test('customer messages after auto assignment do not create reassignment loops or duplicate connection messages', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = User::factory()->create([
+        'role' => 'technician',
+        'chat_available' => false,
+        'is_online' => false,
+        'last_seen' => null,
+    ]);
+    $service = app(SupportChatService::class);
+
+    $service->handleCustomerMessage($customer, 'hi');
+    $service->setAvailability($technician, true);
+    $service->handleCustomerMessage($customer, 'I still need help');
+    $service->handleCustomerMessage($customer, 'following up');
+
+    $latest = $service->latestConversationMessage($customer);
+
+    expect($latest->assigned_staff_id)->toBe($technician->id)
+        ->and($latest->conversation_status)->toBe('assigned');
+
+    expect(ChatMessage::query()
+        ->where('customer_id', $customer->id)
+        ->where('message_type', 'status')
+        ->where('message', 'You are now connected to ' . $technician->name)
+        ->count())->toBe(1);
+});
+
 test('busy staff do not receive new auto assignments and ai answers while queued', function () {
     $busyTechnician = makeSupportUser('technician');
     $existingCustomer = User::factory()->create(['role' => 'customer']);
@@ -265,7 +349,7 @@ test('manual reassignment to technician stays locked on later customer replies',
     expect(ChatMessage::query()
         ->where('customer_id', $customer->id)
         ->where('message_type', 'status')
-        ->where('message', 'A support agent is now available. You are being connected to ' . $technician->name . '.')
+        ->where('message', 'You are now connected to ' . $technician->name)
         ->count())->toBe(1);
 });
 

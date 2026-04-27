@@ -184,12 +184,15 @@
         const reassignModal = document.getElementById('reassignModal');
         const reassignOpeners = document.querySelectorAll('[data-open-reassign-modal]');
         const reassignClosers = document.querySelectorAll('[data-close-reassign-modal]');
+        const textarea = form ? form.querySelector('textarea[name="message"]') : null;
+        const submitButton = form ? form.querySelector('button[type="submit"]') : null;
         const meId = {{ auth()->id() }};
         const isCustomer = {{ $isCustomer ? 'true' : 'false' }};
         const viewerRole = @json($me->role);
         const snapshotUrl = @json($snapshotRoute);
         let pollTimer = null;
         let lastSignature = '';
+        let isSending = false;
 
         if (chatWindow) {
             chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -223,11 +226,18 @@
 
         quickButtons.forEach((button) => {
             button.addEventListener('click', function () {
-                const textarea = form.querySelector('textarea[name="message"]');
+                if (!textarea) return;
                 textarea.value = this.dataset.quickReply;
-                textarea.focus();
+                submitMessage();
             });
         });
+
+        function setSendingState(sending) {
+            isSending = sending;
+            if (submitButton) {
+                submitButton.disabled = sending;
+            }
+        }
 
         function escapeHtml(value) {
             return String(value ?? '')
@@ -393,32 +403,52 @@
                 .catch(() => {});
         }
 
+        function submitMessage() {
+            if (!form || !textarea || isSending) return;
+
+            const message = textarea.value.trim();
+            if (!message) return;
+
+            setSendingState(true);
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': form.querySelector('input[name="_token"]').value,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message }),
+            })
+                .then((response) => response.json())
+                .then((payload) => {
+                    textarea.value = '';
+                    (payload.messages || []).forEach(appendMessage);
+                    lastSignature = '';
+                    updateChatState(payload.chat_state || null);
+                    pollSnapshot();
+                })
+                .catch((error) => console.error(error))
+                .finally(() => {
+                    setSendingState(false);
+                    textarea.focus();
+                });
+        }
+
         if (form) {
             form.addEventListener('submit', function (event) {
                 event.preventDefault();
-                const textarea = form.querySelector('textarea[name="message"]');
-                const message = textarea.value.trim();
-                if (!message) return;
+                submitMessage();
+            });
+        }
 
-                fetch(form.action, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': form.querySelector('input[name="_token"]').value,
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ message }),
-                })
-                    .then((response) => response.json())
-                    .then((payload) => {
-                        textarea.value = '';
-                        (payload.messages || []).forEach(appendMessage);
-                        lastSignature = '';
-                        updateChatState(payload.chat_state || null);
-                        pollSnapshot();
-                    })
-                    .catch((error) => console.error(error));
+        if (textarea) {
+            textarea.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+                    event.preventDefault();
+                    submitMessage();
+                }
             });
         }
 

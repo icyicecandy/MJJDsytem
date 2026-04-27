@@ -230,8 +230,6 @@
         <footer class="footer"><p>&copy; {{ date('Y') }} MJJD Telecom. All rights reserved.</p></footer>
     @endunless
 
-    @stack('scripts')
-
     @guest
         <script>
             document.addEventListener('DOMContentLoaded', function () {

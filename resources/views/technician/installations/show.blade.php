@@ -218,10 +218,19 @@
             gap: 1rem;
         }
         .workflow-map-canvas {
-            height: 220px;
+            height: 18rem;
             border-radius: 0.9rem;
             border: 1px solid #dbe2ea;
             overflow: hidden;
+        }
+        .workflow-map-canvas.is-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: #f8fafc;
+            color: #64748b;
+            text-align: center;
         }
         .workflow-map-actions {
             display: flex;
@@ -266,9 +275,11 @@
             ? collect([$application->municipality ?? null, $application->province ?? null])->filter()->implode(', ')
             : '';
         $proofPhotos = collect($installation->proofPhotos())->filter();
-        $hasLocation = $application && filled($application->lat) && filled($application->lng);
+        $locationLat = $application && is_numeric($application->lat) ? (float) $application->lat : null;
+        $locationLng = $application && is_numeric($application->lng) ? (float) $application->lng : null;
+        $hasLocation = $locationLat !== null && $locationLng !== null;
         $osmUrl = $hasLocation
-            ? 'https://www.openstreetmap.org/?mlat=' . $application->lat . '&mlon=' . $application->lng . '#map=16/' . $application->lat . '/' . $application->lng
+            ? 'https://www.openstreetmap.org/?mlat=' . $locationLat . '&mlon=' . $locationLng . '#map=18/' . $locationLat . '/' . $locationLng
             : null;
         $statusClass = match ($installation->status) {
             'scheduled' => 'workflow-badge--scheduled',
@@ -495,19 +506,19 @@
                     </div>
 
                     @if($hasLocation)
-                        <div id="technicianApplicationMap" class="workflow-map-canvas js-readonly-location-map" data-lat="{{ $application->lat }}" data-lng="{{ $application->lng }}"></div>
+                        <div id="technicianApplicationMap" class="workflow-map-canvas js-readonly-location-map" data-lat="{{ $locationLat }}" data-lng="{{ $locationLng }}" data-popup="{{ $fullAddress }}" data-empty-label="No pinned location available."></div>
                         <div class="workflow-map-actions">
                             <span class="workflow-note">Open the saved pin in OpenStreetMap for full navigation.</span>
                             <a href="{{ $osmUrl }}" target="_blank" rel="noopener noreferrer" class="btn secondary">Open in OpenStreetMap</a>
                         </div>
                         <div class="workflow-coordinates">
-                            <span><span class="workflow-coordinate-label">Latitude</span> {{ number_format((float) $application->lat, 6) }}</span>
-                            <span><span class="workflow-coordinate-label">Longitude</span> {{ number_format((float) $application->lng, 6) }}</span>
+                            <span><span class="workflow-coordinate-label">Latitude</span> {{ number_format($locationLat, 6) }}</span>
+                            <span><span class="workflow-coordinate-label">Longitude</span> {{ number_format($locationLng, 6) }}</span>
                         </div>
                     @else
                         <div class="workflow-empty">
                             <strong>No pinned service location</strong>
-                            <p>No map coordinates were saved for this application.</p>
+                            <p>No pinned location available.</p>
                         </div>
                     @endif
                 </section>
@@ -518,13 +529,16 @@
             <a href="{{ route('technician.installations.index') }}" class="btn secondary">Back</a>
         </section>
     </div>
-</x-app-layout>
-
-@push('scripts')
+    @push('scripts')
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
         (function () {
             function initReadonlyMaps() {
+                if (typeof window.initReadonlyLocationMaps === 'function') {
+                    window.initReadonlyLocationMaps();
+                    return;
+                }
+
                 if (typeof window.L === 'undefined') {
                     return;
                 }
@@ -533,15 +547,30 @@
                     const lat = parseFloat(element.dataset.lat);
                     const lng = parseFloat(element.dataset.lng);
                     if (Number.isNaN(lat) || Number.isNaN(lng)) {
+                        if (element._readonlyLeafletMap) {
+                            element._readonlyLeafletMap.remove();
+                            element._readonlyLeafletMap = null;
+                        }
+                        element.classList.add('is-empty');
+                        element.textContent = element.dataset.emptyLabel || 'No pinned location available.';
                         return;
                     }
 
                     if (element._readonlyLeafletMap) {
-                        setTimeout(function () {
-                            element._readonlyLeafletMap.invalidateSize();
-                        }, 120);
+                        if (element.offsetWidth && element.offsetHeight) {
+                            setTimeout(function () {
+                                element._readonlyLeafletMap.invalidateSize();
+                            }, 120);
+                        }
                         return;
                     }
+
+                    if (!element.offsetWidth || !element.offsetHeight) {
+                        return;
+                    }
+
+                    element.classList.remove('is-empty');
+                    element.textContent = '';
 
                     const map = L.map(element, {
                         center: [lat, lng],
@@ -560,7 +589,13 @@
                         attribution: '&copy; OpenStreetMap contributors'
                     }).addTo(map);
 
-                    L.marker([lat, lng]).addTo(map);
+                    const popupNode = document.createElement('div');
+                    popupNode.textContent = element.dataset.popup || 'Pinned service location';
+
+                    L.marker([lat, lng])
+                        .addTo(map)
+                        .bindPopup(popupNode)
+                        .openPopup();
                     element._readonlyLeafletMap = map;
 
                     setTimeout(function () {
@@ -602,4 +637,5 @@
             }
         })();
     </script>
-@endpush
+    @endpush
+</x-app-layout>

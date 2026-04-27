@@ -87,6 +87,8 @@ Route::middleware(['auth', 'track.staff.presence', 'role:customer'])->group(func
     Route::post('/customer/tickets', [TicketController::class, 'store'])->name('customer.tickets.store');
     Route::get('/customer/tickets/{ticket}', [TicketController::class, 'show'])->name('customer.tickets.show');
     Route::post('/customer/tickets/{ticket}/reply', [TicketController::class, 'reply'])->name('customer.tickets.reply');
+    Route::patch('/customer/tickets/{ticket}/close', [TicketController::class, 'close'])->name('customer.tickets.close');
+    Route::patch('/customer/tickets/{ticket}/reopen', [TicketController::class, 'reopen'])->name('customer.tickets.reopen');
 });
 
 Route::middleware(['auth', 'track.staff.presence', 'role:admin'])->group(function () {
@@ -142,6 +144,7 @@ Route::middleware(['auth', 'track.staff.presence', 'role:technician'])->group(fu
     Route::patch('/technician/installations/{installation}/status', [TechnicianDashboardController::class, 'updateInstallationStatus'])->name('technician.installations.status');
     Route::post('/technician/installations/{installation}/complete', [TechnicianDashboardController::class, 'complete'])->name('technician.installations.complete');
     Route::get('/technician/tickets', [TechnicianTicketController::class, 'index'])->name('technician.tickets.index');
+    Route::patch('/technician/tickets/{ticket}/start', [TechnicianTicketController::class, 'start'])->name('technician.tickets.start');
     Route::patch('/technician/tickets/{ticket}/resolve', [TechnicianTicketController::class, 'resolve'])->name('technician.tickets.resolve');
     Route::get('/technician/tickets/{ticket}', [TechnicianTicketController::class, 'show'])->name('technician.tickets.show');
     Route::post('/technician/tickets/{ticket}/reply', [TechnicianTicketController::class, 'reply'])->name('technician.tickets.reply');

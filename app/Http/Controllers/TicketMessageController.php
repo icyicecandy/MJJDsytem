@@ -16,7 +16,7 @@ class TicketMessageController extends Controller
             || $ticket->technician_id === $user->id;
 
         abort_unless($isAllowed, 403);
-        abort_if($ticket->status === Ticket::STATUS_CLOSED, 422, 'Closed tickets cannot receive new replies.');
+        abort_unless($ticket->canReceiveReplies(), 422, 'Closed tickets cannot receive new replies.');
 
         $validated = $request->validate([
             'message' => ['required', 'string'],
@@ -27,10 +27,7 @@ class TicketMessageController extends Controller
             'message' => $validated['message'],
         ]);
 
-        if (! $user->isAdmin()) {
-            $nextStatus = $ticket->technician_id ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_QUEUED;
-            $ticket->update($ticket->syncAssignmentStatus($ticket->technician_id, $nextStatus));
-        }
+        $ticket->touch();
 
         return back();
     }

@@ -38,9 +38,9 @@
                 </form>
             </div>
             <div class="ticket-queue-overview__grid">
-                <a href="{{ route('technician.tickets.index', array_filter(['status' => 'queued', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'queued' ? 'is-active' : '' }}">
-                    <span class="ticket-queue-metric__label">Queued</span>
-                    <strong class="ticket-queue-metric__value">{{ $queueSummary['queued'] }}</strong>
+                <a href="{{ route('technician.tickets.index', array_filter(['status' => 'open', 'search' => $search])) }}" class="ticket-queue-metric {{ in_array($selectedStatus, ['open', 'queued'], true) ? 'is-active' : '' }}">
+                    <span class="ticket-queue-metric__label">Open</span>
+                    <strong class="ticket-queue-metric__value">{{ $queueSummary['open'] }}</strong>
                     <span class="ticket-queue-metric__meta">Assigned tickets waiting for work to begin</span>
                 </a>
                 <a href="{{ route('technician.tickets.index', array_filter(['status' => 'in_progress', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'in_progress' ? 'is-active' : '' }}">
@@ -102,6 +102,7 @@
                                     data-ticket-description="{{ e($ticket->description) }}"
                                     data-ticket-submitted="{{ $ticket->created_at->displayDateTime() }}"
                                     data-ticket-show-url="{{ route('technician.tickets.show', $ticket) }}"
+                                    data-ticket-start-url="{{ route('technician.tickets.start', $ticket) }}"
                                     data-ticket-resolve-url="{{ route('technician.tickets.resolve', $ticket) }}"
                                 >
                                     View
@@ -143,13 +144,17 @@
                 </div>
 
                 <div class="admin-ticket-modal__actions">
-                    <form method="POST" data-tech-ticket-resolve-form>
+                    <form method="POST" data-tech-ticket-work-form>
                         @csrf
                         @method('PATCH')
-                        <button type="submit" class="btn" data-tech-ticket-resolve-button>Resolve</button>
+                        <div data-tech-ticket-resolution-wrap hidden>
+                            <label>Resolution notes</label>
+                            <textarea name="resolution_notes" rows="3" data-tech-ticket-resolution-notes></textarea>
+                        </div>
+                        <button type="submit" class="btn" data-tech-ticket-work-button>Start Work</button>
                     </form>
                     <a href="#" class="btn secondary" data-tech-ticket-detail-link>Open Full Ticket</a>
-                    <span class="record-muted" data-tech-ticket-no-action hidden>This ticket is already resolved or closed.</span>
+                    <span class="record-muted" data-tech-ticket-no-action hidden>This ticket is resolved or closed.</span>
                 </div>
             </div>
         </div>
@@ -162,8 +167,10 @@
                 return;
             }
 
-            const resolveForm = overlay.querySelector('[data-tech-ticket-resolve-form]');
-            const resolveButton = overlay.querySelector('[data-tech-ticket-resolve-button]');
+            const workForm = overlay.querySelector('[data-tech-ticket-work-form]');
+            const workButton = overlay.querySelector('[data-tech-ticket-work-button]');
+            const resolutionWrap = overlay.querySelector('[data-tech-ticket-resolution-wrap]');
+            const resolutionNotes = overlay.querySelector('[data-tech-ticket-resolution-notes]');
             const detailLink = overlay.querySelector('[data-tech-ticket-detail-link]');
             const noAction = overlay.querySelector('[data-tech-ticket-no-action]');
 
@@ -192,22 +199,32 @@
                 setSummary('submitted', button.dataset.ticketSubmitted);
                 setSummary('description', button.dataset.ticketDescription);
 
-                if (resolveForm) {
-                    resolveForm.action = button.dataset.ticketResolveUrl || '';
-                }
                 if (detailLink) {
                     detailLink.href = button.dataset.ticketShowUrl || '#';
                 }
 
-                const isClosed = button.dataset.ticketStatusValue === 'resolved' || button.dataset.ticketStatusValue === 'closed';
-                if (resolveForm) {
-                    resolveForm.hidden = isClosed;
+                const status = button.dataset.ticketStatusValue;
+                const canStart = status === 'open' || status === 'queued';
+                const canResolve = status === 'in_progress';
+                if (workForm) {
+                    workForm.hidden = !canStart && !canResolve;
+                    workForm.action = canStart
+                        ? (button.dataset.ticketStartUrl || '')
+                        : (canResolve ? (button.dataset.ticketResolveUrl || '') : '');
                 }
                 if (noAction) {
-                    noAction.hidden = !isClosed;
+                    noAction.hidden = canStart || canResolve;
                 }
-                if (resolveButton) {
-                    resolveButton.disabled = isClosed;
+                if (workButton) {
+                    workButton.disabled = !canStart && !canResolve;
+                    workButton.textContent = canStart ? 'Start Work' : 'Mark as Resolved';
+                }
+                if (resolutionWrap) {
+                    resolutionWrap.hidden = !canResolve;
+                }
+                if (resolutionNotes) {
+                    resolutionNotes.required = canResolve;
+                    resolutionNotes.value = '';
                 }
 
                 overlay.classList.add('is-open');
@@ -230,6 +247,13 @@
             overlay.querySelectorAll('[data-tech-ticket-overlay-close]').forEach(function (button) {
                 button.addEventListener('click', closeOverlay);
             });
+
+            if (workForm && workButton) {
+                workForm.addEventListener('submit', function () {
+                    workButton.disabled = true;
+                    workButton.textContent = 'Saving...';
+                });
+            }
 
             document.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape' && overlay.classList.contains('is-open')) {

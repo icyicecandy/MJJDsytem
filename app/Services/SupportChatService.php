@@ -7,6 +7,7 @@ use App\Models\ChatMessage;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class SupportChatService
 {
@@ -36,6 +37,10 @@ class SupportChatService
         }
 
         $user->forceFill($attributes)->save();
+
+        if (($user->isAdmin() || $user->isTechnician()) && $user->isEffectivelyChatAvailable()) {
+            $this->autoAssignOldestUnassignedConversation($user);
+        }
     }
 
     public function setAvailability(User $user, bool $available): void
@@ -45,6 +50,10 @@ class SupportChatService
             'is_online' => $available,
             'last_seen' => now(),
         ])->save();
+
+        if ($available && $user->isEffectivelyChatAvailable()) {
+            $this->autoAssignOldestUnassignedConversation($user);
+        }
     }
 
     public function quickReplies(): array
@@ -83,6 +92,11 @@ class SupportChatService
         return ['assigned', 'active_human', 'staff_inactive'];
     }
 
+    protected function autoAssignableConversationStatuses(): array
+    {
+        return ['ai_active', 'ai_assisting', 'waiting_for_human'];
+    }
+
     protected function shouldRetainAssignment(?ChatMessage $latest): bool
     {
         return $latest?->assigned_staff_id !== null
@@ -95,12 +109,22 @@ class SupportChatService
             return true;
         }
 
-        if ($this->shouldRetainAssignment($latest)) {
-            return false;
-        }
-
         return $latest->assigned_staff_id === null
-            && in_array($latest->conversation_status, ['ai_active', 'waiting_for_human', 'closed'], true);
+            && in_array($latest->conversation_status, $this->autoAssignableConversationStatuses(), true);
+    }
+
+    protected function isExistingAutoAssignableConversation(?ChatMessage $latest): bool
+    {
+        return $latest !== null
+            && $latest->assigned_staff_id === null
+            && in_array($latest->conversation_status, $this->autoAssignableConversationStatuses(), true);
+    }
+
+    protected function isEligibleAutoAssignmentStaff(User $staff, ?Collection $activeCounts = null): bool
+    {
+        return ($staff->isAdmin() || $staff->isTechnician())
+            && $staff->isEffectivelyChatAvailable()
+            && ! $this->isStaffBusy($staff, $activeCounts);
     }
 
     protected function shouldCreateConnectionMessage(?ChatMessage $latest, User $staff): bool
@@ -122,6 +146,57 @@ class SupportChatService
             ->values();
     }
 
+    public function autoAssignOldestUnassignedConversation(?User $preferredStaff = null): ?ChatMessage
+    {
+        if ($preferredStaff && ! $this->isEligibleAutoAssignmentStaff($preferredStaff)) {
+            return null;
+        }
+
+        $candidate = $this->latestConversationMessages()
+            ->filter(fn (ChatMessage $message) => $this->isExistingAutoAssignableConversation($message))
+            ->sortBy(fn (ChatMessage $message) => $message->created_at?->getTimestamp() ?? 0)
+            ->first();
+
+        if (! $candidate?->customer) {
+            return null;
+        }
+
+        return $this->autoAssignCustomerConversation($candidate->customer, $preferredStaff);
+    }
+
+    public function autoAssignCustomerConversation(User $customer, ?User $preferredStaff = null): ?ChatMessage
+    {
+        return DB::transaction(function () use ($customer, $preferredStaff) {
+            $latest = ChatMessage::query()
+                ->with(['assignedStaff', 'fromUser'])
+                ->where('customer_id', $customer->id)
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $this->isExistingAutoAssignableConversation($latest)) {
+                return null;
+            }
+
+            $activeCounts = $this->activeConversationCounts();
+
+            if ($preferredStaff) {
+                if (! $this->isEligibleAutoAssignmentStaff($preferredStaff, $activeCounts)) {
+                    return null;
+                }
+
+                return $this->assignConversation($preferredStaff, $customer, $preferredStaff);
+            }
+
+            $staff = $this->resolvePreferredStaff($customer);
+            if (! $staff || ! $this->isEligibleAutoAssignmentStaff($staff, $activeCounts)) {
+                return null;
+            }
+
+            return $this->assignConversation($staff, $customer, $staff);
+        });
+    }
+
     protected function latestConversationMessages(): Collection
     {
         return ChatMessage::query()
@@ -137,7 +212,7 @@ class SupportChatService
     protected function activeConversationCounts(): Collection
     {
         return $this->latestConversationMessages()
-            ->filter(fn (ChatMessage $message) => $message->assigned_staff_id !== null && in_array($message->conversation_status, ['assigned', 'active_human'], true))
+            ->filter(fn (ChatMessage $message) => $message->assigned_staff_id !== null && in_array($message->conversation_status, $this->activeHumanConversationStatuses(), true))
             ->countBy(fn (ChatMessage $message) => $message->assigned_staff_id);
     }
 
@@ -523,7 +598,7 @@ class SupportChatService
 
         return $this->createSystemMessage(
             customer: $customer,
-            message: 'A support agent is now available. You are being connected to ' . $staff->name . '.',
+            message: 'You are now connected to ' . $staff->name,
             assignedStaff: $staff,
             status: $activate ? 'active_human' : 'assigned',
             handoffStatus: $actor->id === $staff->id ? 'transferred_to_human' : 'assigned_to_human'

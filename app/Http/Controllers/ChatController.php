@@ -45,6 +45,7 @@ class ChatController extends Controller
         $scope = trim((string) request()->query('scope', ''));
 
         if ($me->isCustomer()) {
+            $this->supportChat->autoAssignCustomerConversation($me);
             $partner = $this->supportChat->resolveCustomerPartner($me);
             $messages = $this->supportChat->conversationMessages($me, $me, $partner);
             $chatState = $this->supportChat->conversationState($me);
@@ -76,6 +77,7 @@ class ChatController extends Controller
         $this->supportChat->markPresence($me);
 
         if ($me->isCustomer()) {
+            $this->supportChat->autoAssignCustomerConversation($me);
             $partner = $this->supportChat->resolveCustomerPartner($me) ?? $user;
             $messages = $this->supportChat->conversationMessages($me, $me, $partner);
             $chatState = $this->supportChat->conversationState($me);
@@ -129,6 +131,7 @@ class ChatController extends Controller
         $this->supportChat->markPresence($me);
 
         if ($me->isCustomer()) {
+            $this->supportChat->autoAssignCustomerConversation($me);
             $partner = $this->supportChat->resolveCustomerPartner($me) ?? $user;
             $messages = $this->supportChat->conversationMessages($me, $me, $partner);
             $chatState = $this->supportChat->conversationState($me);

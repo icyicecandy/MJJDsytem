@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class Ticket extends Model
@@ -131,14 +132,33 @@ class Ticket extends Model
 
     public function displayStatusLabel(): string
     {
-        return $this->isQueued()
-            ? 'Queued'
+        return $this->status === self::STATUS_QUEUED
+            ? 'Open'
             : ucfirst(str_replace('_', ' ', $this->status));
     }
 
     public function displayStatusClass(): string
     {
-        return $this->isQueued() ? 'warning' : $this->status;
+        return $this->status === self::STATUS_QUEUED ? self::STATUS_OPEN : $this->status;
+    }
+
+    public function isOpenForWork(): bool
+    {
+        return in_array($this->status, [self::STATUS_OPEN, self::STATUS_QUEUED], true);
+    }
+
+    public function canReceiveReplies(): bool
+    {
+        return $this->status !== self::STATUS_CLOSED;
+    }
+
+    public function lifecycleAttributes(array $attributes): array
+    {
+        $table = $this->getTable();
+
+        return collect($attributes)
+            ->filter(fn ($value, string $column) => Schema::hasColumn($table, $column))
+            ->all();
     }
 
     public static function subjectOptions(): array
@@ -189,15 +209,15 @@ class Ticket extends Model
         $status = $status ?: $this->status;
 
         if ($technicianId === null) {
-            if (in_array($status, [self::STATUS_IN_PROGRESS, self::STATUS_RESOLVED], true)) {
-                $status = self::STATUS_QUEUED;
+            if ($status === self::STATUS_IN_PROGRESS) {
+                $status = self::STATUS_OPEN;
             }
 
-            if ($status === self::STATUS_OPEN) {
-                $status = self::STATUS_QUEUED;
+            if ($status === self::STATUS_QUEUED) {
+                $status = self::STATUS_OPEN;
             }
-        } elseif (in_array($status, [self::STATUS_OPEN, self::STATUS_QUEUED], true)) {
-            $status = self::STATUS_IN_PROGRESS;
+        } elseif ($status === self::STATUS_QUEUED) {
+            $status = self::STATUS_OPEN;
         }
 
         return [

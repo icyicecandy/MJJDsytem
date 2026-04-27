@@ -41,9 +41,9 @@
                 <strong class="ticket-queue-metric__value">{{ $queueSummary['unassigned'] }}</strong>
                 <span class="ticket-queue-metric__meta">Waiting for admin review or technician assignment</span>
             </a>
-            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'queued', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'queued' ? 'is-active' : '' }}">
-                <span class="ticket-queue-metric__label">Queued</span>
-                <strong class="ticket-queue-metric__value">{{ $queueSummary['queued'] }}</strong>
+            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'open', 'search' => $search])) }}" class="ticket-queue-metric {{ in_array($selectedStatus, ['open', 'queued'], true) ? 'is-active' : '' }}">
+                <span class="ticket-queue-metric__label">Open</span>
+                <strong class="ticket-queue-metric__value">{{ $queueSummary['open'] }}</strong>
                 <span class="ticket-queue-metric__meta">Assigned tickets waiting for technician work to begin</span>
             </a>
             <a href="{{ route('admin.tickets.index', array_filter(['status' => 'in_progress', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'in_progress' ? 'is-active' : '' }}">
@@ -224,7 +224,13 @@
 
             assignSubmit.textContent = button.dataset.ticketTechnicianId ? 'Save Reassignment' : 'Assign Technician';
 
-            if (button.dataset.ticketStatusValue === 'resolved') {
+            const isClosed = button.dataset.ticketStatusValue === 'closed';
+            const isResolved = button.dataset.ticketStatusValue === 'resolved';
+
+            technicianSelect.disabled = isClosed;
+            assignSubmit.hidden = isClosed;
+
+            if (isResolved) {
                 closeForm.hidden = false;
                 closeForm.action = button.dataset.ticketUpdateUrl;
             } else {

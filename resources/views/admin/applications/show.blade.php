@@ -303,6 +303,15 @@
             border: 1px solid #dbe2ea;
             overflow: hidden;
         }
+        .admin-app-map.is-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: #f8fafc;
+            color: #64748b;
+            text-align: center;
+        }
         .admin-app-map-modal {
             position: fixed;
             inset: 0;
@@ -421,9 +430,11 @@
         $statusKey = $application->status;
         $fullName = trim($application->first_name . ' ' . $application->last_name);
         $fullAddress = $application->fullServiceAddress() ?: 'Not provided';
-        $hasLocation = filled($application->lat) && filled($application->lng);
+        $locationLat = is_numeric($application->lat) ? (float) $application->lat : null;
+        $locationLng = is_numeric($application->lng) ? (float) $application->lng : null;
+        $hasLocation = $locationLat !== null && $locationLng !== null;
         $osmUrl = $hasLocation
-            ? 'https://www.openstreetmap.org/?mlat=' . $application->lat . '&mlon=' . $application->lng . '#map=16/' . $application->lat . '/' . $application->lng
+            ? 'https://www.openstreetmap.org/?mlat=' . $locationLat . '&mlon=' . $locationLng . '#map=18/' . $locationLat . '/' . $locationLng
             : null;
         $showRejectionReason = old('status', $application->status) === 'rejected' || filled($rejectionReason);
         $statusLabel = ucfirst(str_replace('_', ' ', $statusKey));
@@ -618,8 +629,8 @@
 
                     @if($hasLocation)
                         <div class="admin-app-location-meta">
-                            <span>Latitude: {{ number_format((float) $application->lat, 6) }}</span>
-                            <span>Longitude: {{ number_format((float) $application->lng, 6) }}</span>
+                            <span>Latitude: {{ number_format($locationLat, 6) }}</span>
+                            <span>Longitude: {{ number_format($locationLng, 6) }}</span>
                         </div>
                         <div>
                             <button type="button" class="btn secondary admin-app-map-trigger" data-open-map-modal>View pinned location</button>
@@ -627,7 +638,7 @@
                     @else
                         <div class="admin-app-empty">
                             <span class="admin-app-inline-label">Location unavailable</span>
-                            <p class="admin-app-helper">No saved location pin is available for this application.</p>
+                            <p class="admin-app-helper">No pinned location available.</p>
                         </div>
                     @endif
                 </section>
@@ -894,16 +905,16 @@
                         <button type="button" class="admin-app-map-modal__close" data-close-map-modal aria-label="Close pinned location map">&times;</button>
                     </div>
 
-                    <div id="adminApplicationMap" class="js-readonly-location-map admin-app-map" data-lat="{{ $application->lat }}" data-lng="{{ $application->lng }}"></div>
+                    <div id="adminApplicationMap" class="js-readonly-location-map admin-app-map" data-lat="{{ $locationLat }}" data-lng="{{ $locationLng }}" data-popup="{{ $fullAddress }}" data-empty-label="No pinned location available."></div>
 
                     <div class="admin-app-map-modal__meta">
                         <div class="admin-app-detail">
                             <span class="admin-app-label">Latitude</span>
-                            <div class="admin-app-value">{{ number_format((float) $application->lat, 6) }}</div>
+                            <div class="admin-app-value">{{ number_format($locationLat, 6) }}</div>
                         </div>
                         <div class="admin-app-detail">
                             <span class="admin-app-label">Longitude</span>
-                            <div class="admin-app-value">{{ number_format((float) $application->lng, 6) }}</div>
+                            <div class="admin-app-value">{{ number_format($locationLng, 6) }}</div>
                         </div>
                         <div class="admin-app-detail admin-app-detail--full">
                             <span class="admin-app-label">Address</span>
@@ -920,9 +931,7 @@
             </div>
         </div>
     @endif
-</x-app-layout>
-
-@push('scripts')
+    @push('scripts')
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -935,15 +944,30 @@
                     const lat = parseFloat(element.dataset.lat);
                     const lng = parseFloat(element.dataset.lng);
                     if (Number.isNaN(lat) || Number.isNaN(lng)) {
+                        if (element._readonlyLeafletMap) {
+                            element._readonlyLeafletMap.remove();
+                            element._readonlyLeafletMap = null;
+                        }
+                        element.classList.add('is-empty');
+                        element.textContent = element.dataset.emptyLabel || 'No pinned location available.';
                         return;
                     }
 
                     if (element._readonlyLeafletMap) {
-                        setTimeout(function () {
-                            element._readonlyLeafletMap.invalidateSize();
-                        }, 120);
+                        if (element.offsetWidth && element.offsetHeight) {
+                            setTimeout(function () {
+                                element._readonlyLeafletMap.invalidateSize();
+                            }, 120);
+                        }
                         return;
                     }
+
+                    if (!element.offsetWidth || !element.offsetHeight) {
+                        return;
+                    }
+
+                    element.classList.remove('is-empty');
+                    element.textContent = '';
 
                     const map = L.map(element, {
                         center: [lat, lng],
@@ -962,7 +986,13 @@
                         attribution: '&copy; OpenStreetMap contributors'
                     }).addTo(map);
 
-                    L.marker([lat, lng]).addTo(map);
+                    const popupNode = document.createElement('div');
+                    popupNode.textContent = element.dataset.popup || 'Pinned service location';
+
+                    L.marker([lat, lng])
+                        .addTo(map)
+                        .bindPopup(popupNode)
+                        .openPopup();
                     element._readonlyLeafletMap = map;
 
                     setTimeout(function () {
@@ -970,8 +1000,6 @@
                     }, 120);
                 });
             };
-
-            initReadonlyMaps();
 
             const decisionForm = document.getElementById('applicationDecisionForm');
             const rejectionReasonField = document.getElementById('rejection_reason');
@@ -1142,4 +1170,5 @@
             }
         });
     </script>
-@endpush
+    @endpush
+</x-app-layout>
