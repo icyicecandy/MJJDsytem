@@ -72,7 +72,19 @@ class Ticket extends Model
         'status',
         'urgency',
         'photo_path',
+        'reopen_requested_at',
+        'reopen_reason',
+        'reopen_reviewed_at',
+        'reopen_reviewed_by',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'reopen_requested_at' => 'datetime',
+            'reopen_reviewed_at' => 'datetime',
+        ];
+    }
 
     protected static function booted(): void
     {
@@ -111,6 +123,11 @@ class Ticket extends Model
         return $this->belongsTo(User::class, 'technician_id');
     }
 
+    public function reopenReviewer()
+    {
+        return $this->belongsTo(User::class, 'reopen_reviewed_by');
+    }
+
     public function messages()
     {
         return $this->hasMany(TicketMessage::class);
@@ -136,6 +153,10 @@ class Ticket extends Model
 
     public function displayStatusLabel(): string
     {
+        if ($this->hasPendingReopenRequest()) {
+            return 'Reopen Requested';
+        }
+
         return $this->status === self::STATUS_QUEUED
             ? 'Open'
             : ucfirst(str_replace('_', ' ', $this->status));
@@ -154,6 +175,13 @@ class Ticket extends Model
     public function canReceiveReplies(): bool
     {
         return $this->status !== self::STATUS_CLOSED;
+    }
+
+    public function hasPendingReopenRequest(): bool
+    {
+        return $this->status === self::STATUS_CLOSED
+            && filled($this->reopen_requested_at)
+            && blank($this->reopen_reviewed_at);
     }
 
     public function lifecycleAttributes(array $attributes): array

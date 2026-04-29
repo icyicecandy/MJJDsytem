@@ -17,6 +17,10 @@ use App\Models\Installation;
 use App\Models\Ticket;
 
 Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+
     return view('public.home');
 });
 
@@ -114,6 +118,7 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin
     Route::patch('/admin/tickets/{ticket}', [AdminTicketController::class, 'update'])->name('admin.tickets.update');
     Route::get('/admin/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('admin.tickets.show');
     Route::post('/admin/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])->name('admin.tickets.reply');
+    Route::patch('/admin/tickets/{ticket}/reopen-request', [AdminTicketController::class, 'approveReopenRequest'])->name('admin.tickets.reopen-request.approve');
     Route::get('/admin/installations', [\App\Http\Controllers\Admin\InstallationController::class, 'index'])->name('admin.installations.index');
     Route::patch('/admin/installations/{installation}/reassign', [\App\Http\Controllers\Admin\InstallationController::class, 'reassign'])->name('admin.installations.reassign');
     Route::patch('/admin/installations/{installation}/reschedule', [\App\Http\Controllers\Admin\InstallationController::class, 'reschedule'])->name('admin.installations.reschedule');

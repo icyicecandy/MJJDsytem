@@ -11,7 +11,7 @@
     $showReopenFields = $errors->has('reason') || old('reason');
     $statusHelper = match ($ticket->status) {
         \App\Models\Ticket::STATUS_RESOLVED => 'Waiting for your confirmation',
-        \App\Models\Ticket::STATUS_CLOSED => 'Ticket closed',
+        \App\Models\Ticket::STATUS_CLOSED => $ticket->hasPendingReopenRequest() ? 'Reopen request waiting for admin review' : 'Ticket closed',
         \App\Models\Ticket::STATUS_IN_PROGRESS => 'Support is working on this ticket',
         default => 'Waiting for support review',
     };
@@ -65,6 +65,8 @@
                             $isSystemMessage = str_starts_with($messageText, 'Technician started work')
                                 || str_starts_with($messageText, 'Technician marked this ticket as resolved')
                                 || str_starts_with($messageText, 'Ticket closed by')
+                                || str_starts_with($messageText, 'Ticket reopen requested by')
+                                || str_starts_with($messageText, 'Ticket reopen request approved by')
                                 || str_starts_with($messageText, 'Ticket reopened by');
                             $messageClass = $isSystemMessage ? 'is-system' : ($isCustomerMessage ? 'is-customer' : 'is-staff');
                         @endphp
@@ -157,7 +159,11 @@
                         @method('PATCH')
                         <button class="btn">Close Ticket</button>
                     </form>
-
+                    <p class="ticket-sidebar-note">If the issue is solved, close the ticket. Reopen requests are available after a ticket is closed.</p>
+                @elseif($isClosed && $ticket->hasPendingReopenRequest())
+                    <p class="ticket-sidebar-note">Your reopen request is waiting for admin review.</p>
+                    <p class="ticket-sidebar-note"><strong>Reason:</strong> {{ $ticket->reopen_reason }}</p>
+                @elseif($isClosed)
                     <form method="POST" action="{{ route('customer.tickets.reopen', $ticket) }}" class="ticket-action-form ticket-reopen-form" data-ticket-reopen-form>
                         @csrf
                         @method('PATCH')
@@ -171,17 +177,15 @@
                         <button type="button" class="btn secondary" data-ticket-reopen-toggle {{ $showReopenFields ? 'hidden' : '' }}>Reopen Ticket</button>
                         <button class="btn secondary" data-ticket-reopen-submit {{ $showReopenFields ? '' : 'hidden' }}>Submit Reopen Request</button>
                     </form>
-                @elseif($isClosed)
-                    <p class="ticket-sidebar-note">Ticket closed. No further status actions are available.</p>
                 @else
-                    <p class="ticket-sidebar-note">Close or reopen actions will appear after support marks the ticket resolved.</p>
+                    <p class="ticket-sidebar-note">Close becomes available after support marks the ticket resolved.</p>
                 @endif
             </section>
 
             <section class="ticket-detail-card ticket-sidebar-card">
                 <h2>Workflow</h2>
                 <p class="ticket-sidebar-note">{{ $statusHelper }}.</p>
-                <p class="ticket-sidebar-note">When the issue is resolved, close the ticket or reopen it with a short reason.</p>
+                <p class="ticket-sidebar-note">When the issue is resolved, close the ticket. If a closed ticket needs more work, submit a reopen reason for admin review.</p>
             </section>
         </aside>
     </div>

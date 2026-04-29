@@ -156,21 +156,35 @@ class TicketController extends Controller
     public function reopen(Request $request, Ticket $ticket)
     {
         abort_unless(Auth::id() === $ticket->user_id, 403);
-        abort_unless($ticket->status === Ticket::STATUS_RESOLVED, 422, 'Only resolved tickets can be reopened.');
+        abort_unless($ticket->status === Ticket::STATUS_CLOSED, 422, 'Only closed tickets can be requested for reopening.');
+        abort_if($ticket->hasPendingReopenRequest(), 422, 'A reopen request is already waiting for admin review.');
 
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:4000'],
         ]);
 
-        $ticket->forceFill([
-            'status' => Ticket::STATUS_IN_PROGRESS,
-        ])->save();
+        $ticket->forceFill($ticket->lifecycleAttributes([
+            'reopen_requested_at' => now(),
+            'reopen_reason' => $validated['reason'],
+            'reopen_reviewed_at' => null,
+            'reopen_reviewed_by' => null,
+        ]))->save();
 
         $ticket->messages()->create([
             'user_id' => Auth::id(),
-            'message' => 'Ticket reopened by customer. Reason: ' . $validated['reason'],
+            'message' => 'Ticket reopen requested by customer. Reason: ' . $validated['reason'],
         ]);
 
-        return back();
+        AppNotificationSender::sendToRole(
+            'admin',
+            'Ticket reopen requested',
+            Auth::user()->name . ' requested to reopen ticket "' . $ticket->subject . '".',
+            route('admin.tickets.show', $ticket),
+            'ticket_reopen_requested',
+            ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference()],
+            Auth::id()
+        );
+
+        return back()->with('success', 'Reopen request submitted for admin review.');
     }
 }

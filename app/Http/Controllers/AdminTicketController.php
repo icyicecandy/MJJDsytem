@@ -162,7 +162,7 @@ class AdminTicketController extends Controller
 
     public function show(Ticket $ticket)
     {
-        $ticket->load('messages.user', 'user', 'technician');
+        $ticket->load('messages.user', 'user', 'technician', 'reopenReviewer');
         $technicians = User::where('role', 'technician')
             ->withCount([
                 'assignedTickets as active_ticket_load' => fn ($query) => $query->whereIn('status', [
@@ -176,6 +176,40 @@ class AdminTicketController extends Controller
             ->get();
 
         return view('admin.tickets.show', compact('ticket', 'technicians'));
+    }
+
+    public function approveReopenRequest(Ticket $ticket)
+    {
+        abort_unless($ticket->status === Ticket::STATUS_CLOSED, 422, 'Only closed tickets can have reopen requests approved.');
+        abort_unless($ticket->hasPendingReopenRequest(), 422, 'This ticket has no pending reopen request.');
+
+        $nextStatus = $ticket->technician_id ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_OPEN;
+
+        $ticket->forceFill(array_merge([
+            'status' => $nextStatus,
+        ], $ticket->lifecycleAttributes([
+            'reopen_reviewed_at' => now(),
+            'reopen_reviewed_by' => auth()->id(),
+        ])))->save();
+
+        $ticket->messages()->create([
+            'user_id' => auth()->id(),
+            'message' => 'Ticket reopen request approved by admin.',
+        ]);
+
+        if ($ticket->user) {
+            AppNotificationSender::send(
+                $ticket->user,
+                'Ticket reopen request approved',
+                'Your request to reopen ticket "' . $ticket->subject . '" was approved.',
+                route('customer.tickets.show', $ticket),
+                'ticket_reopen_approved',
+                ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
+                auth()->id()
+            );
+        }
+
+        return back()->with('success', 'Ticket reopen request approved.');
     }
 
     public function reply(Request $request, Ticket $ticket)

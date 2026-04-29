@@ -891,7 +891,7 @@
                 <h1>Manage your MJJD Telecom Service Online.</h1>
                 <p>Apply for service, track your application, and check support updates in one simple MJJD Telecom portal.</p>
                 <div class="public-hero-actions">
-                    <a href="{{ route('customer.apply') }}" class="btn public-hero-btn">Apply Now</a>
+                    <a href="{{ url('/') }}" class="btn public-hero-btn" data-open-register-modal>Apply Now</a>
                     <a href="{{ route('track.form') }}" class="btn secondary public-hero-btn">Track Application</a>
                     <a href="{{ route('track.ticket.form') }}" class="btn secondary public-hero-btn">Track Ticket</a>
                 </div>
@@ -1205,7 +1205,6 @@
     });
 </script>
 @endpush
-
 
 
 

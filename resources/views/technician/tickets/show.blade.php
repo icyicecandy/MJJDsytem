@@ -65,6 +65,8 @@
                             $isSystemMessage = str_starts_with($messageText, 'Technician started work')
                                 || str_starts_with($messageText, 'Technician marked this ticket as resolved')
                                 || str_starts_with($messageText, 'Ticket closed by')
+                                || str_starts_with($messageText, 'Ticket reopen requested by')
+                                || str_starts_with($messageText, 'Ticket reopen request approved by')
                                 || str_starts_with($messageText, 'Ticket reopened by');
                             $messageClass = $isSystemMessage ? 'is-system' : ($isCustomerMessage ? 'is-customer' : 'is-staff');
                         @endphp

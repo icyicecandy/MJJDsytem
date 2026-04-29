@@ -6,10 +6,11 @@
 @php
     $isResolved = $ticket->status === \App\Models\Ticket::STATUS_RESOLVED;
     $isClosed = $ticket->status === \App\Models\Ticket::STATUS_CLOSED;
+    $hasPendingReopenRequest = $ticket->hasPendingReopenRequest();
     $assignedStaff = optional($ticket->technician)->name ?? 'Unassigned Queue';
     $statusHelper = match ($ticket->status) {
         \App\Models\Ticket::STATUS_RESOLVED => 'Waiting for customer confirmation',
-        \App\Models\Ticket::STATUS_CLOSED => 'Ticket closed',
+        \App\Models\Ticket::STATUS_CLOSED => $hasPendingReopenRequest ? 'Customer requested reopening' : 'Ticket closed',
         \App\Models\Ticket::STATUS_IN_PROGRESS => 'Technician is working on this ticket',
         default => 'Waiting for work to begin',
     };
@@ -63,6 +64,8 @@
                             $isSystemMessage = str_starts_with($messageText, 'Technician started work')
                                 || str_starts_with($messageText, 'Technician marked this ticket as resolved')
                                 || str_starts_with($messageText, 'Ticket closed by')
+                                || str_starts_with($messageText, 'Ticket reopen requested by')
+                                || str_starts_with($messageText, 'Ticket reopen request approved by')
                                 || str_starts_with($messageText, 'Ticket reopened by');
                             $messageClass = $isSystemMessage ? 'is-system' : ($isCustomerMessage ? 'is-customer' : 'is-staff');
                         @endphp
@@ -172,7 +175,16 @@
 
             <section class="ticket-detail-card ticket-sidebar-card">
                 <h2>Status Actions</h2>
-                @if(! $isClosed)
+                @if($hasPendingReopenRequest)
+                    <div class="ticket-action-form">
+                        <p class="ticket-sidebar-note"><strong>Reopen reason:</strong> {{ $ticket->reopen_reason }}</p>
+                        <form method="post" action="{{ route('admin.tickets.reopen-request.approve', $ticket) }}">
+                            @csrf
+                            @method('PATCH')
+                            <button class="btn">Accept Reopen Request</button>
+                        </form>
+                    </div>
+                @elseif(! $isClosed)
                     <form method="post" action="{{ route('admin.tickets.update', $ticket) }}" class="ticket-action-form">
                         @csrf
                         @method('PATCH')

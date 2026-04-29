@@ -29,9 +29,15 @@ test('high visibility pages load without obvious failures', function () {
 
     $this->get('/')
         ->assertOk()
+        ->assertSee('data-open-register-modal', false)
         ->assertSee('&#8369;999', false)
         ->assertSee('&#8369;1,699', false)
         ->assertDontSee('&#8369;1,000', false);
+
+    $this->actingAs($admin)
+        ->get('/')
+        ->assertRedirect(route('dashboard', absolute: false));
+    $this->post('/logout');
 
     $this->actingAs($newCustomer)
         ->get('/customer/apply')

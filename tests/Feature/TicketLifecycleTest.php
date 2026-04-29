@@ -261,7 +261,7 @@ test('customer closes resolved ticket', function () {
         ->and($ticket->messages()->where('message', 'Ticket closed by customer.')->exists())->toBeTrue();
 });
 
-test('customer reopens resolved ticket with a reason', function () {
+test('customer cannot request reopen before ticket is closed', function () {
     $customer = makeTicketUser('customer');
     $ticket = makeTicket([
         'customer' => $customer,
@@ -273,10 +273,53 @@ test('customer reopens resolved ticket with a reason', function () {
         ->patch(route('customer.tickets.reopen', $ticket, false), [
             'reason' => 'The connection dropped again.',
         ])
+        ->assertStatus(422);
+
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_RESOLVED)
+        ->and($ticket->reopen_requested_at)->toBeNull();
+});
+
+test('customer requests closed ticket reopen with a reason', function () {
+    $customer = makeTicketUser('customer');
+    $ticket = makeTicket([
+        'customer' => $customer,
+        'status' => Ticket::STATUS_CLOSED,
+    ]);
+
+    $this
+        ->actingAs($customer)
+        ->patch(route('customer.tickets.reopen', $ticket, false), [
+            'reason' => 'The connection dropped again.',
+        ])
+        ->assertRedirect();
+
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CLOSED)
+        ->and($ticket->hasPendingReopenRequest())->toBeTrue()
+        ->and($ticket->reopen_reason)->toBe('The connection dropped again.')
+        ->and($ticket->messages()->where('message', 'like', 'Ticket reopen requested by customer.%')->exists())->toBeTrue();
+});
+
+test('admin approves closed ticket reopen request', function () {
+    $admin = makeTicketUser('admin');
+    $customer = makeTicketUser('customer');
+    $technician = makeTicketUser('technician');
+    $ticket = makeTicket([
+        'customer' => $customer,
+        'technician_id' => $technician->id,
+        'status' => Ticket::STATUS_CLOSED,
+        'reopen_requested_at' => now(),
+        'reopen_reason' => 'Still no connection.',
+    ]);
+
+    $this
+        ->actingAs($admin)
+        ->patch(route('admin.tickets.reopen-request.approve', $ticket, false))
         ->assertRedirect();
 
     expect($ticket->refresh()->status)->toBe(Ticket::STATUS_IN_PROGRESS)
-        ->and($ticket->messages()->where('message', 'like', '%The connection dropped again.%')->exists())->toBeTrue();
+        ->and($ticket->hasPendingReopenRequest())->toBeFalse()
+        ->and($ticket->reopen_reviewed_by)->toBe($admin->id)
+        ->and($ticket->messages()->where('message', 'Ticket reopen request approved by admin.')->exists())->toBeTrue();
 });
 
 test('closed ticket cannot receive new replies', function () {
