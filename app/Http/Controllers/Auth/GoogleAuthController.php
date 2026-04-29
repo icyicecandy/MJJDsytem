@@ -88,6 +88,12 @@ class GoogleAuthController extends Controller
                     'email' => $user->email,
                 ]);
 
+                if ($user->isDisabled()) {
+                    return redirect('/')
+                        ->with('auth_modal', 'login')
+                        ->with('google_auth_error', User::DISABLED_ACCOUNT_MESSAGE);
+                }
+
                 $updates = [];
 
                 if (! $user->google_id) {

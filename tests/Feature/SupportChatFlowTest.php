@@ -4,7 +4,9 @@ use App\Models\ChatMessage;
 use App\Models\User;
 use App\Services\SupportAiService;
 use App\Services\SupportChatService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     config()->set('services.support_chat.presence_window_seconds', 90);
@@ -30,7 +32,8 @@ test('no staff online sends customer to ai assistant', function () {
     expect($result['messages']->last()->sender_type)->toBe('ai')
         ->and($latest->conversation_status)->toBe('ai_active')
         ->and($result['state']['mode'])->toBe('ai_active')
-        ->and($result['state']['customer_status_label'])->toBe('AI assistant is helping');
+        ->and($result['state']['customer_status_label'])->toBe('AI assistant is helping')
+        ->and($result['messages']->contains(fn ($message) => $message->sender_type === 'system' && str_contains($message->message, 'MJJD AI Assistant will assist for now')))->toBeTrue();
 });
 
 test('one available technician gets assigned to the customer conversation', function () {
@@ -44,6 +47,46 @@ test('one available technician gets assigned to the customer conversation', func
         ->and($latest->conversation_status)->toBe('assigned')
         ->and($result['state']['mode'])->toBe('assigned')
         ->and($result['state']['assigned_staff']->id)->toBe($technician->id);
+});
+
+test('chat image attachment is stored and rendered for assigned support', function () {
+    Storage::fake('public');
+
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = makeSupportUser('technician');
+
+    $response = $this
+        ->withHeaders([
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json',
+        ])
+        ->actingAs($customer)
+        ->post(route('chat.send', ['user' => $customer], false), [
+            'message' => 'Please check this photo.',
+            'chat_attachment' => UploadedFile::fake()->image('signal.png'),
+        ]);
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('messages.1.attachment_is_image', true);
+
+    $message = ChatMessage::query()
+        ->where('customer_id', $customer->id)
+        ->where('sender_type', 'customer')
+        ->latest('id')
+        ->firstOrFail();
+
+    expect($message->attachmentPath())->toStartWith('chat-attachments/')
+        ->and($message->attachmentUrl())->toContain('/storage/chat-attachments/');
+
+    Storage::disk('public')->assertExists($message->attachmentPath());
+
+    $this
+        ->actingAs($technician)
+        ->get(route('role.chat.conversation', ['role' => 'technician', 'user' => $customer], false))
+        ->assertOk()
+        ->assertSee('/storage/chat-attachments/', false)
+        ->assertSee('chat-ui__message-attachment', false);
 });
 
 test('staff becoming available auto assigns the oldest unassigned conversation once', function () {
@@ -70,6 +113,27 @@ test('staff becoming available auto assigns the oldest unassigned conversation o
         ->where('message_type', 'status')
         ->where('message', 'You are now connected to ' . $technician->name)
         ->count())->toBe(1);
+});
+
+test('staff can be marked away without becoming available for chat assignment', function () {
+    $technician = makeSupportUser('technician');
+    $customer = User::factory()->create(['role' => 'customer']);
+    $service = app(SupportChatService::class);
+
+    $service->setAvailability($technician, false);
+    $technician->refresh();
+
+    expect($technician->chatAvailabilityState())->toBe('away')
+        ->and($technician->chatAvailabilityLabel())->toBe('Away')
+        ->and($technician->is_online)->toBeTrue()
+        ->and($technician->chat_available)->toBeFalse()
+        ->and($technician->isEffectivelyChatAvailable())->toBeFalse();
+
+    $result = $service->handleCustomerMessage($customer, 'I need help with my service.');
+    $latest = $service->latestConversationMessage($customer);
+
+    expect($result['messages']->last()->sender_type)->toBe('ai')
+        ->and($latest->assigned_staff_id)->toBeNull();
 });
 
 test('customer polling auto assigns an unassigned ai conversation when staff is available', function () {
@@ -130,7 +194,7 @@ test('customer messages after auto assignment do not create reassignment loops o
         ->count())->toBe(1);
 });
 
-test('busy staff do not receive new auto assignments and ai answers while queued', function () {
+test('busy staff do not receive new auto assignments and ai keeps assisting the queued customer', function () {
     $busyTechnician = makeSupportUser('technician');
     $existingCustomer = User::factory()->create(['role' => 'customer']);
     $queuedCustomer = User::factory()->create(['role' => 'customer']);
@@ -143,12 +207,37 @@ test('busy staff do not receive new auto assignments and ai answers while queued
 
     expect($result['messages']->last()->sender_type)->toBe('ai')
         ->and($latest->assigned_staff_id)->toBeNull()
-        ->and($latest->conversation_status)->toBe('waiting_for_human')
-        ->and($result['state']['mode'])->toBe('waiting_for_human')
-        ->and($result['state']['customer_status_label'])->toBe('Waiting for support');
+        ->and($latest->conversation_status)->toBe('ai_active')
+        ->and($result['state']['mode'])->toBe('ai_active')
+        ->and($result['state']['customer_status_label'])->toBe('AI assistant is helping')
+        ->and($result['state']['quick_replies'])->not->toBeEmpty();
 });
 
-test('inactive assigned technician keeps assignment and marks conversation for attention', function () {
+test('unassigned waiting conversations show ai assistant and quick replies', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+
+    ChatMessage::create([
+        'customer_id' => $customer->id,
+        'assigned_staff_id' => null,
+        'from_user_id' => $customer->id,
+        'to_user_id' => null,
+        'message' => 'Can someone help me?',
+        'sender_type' => 'customer',
+        'message_type' => 'text',
+        'conversation_status' => 'waiting_for_human',
+        'handoff_status' => 'waiting_for_human',
+    ]);
+
+    $state = app(SupportChatService::class)->conversationState($customer);
+
+    expect($state['assigned_staff'])->toBeNull()
+        ->and($state['mode'])->toBe('ai_active')
+        ->and($state['identity_name'])->toBe('MJJD AI Assistant')
+        ->and($state['customer_status_label'])->toBe('AI assistant is helping')
+        ->and($state['quick_replies'])->not->toBeEmpty();
+});
+
+test('inactive assigned conversations show ai assistant and quick replies before next customer message', function () {
     $customer = User::factory()->create(['role' => 'customer']);
     $technician = makeSupportUser('technician');
     $service = app(SupportChatService::class);
@@ -160,21 +249,43 @@ test('inactive assigned technician keeps assignment and marks conversation for a
         'is_online' => false,
     ])->save();
 
+    $state = $service->conversationState($customer);
+
+    expect($state['assigned_staff'])->toBeNull()
+        ->and($state['mode'])->toBe('ai_active')
+        ->and($state['identity_name'])->toBe('MJJD AI Assistant')
+        ->and($state['customer_status_label'])->toBe('AI assistant is helping')
+        ->and($state['quick_replies'])->not->toBeEmpty();
+});
+
+test('inactive assigned technician falls back to ai assistance', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = makeSupportUser('technician');
+    $service = app(SupportChatService::class);
+
+    $service->handleCustomerMessage($customer, 'I need help with my account.');
+    makeSupportUser('admin');
+
+    $technician->forceFill([
+        'last_seen' => now()->subSeconds(180),
+        'is_online' => false,
+    ])->save();
+
     $result = $service->handleCustomerMessage($customer, 'How long does installation take?');
     $latest = $service->latestConversationMessage($customer);
 
-    expect($result['messages']->last()->sender_type)->toBe('customer')
-        ->and($latest->assigned_staff_id)->toBe($technician->id)
-        ->and($latest->conversation_status)->toBe('staff_inactive')
-        ->and($result['state']['mode'])->toBe('staff_inactive')
-        ->and($result['state']['status_label'])->toBe('Needs attention')
-        ->and($result['state']['customer_status_label'])->toBe('Waiting for support');
+    expect($result['messages']->last()->sender_type)->toBe('ai')
+        ->and($latest->assigned_staff_id)->toBeNull()
+        ->and($latest->conversation_status)->toBe('ai_active')
+        ->and($result['state']['mode'])->toBe('ai_active')
+        ->and($result['state']['customer_status_label'])->toBe('AI assistant is helping')
+        ->and($result['messages']->contains(fn ($message) => $message->sender_type === 'system' && str_contains($message->message, 'MJJD AI Assistant will assist for now')))->toBeTrue();
 
     expect(ChatMessage::query()
         ->where('customer_id', $customer->id)
         ->where('message_type', 'status')
-        ->where('conversation_status', 'staff_inactive')
-        ->exists())->toBeTrue();
+        ->where('handoff_status', 'ai_assisting')
+        ->count())->toBe(1);
 });
 
 test('admin can reassign a conversation and only the new technician sees it', function () {
@@ -203,6 +314,65 @@ test('admin can reassign a conversation and only the new technician sees it', fu
         ->get(route('role.chat.index', ['role' => 'technician'], absolute: false))
         ->assertOk()
         ->assertDontSee($customer->name);
+
+    expect(ChatMessage::query()
+        ->where('customer_id', $customer->id)
+        ->where('message_type', 'status')
+        ->where('message', 'like', '%reassigned and you are now connected to support ' . $newTechnician->name . '%')
+        ->exists())->toBeTrue();
+});
+
+test('admin must assign conversation to self before replying', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'chat_available' => false,
+        'is_online' => false,
+        'last_seen' => null,
+    ]);
+    $customer = User::factory()->create(['role' => 'customer']);
+    $service = app(SupportChatService::class);
+
+    $service->handleCustomerMessage($customer, 'I need help with my connection.');
+
+    $this
+        ->actingAs($admin)
+        ->post(route('role.chat.send', ['role' => 'admin', 'user' => $customer], false), [
+            'message' => 'I can help.',
+        ])
+        ->assertForbidden();
+
+    $this
+        ->actingAs($admin)
+        ->get(route('role.chat.conversation', ['role' => 'admin', 'user' => $customer], false))
+        ->assertOk()
+        ->assertSee('Assign this conversation to yourself before replying.')
+        ->assertSee('Assign to me');
+
+    $this
+        ->actingAs($admin)
+        ->post(route('role.chat.assign', ['role' => 'admin', 'user' => $customer], false), [
+            'assigned_staff_id' => $admin->id,
+        ])
+        ->assertRedirect();
+
+    $latest = $service->latestConversationMessage($customer);
+
+    expect($admin->refresh()->isEffectivelyChatAvailable())->toBeTrue()
+        ->and($latest->assigned_staff_id)->toBe($admin->id)
+        ->and($latest->conversation_status)->toBe('assigned');
+
+    $this
+        ->actingAs($admin)
+        ->post(route('role.chat.send', ['role' => 'admin', 'user' => $customer], false), [
+            'message' => 'I am now assigned to this chat.',
+        ])
+        ->assertRedirect();
+
+    $latest = $service->latestConversationMessage($customer);
+
+    expect($latest->from_user_id)->toBe($admin->id)
+        ->and($latest->assigned_staff_id)->toBe($admin->id)
+        ->and($latest->conversation_status)->toBe('active_human');
 });
 
 test('logged out technician does not receive new auto assigned chat', function () {
@@ -215,7 +385,9 @@ test('logged out technician does not receive new auto assigned chat', function (
 
     expect($technician->is_online)->toBeFalse()
         ->and($technician->chat_available)->toBeFalse()
-        ->and($technician->last_seen)->toBeNull();
+        ->and($technician->last_seen)->toBeNull()
+        ->and($technician->chatAvailabilityState())->toBe('offline')
+        ->and($technician->chatAvailabilityLabel())->toBe('Offline');
 
     $result = app(SupportChatService::class)->handleCustomerMessage($customer, 'What internet plans do you offer?');
     $latest = app(SupportChatService::class)->latestConversationMessage($customer);
@@ -349,8 +521,8 @@ test('manual reassignment to technician stays locked on later customer replies',
     expect(ChatMessage::query()
         ->where('customer_id', $customer->id)
         ->where('message_type', 'status')
-        ->where('message', 'You are now connected to ' . $technician->name)
-        ->count())->toBe(1);
+        ->where('message', 'like', '%reassigned and you are now connected to support ' . $technician->name . '%')
+        ->exists())->toBeTrue();
 });
 
 test('taking over twice with the same staff member does not create duplicate connection messages', function () {

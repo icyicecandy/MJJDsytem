@@ -14,18 +14,33 @@ test('profile page is displayed', function () {
     $response->assertOk()
         ->assertSee('name="date_of_birth"', false)
         ->assertSee('name="gender"', false)
-        ->assertSee('name="language"', false)
-        ->assertSee('name="theme_preference"', false)
-        ->assertSee(route('profile.export', absolute: false), false)
-        ->assertSee(route('profile.deletion-request', absolute: false), false);
+        ->assertDontSee('name="bio"', false)
+        ->assertDontSee('name="language"', false)
+        ->assertDontSee('name="timezone"', false)
+        ->assertDontSee('name="theme_preference"', false)
+        ->assertDontSee('name="profile_visibility"', false)
+        ->assertDontSee('Notifications and privacy')
+        ->assertDontSee('Account Tools')
+        ->assertDontSee(route('profile.export', absolute: false), false)
+        ->assertDontSee(route('profile.deletion-request', absolute: false), false)
+        ->assertDontSee('Delete account');
 });
 
-test('profile information can be updated with avatar preferences and privacy settings', function () {
+test('profile information can be updated with avatar and core details', function () {
     Storage::fake('public');
 
     $user = User::factory()->create([
+        'bio' => 'Existing support note',
         'phone' => '+639111111111',
         'phone_verified_at' => now(),
+        'language' => 'fil',
+        'timezone' => 'Asia/Manila',
+        'theme_preference' => 'dark',
+        'email_notifications' => false,
+        'push_notifications' => true,
+        'sms_notifications' => true,
+        'profile_visibility' => 'public',
+        'data_sharing_enabled' => true,
     ]);
 
     $response = $this
@@ -33,20 +48,11 @@ test('profile information can be updated with avatar preferences and privacy set
         ->patch('/profile', [
             'name' => 'Test User',
             'username' => 'Test User!!',
-            'bio' => 'Surf2Sawa subscriber',
             'email' => 'test@example.com',
             'phone' => '+63 912 345 6789',
             'date_of_birth' => '1997-08-15',
             'gender' => 'female',
             'address' => 'Quezon City',
-            'language' => 'fil',
-            'timezone' => 'Asia/Manila',
-            'theme_preference' => 'dark',
-            'email_notifications' => '1',
-            'push_notifications' => '1',
-            'sms_notifications' => '0',
-            'profile_visibility' => 'public',
-            'data_sharing_enabled' => '1',
             'remove_avatar' => '0',
             'avatar' => UploadedFile::fake()->image('avatar.png', 200, 200),
         ]);
@@ -61,15 +67,15 @@ test('profile information can be updated with avatar preferences and privacy set
         ->and($user->username)->toBe('test-user')
         ->and($user->email)->toBe('test@example.com')
         ->and($user->phone)->toBe('+639123456789')
-        ->and($user->bio)->toBe('Surf2Sawa subscriber')
+        ->and($user->bio)->toBe('Existing support note')
         ->and($user->gender)->toBe('female')
         ->and($user->address)->toBe('Quezon City')
         ->and($user->language)->toBe('fil')
         ->and($user->timezone)->toBe('Asia/Manila')
         ->and($user->theme_preference)->toBe('dark')
-        ->and($user->email_notifications)->toBeTrue()
+        ->and($user->email_notifications)->toBeFalse()
         ->and($user->push_notifications)->toBeTrue()
-        ->and($user->sms_notifications)->toBeFalse()
+        ->and($user->sms_notifications)->toBeTrue()
         ->and($user->profile_visibility)->toBe('public')
         ->and($user->data_sharing_enabled)->toBeTrue()
         ->and($user->email_verified_at)->toBeNull()
@@ -89,20 +95,11 @@ test('email verification status is unchanged when the email address is unchanged
         ->patch('/profile', [
             'name' => 'Test User',
             'username' => 'existing-user',
-            'bio' => '',
             'email' => $user->email,
             'phone' => '',
             'date_of_birth' => '',
             'gender' => '',
             'address' => '',
-            'language' => 'en',
-            'timezone' => 'UTC',
-            'theme_preference' => 'system',
-            'email_notifications' => '1',
-            'push_notifications' => '0',
-            'sms_notifications' => '0',
-            'profile_visibility' => 'private',
-            'data_sharing_enabled' => '0',
             'remove_avatar' => '0',
         ]);
 
@@ -141,8 +138,8 @@ test('account export can be downloaded', function () {
         ->assertHeader('content-type', 'application/json');
 });
 
-test('user can request account deletion review', function () {
-    $user = User::factory()->create(['username' => 'delete-request']);
+test('admin can request account deletion review', function () {
+    $user = User::factory()->create(['role' => 'admin', 'username' => 'delete-request']);
 
     $response = $this
         ->actingAs($user)
@@ -152,8 +149,19 @@ test('user can request account deletion review', function () {
     expect($user->refresh()->deletion_requested_at)->not->toBeNull();
 });
 
-test('user can delete their account', function () {
-    $user = User::factory()->create();
+test('customer cannot request account deletion review', function () {
+    $user = User::factory()->create(['role' => 'customer']);
+
+    $response = $this
+        ->actingAs($user)
+        ->post('/profile/deletion-request');
+
+    $response->assertForbidden();
+    expect($user->refresh()->deletion_requested_at)->toBeNull();
+});
+
+test('admin can delete their account', function () {
+    $user = User::factory()->create(['role' => 'admin']);
 
     $response = $this
         ->actingAs($user)
@@ -170,7 +178,7 @@ test('user can delete their account', function () {
 });
 
 test('correct password must be provided to delete account', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['role' => 'admin']);
 
     $response = $this
         ->actingAs($user)
@@ -183,5 +191,18 @@ test('correct password must be provided to delete account', function () {
         ->assertSessionHasErrorsIn('userDeletion', 'password')
         ->assertRedirect('/profile');
 
+    $this->assertNotNull($user->fresh());
+});
+
+test('customer cannot delete their account', function () {
+    $user = User::factory()->create(['role' => 'customer']);
+
+    $response = $this
+        ->actingAs($user)
+        ->delete('/profile', [
+            'password' => 'password',
+        ]);
+
+    $response->assertForbidden();
     $this->assertNotNull($user->fresh());
 });

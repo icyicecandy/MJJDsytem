@@ -48,6 +48,10 @@ class ChatMessageSent implements ShouldBroadcast
                 'sender_label' => $this->message->senderLabel(),
                 'sender_role' => optional($this->message->fromUser)->role,
                 'assigned_staff_name' => optional($this->message->assignedStaff)->name,
+                'attachment_url' => $this->message->attachmentUrl(),
+                'attachment_path' => $this->message->attachmentPath(),
+                'attachment_original_name' => $this->message->attachmentOriginalName(),
+                'attachment_is_image' => $this->message->hasImageAttachment(),
                 'created_at' => $this->message->created_at->toDateTimeString(),
             ]
         ];

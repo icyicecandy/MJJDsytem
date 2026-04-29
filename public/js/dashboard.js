@@ -56,7 +56,7 @@
                 zoom: 16,
                 scrollWheelZoom: false,
                 dragging: true,
-                zoomControl: true,
+                zoomControl: false,
                 attributionControl: true,
                 doubleClickZoom: false,
                 boxZoom: false,

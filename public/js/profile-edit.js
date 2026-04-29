@@ -53,8 +53,6 @@
         const removeAvatarButton = profileForm?.querySelector('[data-remove-avatar]');
         const avatarPreview = profileForm?.querySelector('[data-avatar-preview]');
         const avatarFileName = profileForm?.querySelector('[data-avatar-file-name]');
-        const bioInput = profileForm?.querySelector('[data-bio-input]');
-        const bioCounter = profileForm?.querySelector('[data-bio-counter]');
         const usernameInput = profileForm?.querySelector('[data-validate="username"]');
         const usernameMessage = profileForm?.querySelector('[data-username-message]');
         const saveState = profileForm?.querySelector('[data-save-state]');
@@ -107,11 +105,6 @@
                     ? 'No unsaved changes yet.'
                     : 'Unsaved changes ready to save.';
             }
-        }
-
-        function updateBioCounter() {
-            if (!bioInput || !bioCounter) return;
-            bioCounter.textContent = `${bioInput.value.length} / 280`;
         }
 
         function validateField(field) {
@@ -251,17 +244,11 @@
             updateSaveButton();
         });
 
-        bioInput?.addEventListener('input', function () {
-            updateBioCounter();
-            updateSaveButton();
-        });
-
         cancelButton?.addEventListener('click', function () {
             if (!profileForm) return;
             profileForm.reset();
             if (removeAvatarInput) removeAvatarInput.value = '0';
             updateAvatarPreview(null);
-            updateBioCounter();
             profileForm.querySelectorAll('.is-invalid, .is-valid').forEach((field) => {
                 field.classList.remove('is-invalid', 'is-valid');
                 field.setAttribute('aria-invalid', 'false');
@@ -319,7 +306,6 @@
             event.returnValue = '';
         });
 
-        updateBioCounter();
         updateSaveButton();
         updatePasswordMatch();
     });

@@ -4,16 +4,55 @@ namespace App\Http\Controllers;
 
 use App\Models\Ticket;
 use App\Support\AppNotificationSender;
+use App\Support\PublicUpload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class TicketController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $tickets = Auth::user()->tickets()->latest()->get();
+        $search = trim((string) $request->query('search', ''));
+        $selectedStatus = trim((string) $request->query('status', ''));
+        $statusOptions = [
+            Ticket::STATUS_OPEN => 'Open',
+            Ticket::STATUS_IN_PROGRESS => 'In Progress',
+            Ticket::STATUS_RESOLVED => 'Resolved',
+            Ticket::STATUS_CLOSED => 'Closed',
+        ];
 
-        return view('customer.tickets.index', compact('tickets'));
+        if ($selectedStatus !== '' && ! array_key_exists($selectedStatus, $statusOptions)) {
+            $selectedStatus = '';
+        }
+
+        $ticketsQuery = Auth::user()
+            ->tickets()
+            ->with('technician')
+            ->when($selectedStatus !== '', function ($query) use ($selectedStatus) {
+                if ($selectedStatus === Ticket::STATUS_OPEN) {
+                    $query->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED]);
+
+                    return;
+                }
+
+                $query->where('status', $selectedStatus);
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($searchQuery) use ($search) {
+                    $searchQuery->where('tracking_number', 'like', "%{$search}%")
+                        ->orWhere('subject', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhereHas('technician', function ($technicianQuery) use ($search) {
+                            $technicianQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->latest();
+
+        $tickets = $ticketsQuery->get();
+
+        return view('customer.tickets.index', compact('tickets', 'search', 'selectedStatus', 'statusOptions'));
     }
 
     public function create()
@@ -26,12 +65,12 @@ class TicketController extends Controller
         $request->validate([
             'subject' => 'required|in:' . implode(',', Ticket::subjectKeys()),
             'description' => 'required|string',
-            'ticket_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:4096',
+            'ticket_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
         $subjectKey = $request->subject;
         $photoPath = $request->hasFile('ticket_photo')
-            ? $request->file('ticket_photo')->store('tickets/' . Auth::id(), 'public')
+            ? PublicUpload::normalizePath($request->file('ticket_photo')->store('ticket-attachments', 'public'))
             : null;
 
         $ticket = Ticket::create([
@@ -76,12 +115,18 @@ class TicketController extends Controller
         abort_unless($ticket->canReceiveReplies(), 422, 'Closed tickets cannot receive new replies.');
 
         $request->validate([
-            'message' => 'required|string',
+            'message' => ['nullable', 'required_without:ticket_attachment', 'string'],
+            'ticket_attachment' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
+
+        $attachmentPath = $request->hasFile('ticket_attachment')
+            ? PublicUpload::normalizePath($request->file('ticket_attachment')->store('ticket-attachments', 'public'))
+            : null;
 
         $ticket->messages()->create([
             'user_id' => Auth::id(),
-            'message' => $request->message,
+            'message' => trim((string) $request->input('message', '')) ?: 'Attachment uploaded.',
+            'attachment_path' => $attachmentPath,
         ]);
 
         $ticket->touch();

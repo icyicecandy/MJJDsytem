@@ -40,12 +40,13 @@
 
                 <p class="ticket-detail-description">{{ $ticket->description }}</p>
 
-                @if($ticket->photoUrl())
-                    <div class="ticket-detail-photo">
-                        <span>Attached photo</span>
-                        <img src="{{ $ticket->photoUrl() }}" alt="Ticket issue photo">
-                    </div>
-                @endif
+                <x-upload-preview
+                    :path="$ticket->photo_path"
+                    label="Ticket photo"
+                    empty="No ticket attachment uploaded."
+                    button-text="View attachment"
+                    image-alt="Ticket issue photo"
+                />
             </section>
 
             <section class="ticket-detail-card">
@@ -74,6 +75,13 @@
                                     <span>{{ $msg->created_at->displayDateTime('M d, Y h:i A') }}</span>
                                 </div>
                                 <p>{{ $messageText }}</p>
+                                <x-upload-preview
+                                    :path="$msg->attachment_path"
+                                    label="Message attachment"
+                                    button-text="View attachment"
+                                    :show-empty="false"
+                                    class="ticket-message-attachment"
+                                />
                             </div>
                         </article>
                     @empty
@@ -91,9 +99,14 @@
                 </div>
 
                 @if(! $isClosed)
-                    <form method="POST" action="{{ route('customer.tickets.reply', $ticket) }}" class="ticket-reply-form">
+                    <form method="POST" action="{{ route('customer.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form">
                         @csrf
-                        <textarea name="message" rows="5" required placeholder="Type your reply..."></textarea>
+                        <textarea name="message" rows="5" placeholder="Type your reply..."></textarea>
+                        <label for="customer_ticket_attachment">Attachment <span class="field-badge optional">Optional</span></label>
+                        <input id="customer_ticket_attachment" type="file" name="ticket_attachment" accept=".jpg,.jpeg,.png,.webp">
+                        @error('ticket_attachment')
+                            <p class="error">{{ $message }}</p>
+                        @enderror
                         <div class="ticket-form-actions">
                             <button class="btn">Send Reply</button>
                         </div>

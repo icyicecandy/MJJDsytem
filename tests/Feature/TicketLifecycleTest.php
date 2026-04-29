@@ -2,6 +2,8 @@
 
 use App\Models\Ticket;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 function makeTicketUser(string $role): User
 {
@@ -23,6 +25,8 @@ function makeTicket(array $attributes = []): Ticket
 }
 
 test('customer creates ticket with open status', function () {
+    Storage::fake('public');
+
     $customer = makeTicketUser('customer');
 
     $this
@@ -30,13 +34,115 @@ test('customer creates ticket with open status', function () {
         ->post(route('customer.tickets.store', absolute: false), [
             'subject' => 'no_internet_connection',
             'description' => 'Internet connection is down.',
+            'ticket_photo' => UploadedFile::fake()->image('ticket.png'),
         ])
         ->assertRedirect(route('customer.tickets.index', absolute: false));
 
     $ticket = Ticket::firstOrFail();
 
     expect($ticket->user_id)->toBe($customer->id)
+        ->and($ticket->status)->toBe(Ticket::STATUS_OPEN)
+        ->and($ticket->photo_path)->toStartWith('ticket-attachments/');
+
+    Storage::disk('public')->assertExists($ticket->photo_path);
+});
+
+test('ticket reply attachment is stored on the public disk and visible in detail', function () {
+    Storage::fake('public');
+
+    $customer = makeTicketUser('customer');
+    $ticket = makeTicket(['customer' => $customer]);
+
+    $this
+        ->actingAs($customer)
+        ->post(route('customer.tickets.reply', $ticket, false), [
+            'message' => 'Here is the issue photo.',
+            'ticket_attachment' => UploadedFile::fake()->image('reply.png'),
+        ])
+        ->assertRedirect();
+
+    $message = $ticket->messages()->latest('id')->firstOrFail();
+
+    expect($message->attachment_path)->toStartWith('ticket-attachments/')
+        ->and($message->attachmentUrl())->toContain('/storage/ticket-attachments/');
+
+    Storage::disk('public')->assertExists($message->attachment_path);
+
+    $this->actingAs($customer)
+        ->get(route('customer.tickets.show', $ticket, false))
+        ->assertOk()
+        ->assertSee('/storage/ticket-attachments/', false)
+        ->assertSee('View attachment');
+});
+
+test('customer creates ticket for new or another installation request', function () {
+    $customer = makeTicketUser('customer');
+
+    $this
+        ->actingAs($customer)
+        ->post(route('customer.tickets.store', absolute: false), [
+            'subject' => 'new_or_another_installation_request',
+            'description' => 'I need another installation at a different location.',
+        ])
+        ->assertRedirect(route('customer.tickets.index', absolute: false));
+
+    $ticket = Ticket::firstOrFail();
+
+    expect($ticket->subject)->toBe('Request for New/Another Installation')
+        ->and($ticket->urgency)->toBe(Ticket::URGENCY_MEDIUM)
         ->and($ticket->status)->toBe(Ticket::STATUS_OPEN);
+});
+
+test('customer can search and filter support tickets', function () {
+    $customer = makeTicketUser('customer');
+    $technician = User::factory()->create([
+        'role' => 'technician',
+        'name' => 'Fiber Agent',
+    ]);
+
+    $openTicket = makeTicket([
+        'customer' => $customer,
+        'subject' => 'No Internet Connection',
+        'status' => Ticket::STATUS_OPEN,
+    ]);
+    $queuedTicket = makeTicket([
+        'customer' => $customer,
+        'subject' => 'Queued Follow-up',
+        'status' => Ticket::STATUS_QUEUED,
+    ]);
+    $inProgressTicket = makeTicket([
+        'customer' => $customer,
+        'subject' => 'Router Signal Trouble',
+        'status' => Ticket::STATUS_IN_PROGRESS,
+        'technician_id' => $technician->id,
+    ]);
+    $resolvedTicket = makeTicket([
+        'customer' => $customer,
+        'subject' => 'Resolved Concern',
+        'status' => Ticket::STATUS_RESOLVED,
+    ]);
+    $closedTicket = makeTicket([
+        'customer' => $customer,
+        'subject' => 'Closed Concern',
+        'status' => Ticket::STATUS_CLOSED,
+    ]);
+
+    $this
+        ->actingAs($customer)
+        ->get(route('customer.tickets.index', ['status' => Ticket::STATUS_OPEN], false))
+        ->assertOk()
+        ->assertSee($openTicket->publicReference())
+        ->assertSee($queuedTicket->publicReference())
+        ->assertDontSee($inProgressTicket->publicReference())
+        ->assertDontSee($resolvedTicket->publicReference())
+        ->assertDontSee($closedTicket->publicReference());
+
+    $this
+        ->actingAs($customer)
+        ->get(route('customer.tickets.index', ['search' => 'Fiber Agent'], false))
+        ->assertOk()
+        ->assertSee($inProgressTicket->publicReference())
+        ->assertDontSee($openTicket->publicReference());
 });
 
 test('technician starts assigned open ticket', function () {
@@ -74,6 +180,25 @@ test('technician resolves in progress ticket with notes', function () {
         ->and($ticket->messages()->where('message', 'like', '%Replaced damaged connector%')->exists())->toBeTrue();
 });
 
+test('technician ticket resolve success banner is rendered once', function () {
+    $technician = makeTicketUser('technician');
+    $ticket = makeTicket([
+        'technician_id' => $technician->id,
+        'status' => Ticket::STATUS_IN_PROGRESS,
+    ]);
+
+    $response = $this
+        ->followingRedirects()
+        ->actingAs($technician)
+        ->patch(route('technician.tickets.resolve', $ticket, false), [
+            'resolution_notes' => 'Restarted the ONU and verified the restored signal.',
+        ]);
+
+    $response->assertOk();
+
+    expect(substr_count($response->getContent(), 'Ticket marked as resolved.'))->toBe(1);
+});
+
 test('technician cannot resolve open ticket before starting work', function () {
     $technician = makeTicketUser('technician');
     $ticket = makeTicket(['technician_id' => $technician->id]);
@@ -83,7 +208,8 @@ test('technician cannot resolve open ticket before starting work', function () {
         ->patch(route('technician.tickets.resolve', $ticket, false), [
             'resolution_notes' => 'Done.',
         ])
-        ->assertStatus(422);
+        ->assertRedirect()
+        ->assertSessionHas('error', 'Start work on this ticket before marking it as resolved.');
 
     expect($ticket->refresh()->status)->toBe(Ticket::STATUS_OPEN);
 });

@@ -24,11 +24,19 @@
         ? ($chatState['customer_status_label'] ?? $chatState['status_label'] ?? 'AI assistant is helping')
         : ($chatState['status_label'] ?? 'AI assistant is helping');
     $humanModes = ['assigned', 'active_human'];
+    $currentAssignedStaffId = optional($chatState['assigned_staff'])->id;
     $assignableStaff = $assignableStaff ?? collect();
     $conversations = $conversations ?? collect();
     $staffStatus = $isRoleChat ? $me->chatAvailabilityLabel() : null;
-    $canAdminTakeOver = $isRoleChat && $me->isAdmin() && (optional($chatState['assigned_staff'])->id !== $me->id || ! in_array($mode, $humanModes, true));
+    $canAdminAssignToSelf = $isRoleChat && $me->isAdmin() && ($currentAssignedStaffId !== $me->id || ! in_array($mode, $humanModes, true));
     $canTechnicianTakeOver = $isRoleChat && $me->isTechnician() && ! in_array($mode, $humanModes, true);
+    $canSendMessages = $isCustomer || ($isRoleChat && $currentAssignedStaffId === $me->id && in_array($mode, $humanModes, true));
+    $composerNotice = null;
+    if (! $isCustomer && ! $canSendMessages) {
+        $composerNotice = $me->isAdmin()
+            ? 'Assign this conversation to yourself before replying.'
+            : 'Only the assigned active support staff member can reply to this conversation.';
+    }
 
     $pageTitle = $isCustomer ? 'Live chat' : ($me->isAdmin() ? 'Support queue' : 'Assigned conversations');
     $pageSubtitle = $isCustomer
@@ -47,7 +55,7 @@
             . ($me->chat_available ? 'Set away' : 'Set available')
             . '</button></form>';
 
-        if (($canAdminTakeOver && ! $me->isAdmin()) || $canTechnicianTakeOver) {
+        if ($canTechnicianTakeOver) {
             $headerActions .= '<form method="POST" action="' . $takeoverRoute . '">'
                 . csrf_field()
                 . '<button type="submit" class="chat-ui__button chat-ui__button--secondary">'
@@ -58,7 +66,15 @@
 
     $panelActions = '';
     $reassignModal = '';
-    if ($isRoleChat && $me->isAdmin() && $assignRoute && $assignableStaff->isNotEmpty()) {
+    if ($isRoleChat && $me->isAdmin() && $assignRoute) {
+        if ($canAdminAssignToSelf) {
+            $panelActions .= '<form method="POST" action="' . $assignRoute . '">'
+                . csrf_field()
+                . '<input type="hidden" name="assigned_staff_id" value="' . e($me->id) . '">'
+                . '<button type="submit" class="chat-ui__button chat-ui__button--primary" data-assign-to-me="' . e($me->id) . '">Assign to me</button>'
+                . '</form>';
+        }
+
         $panelActions .= '<button type="button" class="chat-ui__button chat-ui__button--secondary" data-open-reassign-modal>Reassign</button>';
 
         $modalStaff = $assignableStaff->keyBy('id');
@@ -77,9 +93,10 @@
             . '<form method="POST" action="' . $assignRoute . '" class="chat-ui__filters">'
             . csrf_field()
             . '<label for="assigned_staff_id">Assign to</label>'
-            . '<select name="assigned_staff_id" id="assigned_staff_id">';
+            . '<select name="assigned_staff_id" id="assigned_staff_id" required>'
+            . '<option value="" disabled' . ($currentAssignedStaffId ? '' : ' selected') . '>Select support staff</option>';
         foreach ($modalStaff as $staffOption) {
-            $selected = optional($chatState['assigned_staff'])->id === $staffOption->id ? ' selected' : '';
+            $selected = $currentAssignedStaffId === $staffOption->id ? ' selected' : '';
             $reassignModal .= '<option value="' . e($staffOption->id) . '"' . $selected . '>' . e($staffOption->name . ' (' . ucfirst($staffOption->role) . ')') . '</option>';
         }
         $reassignModal .= '</select>'
@@ -91,7 +108,7 @@
             . '<form method="POST" action="' . $assignRoute . '">'
             . csrf_field()
             . '<input type="hidden" name="assigned_staff_id" value="' . e($me->id) . '">'
-            . '<button type="submit" class="chat-ui__button chat-ui__button--secondary">Assign to me</button>'
+            . '<button type="submit" class="chat-ui__button chat-ui__button--secondary" data-assign-to-me="' . e($me->id) . '">Assign to me</button>'
             . '</form>'
             . '</div>'
             . '</div>'
@@ -157,6 +174,8 @@
         'contextTitle' => $isCustomer ? null : 'Customer context',
         'noteRoute' => $noteRoute,
         'showNoteForm' => $isRoleChat,
+        'canSendMessages' => $canSendMessages,
+        'composerNotice' => $composerNotice,
     ])->render();
 @endphp
 
@@ -178,13 +197,16 @@
         const chatWindow = document.getElementById('chat-window');
         const form = document.getElementById('chat-form');
         const conversationList = document.getElementById('chat-conversation-list');
-        const quickButtons = document.querySelectorAll('[data-quick-reply]');
         const quickRepliesWrap = document.getElementById('support-quick-replies');
         const statusBadge = document.getElementById('chat-status-badge');
         const reassignModal = document.getElementById('reassignModal');
         const reassignOpeners = document.querySelectorAll('[data-open-reassign-modal]');
         const reassignClosers = document.querySelectorAll('[data-close-reassign-modal]');
+        const assignedStaffSelect = document.getElementById('assigned_staff_id');
+        const assignToMeButtons = document.querySelectorAll('[data-assign-to-me]');
         const textarea = form ? form.querySelector('textarea[name="message"]') : null;
+        const attachmentInput = form ? form.querySelector('input[name="chat_attachment"]') : null;
+        const attachmentName = form ? form.querySelector('[data-chat-attachment-name]') : null;
         const submitButton = form ? form.querySelector('button[type="submit"]') : null;
         const meId = {{ auth()->id() }};
         const isCustomer = {{ $isCustomer ? 'true' : 'false' }};
@@ -218,19 +240,29 @@
             button.addEventListener('click', closeReassignModal);
         });
 
+        assignToMeButtons.forEach((button) => {
+            button.addEventListener('click', function () {
+                if (assignedStaffSelect) {
+                    assignedStaffSelect.value = this.dataset.assignToMe;
+                }
+            });
+        });
+
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
                 closeReassignModal();
             }
         });
 
-        quickButtons.forEach((button) => {
-            button.addEventListener('click', function () {
-                if (!textarea) return;
-                textarea.value = this.dataset.quickReply;
+        if (quickRepliesWrap) {
+            quickRepliesWrap.addEventListener('click', function (event) {
+                const button = event.target.closest('[data-quick-reply]');
+                if (!button || !textarea) return;
+
+                textarea.value = button.dataset.quickReply;
                 submitMessage();
             });
-        });
+        }
 
         function setSendingState(sending) {
             isSending = sending;
@@ -246,6 +278,25 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
+        }
+
+        function attachmentHtml(message) {
+            if (!message.attachment_url) {
+                return '';
+            }
+
+            const label = escapeHtml(message.attachment_original_name || 'View image');
+            const url = escapeHtml(message.attachment_url);
+            const image = message.attachment_is_image
+                ? `<img src="${url}" alt="${label}">`
+                : '';
+
+            return `
+                <a href="${url}" target="_blank" rel="noopener noreferrer" class="chat-ui__message-attachment">
+                    ${image}
+                    <span>${label}</span>
+                </a>
+            `;
         }
 
         function appendMessage(message) {
@@ -275,6 +326,7 @@
                         <span>${escapeHtml(message.created_at)}</span>
                     </div>
                     <div class="chat-ui__message-text">${escapeHtml(message.message)}</div>
+                    ${attachmentHtml(message)}
                 </div>
             `;
             chatWindow.appendChild(row);
@@ -315,6 +367,7 @@
                             <span>${escapeHtml(message.created_at)}</span>
                         </div>
                         <div class="chat-ui__message-text">${escapeHtml(message.message)}</div>
+                        ${attachmentHtml(message)}
                     </div>
                 </article>
             `;
@@ -324,7 +377,7 @@
             if (!chatWindow) return;
 
             const nearBottom = (chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight) < 120;
-            const signature = JSON.stringify((messages || []).map((message) => [message.id, message.message, message.created_at]));
+            const signature = JSON.stringify((messages || []).map((message) => [message.id, message.message, message.attachment_path, message.created_at]));
 
             if (signature === lastSignature) {
                 return;
@@ -373,15 +426,35 @@
             }).join('');
         }
 
+        function renderQuickReplies(chatState) {
+            if (!isCustomer || !quickRepliesWrap || !chatState) return;
+
+            const replies = Array.isArray(chatState.quick_replies) ? chatState.quick_replies : [];
+            const shouldShow = replies.length > 0 && ['ai_active', 'waiting_for_human', 'staff_inactive'].includes(chatState.mode);
+            const signature = replies.join('\u001f');
+
+            if (quickRepliesWrap.dataset.quickRepliesSignature !== signature) {
+                quickRepliesWrap.innerHTML = replies.map((reply) => {
+                    const label = escapeHtml(reply);
+                    return `<button type="button" class="chat-ui__quick-reply" data-quick-reply="${label}">${label}</button>`;
+                }).join('');
+                quickRepliesWrap.dataset.quickRepliesSignature = signature;
+            }
+
+            quickRepliesWrap.classList.toggle('is-hidden', !shouldShow);
+        }
+
         function updateChatState(chatState) {
             if (!chatState || !statusBadge) return;
 
             statusBadge.textContent = chatState.status_label || statusBadge.textContent;
             statusBadge.className = 'chat-ui__badge ' + badgeClass(chatState.status_label);
 
-            if (isCustomer && quickRepliesWrap && chatState.mode !== 'ai_active') {
-                quickRepliesWrap.classList.add('is-hidden');
+            if (assignedStaffSelect) {
+                assignedStaffSelect.value = chatState.assigned_staff_id ? String(chatState.assigned_staff_id) : '';
             }
+
+            renderQuickReplies(chatState);
         }
 
         function pollSnapshot() {
@@ -407,9 +480,12 @@
             if (!form || !textarea || isSending) return;
 
             const message = textarea.value.trim();
-            if (!message) return;
+            const attachment = attachmentInput && attachmentInput.files && attachmentInput.files[0] ? attachmentInput.files[0] : null;
+            if (!message && !attachment) return;
 
             setSendingState(true);
+            const formData = new FormData(form);
+            formData.set('message', message);
 
             fetch(form.action, {
                 method: 'POST',
@@ -417,13 +493,16 @@
                     'X-CSRF-TOKEN': form.querySelector('input[name="_token"]').value,
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message }),
+                body: formData,
             })
                 .then((response) => response.json())
                 .then((payload) => {
                     textarea.value = '';
+                    if (attachmentInput) {
+                        attachmentInput.value = '';
+                    }
+                    updateAttachmentName();
                     (payload.messages || []).forEach(appendMessage);
                     lastSignature = '';
                     updateChatState(payload.chat_state || null);
@@ -450,6 +529,18 @@
                     submitMessage();
                 }
             });
+        }
+
+        function updateAttachmentName() {
+            if (!attachmentInput || !attachmentName) return;
+
+            const file = attachmentInput.files && attachmentInput.files[0] ? attachmentInput.files[0] : null;
+            attachmentName.textContent = file ? file.name : 'No image selected';
+        }
+
+        if (attachmentInput) {
+            attachmentInput.addEventListener('change', updateAttachmentName);
+            updateAttachmentName();
         }
 
         if (window.Echo) {

@@ -5,8 +5,9 @@
     </x-slot>
 
     @php
-        $steps = ['submitted', 'under_review', 'approved', 'scheduled', 'installed'];
-        $currentIndex = array_search($application->status, $steps, true);
+        $steps = ['submitted', 'under_review', 'approved', 'scheduled', 'installed', 'activated'];
+        $progressStatus = $application->status === 'cancellation_requested' ? 'scheduled' : $application->status;
+        $currentIndex = array_search($progressStatus, $steps, true);
         $currentIndex = $currentIndex === false ? null : $currentIndex;
     @endphp
 
@@ -37,6 +38,12 @@
                         <span>Rejected</span>
                     </div>
                 @endif
+                @if(in_array($application->status, ['cancellation_requested', 'cancelled'], true))
+                    <div class="progress-step is-alert">
+                        <span class="progress-dot"></span>
+                        <span>{{ ucfirst(str_replace('_', ' ', $application->status)) }}</span>
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -46,6 +53,7 @@
                 <div class="tracking-grid">
                     <div class="tracking-meta"><strong>Date</strong>{{ $application->installation->installation_date }}</div>
                     <div class="tracking-meta"><strong>Time</strong>{{ $application->installation->installation_time ?? 'TBA' }}</div>
+                    <div class="tracking-meta"><strong>Activation Date</strong>{{ $application->installation->activation_date?->format('F j, Y') ?? 'Not activated yet' }}</div>
                 </div>
             </div>
         @endif

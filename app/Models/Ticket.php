@@ -5,8 +5,8 @@ namespace App\Models;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use App\Support\PublicUpload;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 
 class Ticket extends Model
 {
@@ -39,6 +39,10 @@ class Ticket extends Model
         ],
         'installation_follow_up' => [
             'label' => 'Installation Follow-up',
+            'urgency' => self::URGENCY_MEDIUM,
+        ],
+        'new_or_another_installation_request' => [
+            'label' => 'Request for New/Another Installation',
             'urgency' => self::URGENCY_MEDIUM,
         ],
         'account_access_issue' => [
@@ -200,7 +204,7 @@ class Ticket extends Model
 
     public function photoUrl(): ?string
     {
-        return $this->photo_path ? Storage::disk('public')->url($this->photo_path) : null;
+        return PublicUpload::url($this->photo_path);
     }
 
     public function syncAssignmentStatus(?int $technicianId = null, ?string $status = null): array

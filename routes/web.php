@@ -10,6 +10,7 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AdminTicketController;
 use App\Http\Controllers\TechnicianTicketController;
+use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\TechnicianController;
 use App\Models\Application;
 use App\Models\Installation;
@@ -45,9 +46,9 @@ Route::get('/dashboard', function () {
     }
 
     return view('dashboard');
-})->middleware(['auth', 'verified', 'track.staff.presence'])->name('dashboard');
+})->middleware(['auth', 'account.active', 'verified', 'track.staff.presence'])->name('dashboard');
 
-Route::middleware(['auth', 'track.staff.presence'])->group(function () {
+Route::middleware(['auth', 'account.active', 'track.staff.presence'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::get('/profile/export', [ProfileController::class, 'export'])->name('profile.export');
     Route::get('/profile/username-check', [ProfileController::class, 'usernameCheck'])->name('profile.username.check');
@@ -61,7 +62,7 @@ Route::middleware(['auth', 'track.staff.presence'])->group(function () {
     Route::get('/notifications/{notification}/go', [NotificationController::class, 'redirect'])->name('notifications.redirect');
 });
 
-Route::middleware(['auth', 'track.staff.presence', 'role:customer'])->group(function () {
+Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:customer'])->group(function () {
     Route::get('/customer/dashboard', function () {
         $user = auth()->user();
         $application = $user->application()->with('installation')->first();
@@ -71,7 +72,7 @@ Route::middleware(['auth', 'track.staff.presence', 'role:customer'])->group(func
         $tickets = $user->tickets()->latest()->take(5)->get();
         $openTickets = $user->tickets()->where('status', 'open')->count();
         $activeApplication = $application
-            ? in_array($application->status, ['submitted', 'under_review', 'approved', 'scheduled', 'installed'], true)
+            ? in_array($application->status, ['submitted', 'under_review', 'approved', 'scheduled', 'cancellation_requested', 'installed', 'activated'], true)
             : false;
 
         return view('customer.dashboard', compact('totalApplications', 'latestApplication', 'tickets', 'openTickets', 'activeApplication'));
@@ -82,6 +83,7 @@ Route::middleware(['auth', 'track.staff.presence', 'role:customer'])->group(func
     Route::post('/customer/apply', [CustomerApplicationController::class, 'store'])->name('customer.apply.store');
     Route::get('/customer/apply/done', [CustomerApplicationController::class, 'done'])->name('customer.apply.done');
     Route::get('/customer/application', [CustomerApplicationController::class, 'show'])->name('customer.application.show');
+    Route::patch('/customer/application/cancellation', [CustomerApplicationController::class, 'requestCancellation'])->name('customer.application.cancel');
     Route::get('/customer/tickets', [TicketController::class, 'index'])->name('customer.tickets.index');
     Route::get('/customer/tickets/create', [TicketController::class, 'create'])->name('customer.tickets.create');
     Route::post('/customer/tickets', [TicketController::class, 'store'])->name('customer.tickets.store');
@@ -91,13 +93,13 @@ Route::middleware(['auth', 'track.staff.presence', 'role:customer'])->group(func
     Route::patch('/customer/tickets/{ticket}/reopen', [TicketController::class, 'reopen'])->name('customer.tickets.reopen');
 });
 
-Route::middleware(['auth', 'track.staff.presence', 'role:admin'])->group(function () {
+Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin'])->group(function () {
     Route::get('/admin/dashboard', function () {
         $totalApplications = Application::count();
         $pendingApplications = Application::whereIn('status', ['submitted', 'under_review'])->count();
         $approvedApplications = Application::where('status', 'approved')->count();
         $scheduledInstallations = Application::where('status', 'scheduled')->count();
-        $installedApplications = Application::where('status', 'installed')->count();
+        $installedApplications = Application::whereIn('status', [Application::STATUS_INSTALLED, Application::STATUS_ACTIVATED])->count();
         $openTickets = Ticket::where('status', 'open')->count();
 
         return view('admin.dashboard', compact('totalApplications', 'pendingApplications', 'approvedApplications', 'scheduledInstallations', 'installedApplications', 'openTickets'));
@@ -107,16 +109,23 @@ Route::middleware(['auth', 'track.staff.presence', 'role:admin'])->group(functio
     Route::get('/admin/applications/{application}', [AdminApplicationController::class, 'show'])->name('admin.applications.show');
     Route::patch('/admin/applications/{application}/status', [AdminApplicationController::class, 'updateStatus'])->name('admin.applications.status');
     Route::post('/admin/applications/{application}/schedule', [AdminApplicationController::class, 'schedule'])->name('admin.applications.schedule');
+    Route::patch('/admin/applications/{application}/cancellation', [AdminApplicationController::class, 'cancellationDecision'])->name('admin.applications.cancellation');
     Route::get('/admin/tickets', [AdminTicketController::class, 'index'])->name('admin.tickets.index');
     Route::patch('/admin/tickets/{ticket}', [AdminTicketController::class, 'update'])->name('admin.tickets.update');
     Route::get('/admin/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('admin.tickets.show');
     Route::post('/admin/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])->name('admin.tickets.reply');
     Route::get('/admin/installations', [\App\Http\Controllers\Admin\InstallationController::class, 'index'])->name('admin.installations.index');
+    Route::patch('/admin/installations/{installation}/reassign', [\App\Http\Controllers\Admin\InstallationController::class, 'reassign'])->name('admin.installations.reassign');
+    Route::patch('/admin/installations/{installation}/reschedule', [\App\Http\Controllers\Admin\InstallationController::class, 'reschedule'])->name('admin.installations.reschedule');
+    Route::get('/admin/customers', [CustomerController::class, 'index'])->name('admin.customers.index');
+    Route::get('/admin/customers/{customer}', [CustomerController::class, 'show'])->name('admin.customers.show');
     Route::get('/admin/technicians', [TechnicianController::class, 'index'])->name('admin.technicians.index');
+    Route::patch('/admin/technicians/{technician}/disable', [TechnicianController::class, 'disableAccount'])->name('admin.technicians.disable');
+    Route::patch('/admin/technicians/{technician}/enable', [TechnicianController::class, 'enableAccount'])->name('admin.technicians.enable');
     Route::get('/admin/technicians/{technician}', [TechnicianController::class, 'show'])->name('admin.technicians.show');
 });
 
-Route::middleware(['auth', 'track.staff.presence', 'role:technician'])->group(function () {
+Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:technician'])->group(function () {
     Route::get('/technician/dashboard', function () {
         $technician = auth()->user();
         $technicianId = auth()->id();
@@ -133,7 +142,7 @@ Route::middleware(['auth', 'track.staff.presence', 'role:technician'])->group(fu
 
         $totalInstallations = Installation::where('technician_id', $technicianId)->count();
         $pendingInstallations = Installation::where('technician_id', $technicianId)->where('status', 'scheduled')->count();
-        $completedInstallations = Installation::where('technician_id', $technicianId)->where('status', 'completed')->count();
+        $completedInstallations = Installation::where('technician_id', $technicianId)->whereIn('status', Installation::completedStatuses())->count();
         $assignedTickets = $tickets->count();
 
         return view('technician.dashboard', compact('totalInstallations', 'pendingInstallations', 'completedInstallations', 'assignedTickets', 'tickets'));
@@ -143,6 +152,7 @@ Route::middleware(['auth', 'track.staff.presence', 'role:technician'])->group(fu
     Route::get('/technician/installations/{installation}', [TechnicianDashboardController::class, 'showInstallation'])->name('technician.installations.show');
     Route::patch('/technician/installations/{installation}/status', [TechnicianDashboardController::class, 'updateInstallationStatus'])->name('technician.installations.status');
     Route::post('/technician/installations/{installation}/complete', [TechnicianDashboardController::class, 'complete'])->name('technician.installations.complete');
+    Route::patch('/technician/installations/{installation}/activate', [TechnicianDashboardController::class, 'activate'])->name('technician.installations.activate');
     Route::get('/technician/tickets', [TechnicianTicketController::class, 'index'])->name('technician.tickets.index');
     Route::patch('/technician/tickets/{ticket}/start', [TechnicianTicketController::class, 'start'])->name('technician.tickets.start');
     Route::patch('/technician/tickets/{ticket}/resolve', [TechnicianTicketController::class, 'resolve'])->name('technician.tickets.resolve');
@@ -150,7 +160,7 @@ Route::middleware(['auth', 'track.staff.presence', 'role:technician'])->group(fu
     Route::post('/technician/tickets/{ticket}/reply', [TechnicianTicketController::class, 'reply'])->name('technician.tickets.reply');
 });
 
-Route::middleware(['auth', 'track.staff.presence'])->group(function () {
+Route::middleware(['auth', 'account.active', 'track.staff.presence'])->group(function () {
     Route::post('/tickets/{ticket}/message', [\App\Http\Controllers\TicketMessageController::class, 'store'])->name('tickets.messages.store');
     Route::get('/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('chat.index');
     Route::post('/chat/availability', [\App\Http\Controllers\ChatController::class, 'updateAvailability'])->name('chat.availability');
@@ -159,7 +169,7 @@ Route::middleware(['auth', 'track.staff.presence'])->group(function () {
     Route::post('/chat/{user}', [\App\Http\Controllers\ChatController::class, 'send'])->name('chat.send');
 });
 
-Route::middleware(['auth', 'track.staff.presence', 'role:admin,technician'])->group(function () {
+Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin,technician'])->group(function () {
     Route::get('/{role}/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('role.chat.index');
     Route::post('/{role}/chat/availability', [\App\Http\Controllers\ChatController::class, 'updateAvailability'])->name('role.chat.availability');
     Route::get('/{role}/chat/{user}', [\App\Http\Controllers\ChatController::class, 'conversation'])->name('role.chat.conversation');

@@ -78,12 +78,15 @@
         .admin-app-status--approved,
         .admin-app-status--installed,
         .admin-app-status--completed { background: #dcfce7; color: #15803d; }
+        .admin-app-status--activated { background: #ccfbf1; color: #0f766e; }
         .admin-app-status--rejected { background: #fee2e2; color: #b91c1c; }
+        .admin-app-status--cancelled { background: #fee2e2; color: #b91c1c; }
+        .admin-app-status--cancellation_requested { background: #ffedd5; color: #c2410c; }
         .admin-app-status--scheduled { background: #e0e7ff; color: #4338ca; }
         .admin-app-status--pending { background: #e2e8f0; color: #475569; }
         .admin-app-progress {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 0.75rem;
         }
         .admin-app-progress-step {
@@ -298,10 +301,17 @@
             white-space: nowrap;
         }
         .admin-app-map {
+            position: relative;
+            isolation: isolate;
+            z-index: 0;
             height: 360px;
             border-radius: 1rem;
             border: 1px solid #dbe2ea;
             overflow: hidden;
+        }
+        .admin-app-map .leaflet-top,
+        .admin-app-map .leaflet-bottom {
+            z-index: 5;
         }
         .admin-app-map.is-empty {
             display: flex;
@@ -411,6 +421,344 @@
                 margin: 2vh auto;
             }
         }
+
+        .admin-app-review {
+            gap: 2rem;
+            padding: 1.5rem;
+            background: #f6f8fb;
+            color: #111827;
+        }
+        .admin-app-header,
+        .admin-app-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 10px 24px rgba(11, 31, 58, 0.06);
+        }
+        .admin-app-header {
+            padding: 1.5rem;
+        }
+        .admin-app-header h1 {
+            margin: 0.25rem 0 0.45rem;
+            color: #0b1f3a;
+            font-size: 2rem;
+            line-height: 1.12;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+        .admin-app-kicker,
+        .admin-app-label,
+        .admin-app-field label,
+        .admin-app-inline-label,
+        .admin-app-progress-label {
+            color: #6b7280;
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0;
+            text-transform: uppercase;
+        }
+        .admin-app-subtitle,
+        .admin-app-card p,
+        .admin-app-helper,
+        .admin-app-muted,
+        .admin-app-progress-copy p,
+        .admin-app-summary-note {
+            color: #6b7280;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+        .admin-app-status {
+            min-height: 2rem;
+            padding: 0.42rem 0.8rem;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            letter-spacing: 0;
+        }
+        .admin-app-layout {
+            grid-template-columns: minmax(0, 65fr) minmax(320px, 35fr);
+            gap: 2rem;
+            align-items: start;
+        }
+        .admin-app-column {
+            gap: 1.5rem;
+            align-content: start;
+        }
+        .admin-app-card {
+            gap: 1.25rem;
+            padding: 1.5rem;
+        }
+        .admin-app-card-head {
+            align-items: center;
+            padding-bottom: 0.9rem;
+            border-bottom: 1px solid #edf0f4;
+        }
+        .admin-app-card-head h2,
+        .admin-app-card-head h3 {
+            color: #0b1f3a;
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: 0;
+        }
+        .admin-app-detail-grid,
+        .admin-app-stat-grid,
+        .admin-app-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+        .admin-app-detail {
+            min-width: 0;
+            gap: 0.35rem;
+        }
+        .admin-app-value {
+            color: #111827;
+            font-size: 0.96rem;
+            font-weight: 650;
+            line-height: 1.45;
+        }
+        .admin-app-progress {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0;
+            overflow: hidden;
+        }
+        .admin-app-progress-step {
+            min-width: 0;
+            gap: 0.7rem;
+        }
+        .admin-app-progress-marker {
+            display: grid;
+            grid-template-columns: 2rem minmax(0, 1fr);
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .admin-app-progress-dot {
+            display: inline-flex;
+            width: 2rem;
+            height: 2rem;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #d1d5db;
+            border-radius: 999px;
+            background: #fff;
+            color: #6b7280;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0;
+            box-shadow: 0 0 0 5px #f3f4f6;
+        }
+        .admin-app-progress-line {
+            height: 2px;
+            border-radius: 999px;
+            background: #d1d5db;
+            overflow: visible;
+        }
+        .admin-app-progress-line::after {
+            content: none;
+        }
+        .admin-app-progress-step:last-child .admin-app-progress-line {
+            visibility: hidden;
+        }
+        .admin-app-progress-step.is-complete .admin-app-progress-dot {
+            border-color: #16a34a;
+            background: #16a34a;
+            color: #fff;
+            box-shadow: 0 0 0 5px #dcfce7;
+        }
+        .admin-app-progress-step.is-active .admin-app-progress-dot {
+            border-color: #2563eb;
+            background: #2563eb;
+            color: #fff;
+            box-shadow: 0 0 0 5px #dbeafe;
+        }
+        .admin-app-progress-step.is-complete .admin-app-progress-line {
+            background: #16a34a;
+        }
+        .admin-app-progress-copy strong {
+            margin-bottom: 0.2rem;
+            color: #111827;
+            font-size: 0.95rem;
+            font-weight: 750;
+        }
+        .admin-app-progress-copy p {
+            font-size: 0.84rem;
+        }
+        .admin-app-stat,
+        .admin-app-mini-card {
+            display: grid;
+            gap: 0.4rem;
+            min-width: 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #f9fafb;
+        }
+        .admin-app-mini-card strong {
+            color: #111827;
+            font-size: 1rem;
+            line-height: 1.35;
+        }
+        .admin-app-mini-card--status {
+            grid-column: 1 / -1;
+            border-color: rgba(11, 31, 58, 0.2);
+            background: linear-gradient(135deg, #0b1f3a, #123a68);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        }
+        .admin-app-mini-card--status .admin-app-label,
+        .admin-app-mini-card--status .admin-app-summary-note {
+            color: #dbeafe;
+        }
+        .admin-app-mini-card--status strong {
+            color: #fff;
+            font-size: 1.35rem;
+        }
+        .admin-app-mini-card--full {
+            grid-column: 1 / -1;
+        }
+        .admin-app-location-shell {
+            display: grid;
+            gap: 1rem;
+        }
+        .admin-app-map {
+            height: 250px;
+            border: 1px solid #dbe2ea;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #f8fafc;
+        }
+        .admin-app-map--modal {
+            height: 420px;
+        }
+        .admin-app-location-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .admin-app-location-meta {
+            color: #6b7280;
+            font-size: 0.86rem;
+            line-height: 1.5;
+        }
+        .admin-app-summary-box,
+        .admin-app-empty {
+            border-radius: 12px;
+            background: #f9fafb;
+        }
+        .admin-app-timeline {
+            gap: 1rem;
+            padding-left: 1.15rem;
+        }
+        .admin-app-timeline::before {
+            left: 0.28rem;
+            background: #d1d5db;
+        }
+        .admin-app-timeline-item {
+            gap: 0.25rem;
+            padding-left: 1rem;
+        }
+        .admin-app-timeline-item::before {
+            top: 0.28rem;
+            left: -0.02rem;
+            width: 0.62rem;
+            height: 0.62rem;
+            background: #2563eb;
+            box-shadow: 0 0 0 4px #dbeafe;
+        }
+        .admin-app-timeline-meta {
+            color: #6b7280;
+            font-size: 0.82rem;
+            font-weight: 650;
+        }
+        .admin-app-photo img {
+            border-radius: 12px;
+        }
+        .admin-app-review .btn {
+            display: inline-flex;
+            min-height: 2.6rem;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.65rem 1rem;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            background: #0b1f3a;
+            color: #fff;
+            font-weight: 750;
+            line-height: 1.2;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+        .admin-app-review .btn:hover {
+            background: #123a68;
+            box-shadow: 0 10px 18px rgba(11, 31, 58, 0.14);
+            transform: translateY(-1px);
+        }
+        .admin-app-review .btn.secondary {
+            border-color: #cbd5e1;
+            background: #fff;
+            color: #0b1f3a;
+        }
+        .admin-app-review .btn.secondary:hover {
+            border-color: #0b1f3a;
+            background: #f8fafc;
+        }
+        .admin-app-review .btn.success {
+            background: #15803d;
+        }
+        .admin-app-review .btn.success:hover {
+            background: #166534;
+        }
+        .admin-app-review .btn.danger {
+            background: #b91c1c;
+        }
+        .admin-app-review .btn.danger:hover {
+            background: #991b1b;
+        }
+        @media (max-width: 1080px) {
+            .admin-app-layout {
+                grid-template-columns: 1fr;
+            }
+            .admin-app-progress {
+                grid-template-columns: repeat(5, minmax(130px, 1fr));
+                overflow-x: auto;
+                padding-bottom: 0.25rem;
+            }
+        }
+        @media (max-width: 760px) {
+            .admin-app-review {
+                padding: 1rem;
+            }
+            .admin-app-header,
+            .admin-app-card {
+                padding: 1rem;
+            }
+            .admin-app-header-top,
+            .admin-app-location-bar {
+                display: grid;
+                justify-items: start;
+            }
+            .admin-app-detail-grid,
+            .admin-app-stat-grid,
+            .admin-app-summary-grid,
+            .admin-app-form-grid,
+            .admin-app-actions {
+                grid-template-columns: 1fr;
+            }
+            .admin-app-mini-card--status,
+            .admin-app-mini-card--full {
+                grid-column: auto;
+            }
+            .admin-app-map {
+                height: 240px;
+            }
+            .admin-app-map--modal {
+                height: 360px;
+            }
+            .admin-app-header h1 {
+                font-size: 1.65rem;
+            }
+        }
     </style>
 @endpush
 
@@ -419,6 +767,8 @@
         $installation = $application->installation;
         $proofPhotos = $installation ? collect($installation->proofPhotos())->filter() : collect();
         $installationLogs = $installation ? $installation->logs : collect();
+        $technicalDetails = $installation ? $installation->technicalDetails() : [];
+        $hasTechnicalDetails = $installation ? $installation->hasTechnicalDetails() : false;
         $serviceabilityStatus = old('serviceability_status', $application->serviceability_status ?? 'pending');
         $slotAvailabilityStatus = old('slot_availability_status', $application->slot_availability_status ?? 'pending');
         $assessmentNotes = old('assessment_notes', $application->assessment_notes ?? '');
@@ -443,42 +793,46 @@
             'under_review' => 'admin-app-status--under_review',
             'approved' => 'admin-app-status--approved',
             'scheduled' => 'admin-app-status--scheduled',
+            'cancellation_requested' => 'admin-app-status--cancellation_requested',
             'installed' => 'admin-app-status--installed',
             'completed' => 'admin-app-status--completed',
+            'activated' => 'admin-app-status--activated',
             'rejected' => 'admin-app-status--rejected',
+            'cancelled' => 'admin-app-status--cancelled',
             default => 'admin-app-status--pending',
         };
         $isReviewState = in_array($statusKey, ['submitted', 'under_review'], true);
         $isApprovedState = $statusKey === 'approved';
         $isScheduledState = $statusKey === 'scheduled';
-        $isCompletedState = in_array($statusKey, ['installed', 'completed'], true);
+        $isCancellationRequestedState = $statusKey === 'cancellation_requested';
+        $isCompletedState = in_array($statusKey, ['installed', 'completed', 'activated'], true);
         $isRejectedState = $statusKey === 'rejected';
+        $isCancelledState = $statusKey === 'cancelled';
+        $isInstallationScheduled = $installation?->status === \App\Models\Installation::STATUS_SCHEDULED;
+        $isRescheduleRequiredState = $installation?->status === \App\Models\Installation::STATUS_RESCHEDULE_REQUIRED;
         $showReviewSummary = $application->assessed_at || filled($application->assessment_notes) || filled($application->serviceability_status) || filled($application->slot_availability_status) || filled($application->rejection_reason);
-        $showScheduleSummary = $installation && ($isScheduledState || $isCompletedState);
+        $showAdminActionCard = $showReviewSummary || $isReviewState || $isApprovedState || $isRejectedState || $isInstallationScheduled || $isRescheduleRequiredState || $isCancellationRequestedState;
         $submittedSummary = match ($statusKey) {
             'submitted' => 'This application is ready for manual review and decision.',
             'under_review' => 'Assessment is in progress. Review details can still be updated.',
             'approved' => 'The review is complete. The next step is assigning a technician and installation slot.',
             'scheduled' => 'The application is approved and already scheduled for installation.',
-            'installed', 'completed' => 'This application has moved into a final installation record.',
+            'cancellation_requested' => 'The customer requested cancellation. Admin review is required before changing the schedule.',
+            'installed', 'completed' => 'Installation is complete and waiting for manual service activation.',
+            'activated' => 'The customer service has been activated.',
             'rejected' => 'The review is complete and the application will not proceed to scheduling.',
+            'cancelled' => 'This application was cancelled and the record is preserved for history.',
             default => 'Review the application details and current processing state.',
-        };
-        $reviewPanelTitle = match (true) {
-            $isReviewState => 'Review Decision',
-            $isApprovedState => 'Technician Scheduling',
-            $isScheduledState => 'Schedule Summary',
-            $isCompletedState => 'Installation Summary',
-            $isRejectedState => 'Review Summary',
-            default => 'Application Status',
         };
         $stepIndexMap = [
             'submitted' => 1,
             'under_review' => 1,
             'approved' => 2,
             'scheduled' => 3,
+            'cancellation_requested' => 3,
             'installed' => 4,
             'completed' => 4,
+            'activated' => 5,
         ];
         $currentStepIndex = $stepIndexMap[$statusKey] ?? 0;
         $progressSteps = [
@@ -486,6 +840,7 @@
             'approved' => ['label' => 'Approved', 'description' => 'Review complete'],
             'scheduled' => ['label' => 'Scheduled', 'description' => 'Visit assigned'],
             'installed' => ['label' => 'Installed', 'description' => 'Job completed'],
+            'activated' => ['label' => 'Activated', 'description' => 'Service active'],
         ];
         $activeScheduleMatrix = ($activeSchedules ?? collect())
             ->groupBy('technician_id')
@@ -505,19 +860,16 @@
             'Assessed at' => $application->assessed_at?->displayDateTime('F d, Y h:i A') ?? 'Not recorded',
             'Assessed by' => $application->assessor?->name ?? 'Not recorded',
         ];
-        $scheduleSummaryRows = $installation ? [
-            'Assigned technician' => $installation->technician?->name ?? 'Not assigned',
-            'Technician email' => $installation->technician?->email ?? 'Not recorded',
-            'Scheduled date' => $installation->installation_date?->format('F d, Y') ?? 'Not scheduled',
-            'Scheduled time' => $installation->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('g:i A') : 'Time not set',
-        ] : [];
-        $installationSummaryRows = $installation ? [
-            'Status' => $installation->displayStatusLabel(),
-            'Assigned technician' => $installation->technician?->name ?? 'Not assigned',
-            'Scheduled date' => $installation->installation_date?->format('F d, Y') ?? 'Not scheduled',
-            'Scheduled time' => $installation->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('g:i A') : 'Time not set',
-            'Completed at' => $installation->completed_at?->displayDateTime('F d, Y h:i A') ?? 'Not completed yet',
-        ] : [];
+        $installationStatusLabel = $installation ? $installation->displayStatusLabel() : 'Not scheduled';
+        $technicianName = $installation?->technician?->name ?? 'Not assigned';
+        $technicianEmail = $installation?->technician?->email ?? 'Not recorded';
+        $scheduleDateLabel = $installation?->installation_date?->format('F d, Y') ?? 'Not scheduled';
+        $scheduleTimeLabel = $installation?->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('g:i A') : 'Time not set';
+        $scheduleLabel = $installation && ($installation->installation_date || $installation->installation_time)
+            ? $scheduleDateLabel . ' - ' . $scheduleTimeLabel
+            : 'Not scheduled';
+        $completedAtLabel = $installation?->completed_at?->displayDateTime('F d, Y h:i A') ?? 'Not completed yet';
+        $activationDateLabel = $installation?->activation_date?->format('F d, Y') ?? 'Not activated yet';
     @endphp
 
     <div class="admin-app-review">
@@ -533,34 +885,41 @@
                     <div class="admin-app-ref">{{ $application->reference_no }}</div>
                 </div>
             </div>
-
-            <div class="admin-app-progress" aria-label="Application progress">
-                @foreach($progressSteps as $stepKey => $step)
-                    @php
-                        $stepNumber = $loop->iteration;
-                        $isComplete = ! $isRejectedState && $stepNumber < $currentStepIndex;
-                        $isActive = ! $isRejectedState && $stepNumber === $currentStepIndex;
-                    @endphp
-                    <div class="admin-app-progress-step {{ $isComplete ? 'is-complete' : '' }} {{ $isActive ? 'is-active' : '' }}">
-                        <span>{{ $step['label'] }}</span>
-                        <div class="admin-app-progress-line"></div>
-                        <div class="admin-app-progress-copy">
-                            <strong>{{ $step['label'] }}</strong>
-                            <p>{{ $step['description'] }}</p>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
         </section>
 
         <div class="admin-app-layout">
             <div class="admin-app-column">
                 <section class="admin-app-card">
                     <div class="admin-app-card-head">
-                        <div>
-                            <h2>Customer Information</h2>
-                            <p>Core applicant details for review and contact verification.</p>
-                        </div>
+                        <h2>Progress Tracker</h2>
+                    </div>
+
+                    <div class="admin-app-progress" aria-label="Application progress">
+                        @foreach($progressSteps as $stepKey => $step)
+                            @php
+                                $stepNumber = $loop->iteration;
+                                $isComplete = ! $isRejectedState && $stepNumber < $currentStepIndex;
+                                $isActive = ! $isRejectedState && $stepNumber === $currentStepIndex;
+                                $stepStateLabel = $isComplete ? 'Completed' : ($isActive ? 'Current' : 'Pending');
+                            @endphp
+                            <div class="admin-app-progress-step {{ $isComplete ? 'is-complete' : '' }} {{ $isActive ? 'is-active' : '' }}">
+                                <div class="admin-app-progress-marker">
+                                    <span class="admin-app-progress-dot" aria-hidden="true">{{ $stepNumber }}</span>
+                                    <span class="admin-app-progress-line" aria-hidden="true"></span>
+                                </div>
+                                <div class="admin-app-progress-copy">
+                                    <span class="admin-app-progress-label">{{ $stepStateLabel }}</span>
+                                    <strong>{{ $step['label'] }}</strong>
+                                    <p>{{ $step['description'] }}</p>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+
+                <section class="admin-app-card">
+                    <div class="admin-app-card-head">
+                        <h2>Customer Information</h2>
                     </div>
 
                     <div class="admin-app-detail-grid">
@@ -589,10 +948,20 @@
 
                 <section class="admin-app-card">
                     <div class="admin-app-card-head">
-                        <div>
-                            <h2>Service Address</h2>
-                            <p>Address details used to verify the coverage area and install location.</p>
-                        </div>
+                        <h2>Valid ID</h2>
+                    </div>
+
+                    <x-photo-gallery
+                        :photos="['Valid ID' => $application->id_image_path]"
+                        title="Valid ID"
+                        empty="No valid ID uploaded."
+                        button-text="View ID"
+                    />
+                </section>
+
+                <section class="admin-app-card">
+                    <div class="admin-app-card-head">
+                        <h2>Service Address</h2>
                     </div>
 
                     <div class="admin-app-detail-grid">
@@ -621,19 +990,20 @@
 
                 <section class="admin-app-card">
                     <div class="admin-app-card-head">
-                        <div>
-                            <h2>Location</h2>
-                            <p>Open the saved pin only when needed instead of reserving page space for a large map.</p>
-                        </div>
+                        <h2>Location Map</h2>
                     </div>
 
                     @if($hasLocation)
-                        <div class="admin-app-location-meta">
-                            <span>Latitude: {{ number_format($locationLat, 6) }}</span>
-                            <span>Longitude: {{ number_format($locationLng, 6) }}</span>
-                        </div>
-                        <div>
-                            <button type="button" class="btn secondary admin-app-map-trigger" data-open-map-modal>View pinned location</button>
+                        <div class="admin-app-location-shell">
+                            <div id="adminApplicationInlineMap" class="js-readonly-location-map admin-app-map" data-lat="{{ $locationLat }}" data-lng="{{ $locationLng }}" data-popup="{{ $fullAddress }}" data-empty-label="No pinned location available."></div>
+
+                            <div class="admin-app-location-bar">
+                                <div class="admin-app-location-meta">
+                                    <span>Latitude: {{ number_format($locationLat, 6) }}</span>
+                                    <span>Longitude: {{ number_format($locationLng, 6) }}</span>
+                                </div>
+                                <button type="button" class="btn secondary admin-app-map-trigger" data-open-map-modal>View in Map</button>
+                            </div>
                         </div>
                     @else
                         <div class="admin-app-empty">
@@ -644,251 +1014,415 @@
                 </section>
             </div>
 
-            <div class="admin-app-column">
+            <aside class="admin-app-column">
                 <section class="admin-app-card">
                     <div class="admin-app-card-head">
-                        <div>
-                            <h2>{{ $reviewPanelTitle }}</h2>
-                            <p>
-                                @if($isReviewState)
-                                    Record the assessment and choose the next review state.
-                                @elseif($isApprovedState)
-                                    Assign a technician and installation slot for the approved application.
-                                @elseif($isScheduledState)
-                                    Review the schedule that was already assigned.
-                                @elseif($isCompletedState)
-                                    Review the final installation outcome and activity trail.
-                                @else
-                                    Review the saved assessment outcome for this application.
-                                @endif
-                            </p>
-                        </div>
+                        <h2>Installation Summary</h2>
                     </div>
 
-                    @if($showReviewSummary)
-                        <div class="admin-app-summary-box">
-                            <div class="admin-app-detail-grid">
-                                @foreach($reviewSummaryRows as $label => $value)
-                                    <div class="admin-app-detail">
-                                        <span class="admin-app-label">{{ $label }}</span>
-                                        <div class="admin-app-value">{{ $value ?: 'Not recorded' }}</div>
-                                    </div>
-                                @endforeach
-                                @if(filled($application->assessment_notes))
-                                    <div class="admin-app-detail admin-app-detail--full">
-                                        <span class="admin-app-label">Assessment notes</span>
-                                        <div class="admin-app-value">{{ $application->assessment_notes }}</div>
-                                    </div>
-                                @endif
-                            </div>
-
-                            @if($isRejectedState && filled($application->rejection_reason))
-                                <div class="admin-app-reject-box">
-                                    <strong>Rejection Reason</strong>
-                                    <p class="admin-app-helper">{{ $application->rejection_reason }}</p>
-                                </div>
-                            @endif
-                        </div>
-                    @endif
-
-                    @if($isReviewState)
-                        <form method="POST" action="{{ route('admin.applications.status', $application) }}" class="admin-app-form" id="applicationDecisionForm">
-                            @csrf
-                            @method('PATCH')
-
-                            <div class="admin-app-form-grid">
-                                <div class="admin-app-field">
-                                    <label for="serviceability_status">Serviceability</label>
-                                    <select id="serviceability_status" name="serviceability_status" required>
-                                        <option value="pending" @selected($serviceabilityStatus === 'pending')>Pending Assessment</option>
-                                        <option value="serviceable" @selected($serviceabilityStatus === 'serviceable')>Serviceable</option>
-                                        <option value="not_serviceable" @selected($serviceabilityStatus === 'not_serviceable')>Not Serviceable</option>
-                                    </select>
-                                    @error('serviceability_status')
-                                        <span class="error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-
-                                <div class="admin-app-field">
-                                    <label for="slot_availability_status">Slot availability</label>
-                                    <select id="slot_availability_status" name="slot_availability_status" required>
-                                        <option value="pending" @selected($slotAvailabilityStatus === 'pending')>Pending Check</option>
-                                        <option value="available" @selected($slotAvailabilityStatus === 'available')>Available</option>
-                                        <option value="full" @selected($slotAvailabilityStatus === 'full')>Full</option>
-                                        <option value="not_applicable" @selected($slotAvailabilityStatus === 'not_applicable')>Not Applicable</option>
-                                    </select>
-                                    @error('slot_availability_status')
-                                        <span class="error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-
-                                <div class="admin-app-field admin-app-field--full">
-                                    <label for="assessment_notes">Assessment notes</label>
-                                    <textarea id="assessment_notes" name="assessment_notes" rows="4" placeholder="Document serviceability checks, site constraints, or slot observations.">{{ $assessmentNotes }}</textarea>
-                                    @error('assessment_notes')
-                                        <span class="error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-
-                                <div class="admin-app-field admin-app-field--full {{ $showRejectionReason ? '' : 'is-hidden' }}" id="rejectionReasonField">
-                                    <label for="rejection_reason">Rejection reason</label>
-                                    <textarea id="rejection_reason" name="rejection_reason" rows="3" placeholder="State clearly why the application is being rejected.">{{ $rejectionReason }}</textarea>
-                                    <p class="admin-app-helper">Required when rejecting the application.</p>
-                                    @error('rejection_reason')
-                                        <span class="error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-                            </div>
-
-                            @error('status')
-                                <span class="error">{{ $message }}</span>
-                            @enderror
-
-                            <div class="admin-app-actions">
-                                <button type="submit" name="status" value="approved" class="btn success" data-status-action="approved">Approve</button>
-                                <button type="submit" name="status" value="under_review" class="btn secondary" data-status-action="under_review">Save as Under Review</button>
-                                <button type="submit" name="status" value="rejected" class="btn danger" data-status-action="rejected">Reject</button>
-                            </div>
-                        </form>
-                    @elseif($isApprovedState)
-                        <form method="POST" action="{{ route('admin.applications.schedule', $application) }}" class="admin-app-form">
-                            @csrf
-
-                            <div class="admin-app-form-grid">
-                                <div class="admin-app-field admin-app-field--full">
-                                    <label for="technician_id">Technician</label>
-                                    <select id="technician_id" name="technician_id" required>
-                                        <option value="">Select Technician</option>
-                                        @foreach($technicians as $techUser)
-                                            <option value="{{ $techUser->id }}" @selected((string) $selectedTechnicianId === (string) $techUser->id)>
-                                                {{ $techUser->name }} ({{ $techUser->email }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <p class="admin-app-helper">Only technician accounts are available for assignment.</p>
-                                    @error('technician_id')
-                                        <span class="error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-
-                                <div class="admin-app-field">
-                                    <label for="installation_date">Installation date</label>
-                                    <input id="installation_date" type="date" name="installation_date" value="{{ $selectedInstallationDate }}" required>
-                                    @error('installation_date')
-                                        <span class="error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-
-                                <div class="admin-app-field">
-                                    <label for="installation_time">Installation time</label>
-                                    <select id="installation_time" name="installation_time" required>
-                                        <option value="">Select time slot</option>
-                                        @foreach($availableTimeSlots as $timeSlot)
-                                            <option value="{{ $timeSlot }}" @selected($selectedInstallationTime === $timeSlot)>{{ \Carbon\Carbon::createFromFormat('H:i', $timeSlot)->format('g:i A') }}</option>
-                                        @endforeach
-                                    </select>
-                                    @error('installation_time')
-                                        <span class="error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-                            </div>
-
-                            <p class="admin-app-helper" id="installationTimeHint">Choose a technician and date to load available one-hour slots.</p>
-
-                            @error('schedule')
-                                <span class="error">{{ $message }}</span>
-                            @enderror
-
-                            <div>
-                                <button class="btn">Save Schedule</button>
-                            </div>
-                        </form>
-                    @elseif($showScheduleSummary)
-                        <div class="admin-app-stat-grid">
-                            @foreach($scheduleSummaryRows as $label => $value)
-                                <div class="admin-app-stat">
-                                    <span class="admin-app-label">{{ $label }}</span>
-                                    <div class="admin-app-value">{{ $value }}</div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @elseif($isRejectedState)
-                        <div class="admin-app-empty">
-                            <span class="admin-app-inline-label">Review closed</span>
-                            <p class="admin-app-helper">This application has been rejected and is no longer available for scheduling.</p>
-                        </div>
-                    @endif
-                </section>
-
-                @if($isCompletedState && $installation)
-                    <section class="admin-app-card">
-                        <div class="admin-app-card-head">
-                            <div>
-                                <h2>Installation Summary</h2>
-                                <p>Final schedule, completion, and proof details.</p>
-                            </div>
+                    <div class="admin-app-summary-grid">
+                        <div class="admin-app-mini-card admin-app-mini-card--status">
+                            <span class="admin-app-label">Status</span>
+                            <strong>{{ $installationStatusLabel }}</strong>
+                            <span class="admin-app-summary-note">Application {{ $statusLabel }} - {{ $application->reference_no }}</span>
                         </div>
 
-                        <div class="admin-app-stat-grid">
-                            @foreach($installationSummaryRows as $label => $value)
-                                <div class="admin-app-stat">
-                                    <span class="admin-app-label">{{ $label }}</span>
-                                    <div class="admin-app-value">{{ $value }}</div>
-                                </div>
-                            @endforeach
-                            <div class="admin-app-stat admin-app-stat--full">
+                        <div class="admin-app-mini-card">
+                            <span class="admin-app-label">Technician</span>
+                            <strong>{{ $technicianName }}</strong>
+                            <span class="admin-app-summary-note">{{ $technicianEmail }}</span>
+                        </div>
+
+                        <div class="admin-app-mini-card">
+                            <span class="admin-app-label">Schedule</span>
+                            <strong>{{ $scheduleLabel }}</strong>
+                            <span class="admin-app-summary-note">Installation visit</span>
+                        </div>
+
+                        <div class="admin-app-mini-card admin-app-mini-card--full">
+                            <span class="admin-app-label">Completed at</span>
+                            <strong>{{ $completedAtLabel }}</strong>
+                        </div>
+
+                        <div class="admin-app-mini-card admin-app-mini-card--full">
+                            <span class="admin-app-label">Activation date</span>
+                            <strong>{{ $activationDateLabel }}</strong>
+                        </div>
+
+                        @if($installation)
+                            <div class="admin-app-mini-card admin-app-mini-card--full">
                                 <span class="admin-app-label">Technician remarks</span>
                                 <div class="admin-app-value">{{ $installation->technician_remarks ?: 'No technician remarks recorded.' }}</div>
                             </div>
-                        </div>
 
-                        <div class="admin-app-photo">
-                            <span class="admin-app-label">Installation photo</span>
-                            @forelse($proofPhotos as $label => $path)
-                                @if($path)
-                                    <div>
-                                        <img src="{{ asset('storage/' . $path) }}" alt="{{ $label }}">
+                            <div class="admin-app-mini-card admin-app-mini-card--full">
+                                <span class="admin-app-label">Technical Installation Details</span>
+                                @if($hasTechnicalDetails)
+                                    <div class="admin-app-detail-grid">
+                                        @foreach($technicalDetails as $label => $value)
+                                            <div class="admin-app-detail">
+                                                <span class="admin-app-label">{{ $label }}</span>
+                                                <div class="admin-app-value">{{ $value ?: '-' }}</div>
+                                            </div>
+                                        @endforeach
                                     </div>
+                                @else
+                                    <div class="admin-app-value">Technical details not yet recorded.</div>
                                 @endif
-                            @empty
-                                <div class="admin-app-empty">
-                                    <p class="admin-app-helper">No installation photo uploaded.</p>
-                                </div>
-                            @endforelse
-                        </div>
-                    </section>
+                            </div>
+                        @endif
+                    </div>
+                </section>
 
+                @if($showAdminActionCard)
                     <section class="admin-app-card">
                         <div class="admin-app-card-head">
-                            <div>
-                                <h2>Installation History</h2>
-                                <p>Compact timeline of technician and system updates.</p>
-                            </div>
+                            <h2>
+                                @if($isReviewState)
+                                    Review Decision
+                                @elseif($isApprovedState)
+                                    Technician Scheduling
+                                @elseif($isCancellationRequestedState)
+                                    Cancellation Review
+                                @elseif($isRescheduleRequiredState)
+                                    Reschedule Installation
+                                @elseif($isInstallationScheduled)
+                                    Installation Controls
+                                @else
+                                    Review Outcome
+                                @endif
+                            </h2>
                         </div>
 
-                        @if($installationLogs->isNotEmpty())
-                            <div class="admin-app-timeline">
-                                @foreach($installationLogs as $log)
-                                    <div class="admin-app-timeline-item">
-                                        <div class="admin-app-timeline-meta">
-                                            {{ $log->created_at?->displayDateTime('F d, Y h:i A') ?? '-' }} | {{ $log->user?->name ?? 'System' }}
+                        @if($showReviewSummary)
+                            <div class="admin-app-summary-box">
+                                <div class="admin-app-detail-grid">
+                                    @foreach($reviewSummaryRows as $label => $value)
+                                        <div class="admin-app-detail">
+                                            <span class="admin-app-label">{{ $label }}</span>
+                                            <div class="admin-app-value">{{ $value ?: 'Not recorded' }}</div>
                                         </div>
-                                        <div class="admin-app-value">{{ $log->notes }}</div>
+                                    @endforeach
+                                    @if(filled($application->assessment_notes))
+                                        <div class="admin-app-detail admin-app-detail--full">
+                                            <span class="admin-app-label">Assessment notes</span>
+                                            <div class="admin-app-value">{{ $application->assessment_notes }}</div>
+                                        </div>
+                                    @endif
+                                </div>
+
+                                @if($isRejectedState && filled($application->rejection_reason))
+                                    <div class="admin-app-reject-box">
+                                        <strong>Rejection Reason</strong>
+                                        <p class="admin-app-helper">{{ $application->rejection_reason }}</p>
                                     </div>
-                                @endforeach
+                                @endif
                             </div>
-                        @else
+                        @endif
+
+                        @if($isReviewState)
+                            <form method="POST" action="{{ route('admin.applications.status', $application) }}" class="admin-app-form" id="applicationDecisionForm">
+                                @csrf
+                                @method('PATCH')
+
+                                <div class="admin-app-form-grid">
+                                    <div class="admin-app-field">
+                                        <label for="serviceability_status">Serviceability</label>
+                                        <select id="serviceability_status" name="serviceability_status" required>
+                                            <option value="pending" @selected($serviceabilityStatus === 'pending')>Pending Assessment</option>
+                                            <option value="serviceable" @selected($serviceabilityStatus === 'serviceable')>Serviceable</option>
+                                            <option value="not_serviceable" @selected($serviceabilityStatus === 'not_serviceable')>Not Serviceable</option>
+                                        </select>
+                                        @error('serviceability_status')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field">
+                                        <label for="slot_availability_status">Slot availability</label>
+                                        <select id="slot_availability_status" name="slot_availability_status" required>
+                                            <option value="pending" @selected($slotAvailabilityStatus === 'pending')>Pending Check</option>
+                                            <option value="available" @selected($slotAvailabilityStatus === 'available')>Available</option>
+                                            <option value="full" @selected($slotAvailabilityStatus === 'full')>Full</option>
+                                            <option value="not_applicable" @selected($slotAvailabilityStatus === 'not_applicable')>Not Applicable</option>
+                                        </select>
+                                        @error('slot_availability_status')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field admin-app-field--full">
+                                        <label for="assessment_notes">Assessment notes</label>
+                                        <textarea id="assessment_notes" name="assessment_notes" rows="4" placeholder="Document serviceability checks, site constraints, or slot observations.">{{ $assessmentNotes }}</textarea>
+                                        @error('assessment_notes')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field admin-app-field--full {{ $showRejectionReason ? '' : 'is-hidden' }}" id="rejectionReasonField">
+                                        <label for="rejection_reason">Rejection reason</label>
+                                        <textarea id="rejection_reason" name="rejection_reason" rows="3" placeholder="State clearly why the application is being rejected.">{{ $rejectionReason }}</textarea>
+                                        <p class="admin-app-helper">Required when rejecting the application.</p>
+                                        @error('rejection_reason')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                @error('status')
+                                    <span class="error">{{ $message }}</span>
+                                @enderror
+
+                                <div class="admin-app-actions">
+                                    <button type="submit" name="status" value="approved" class="btn success" data-status-action="approved">Approve</button>
+                                    <button type="submit" name="status" value="under_review" class="btn secondary" data-status-action="under_review">Save as Under Review</button>
+                                    <button type="submit" name="status" value="rejected" class="btn danger" data-status-action="rejected">Reject</button>
+                                </div>
+                            </form>
+                        @elseif($isApprovedState)
+                            <form method="POST" action="{{ route('admin.applications.schedule', $application) }}" class="admin-app-form">
+                                @csrf
+
+                                <div class="admin-app-form-grid">
+                                    <div class="admin-app-field admin-app-field--full">
+                                        <label for="technician_id">Technician</label>
+                                        <select id="technician_id" name="technician_id" required>
+                                            <option value="">Select Technician</option>
+                                            @foreach($technicians as $techUser)
+                                                <option value="{{ $techUser->id }}" @selected((string) $selectedTechnicianId === (string) $techUser->id)>
+                                                    {{ $techUser->name }} ({{ $techUser->email }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <p class="admin-app-helper">Only technician accounts are available for assignment.</p>
+                                        @error('technician_id')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field">
+                                        <label for="installation_date">Installation date</label>
+                                        <input id="installation_date" type="date" name="installation_date" value="{{ $selectedInstallationDate }}" required>
+                                        @error('installation_date')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field">
+                                        <label for="installation_time">Installation time</label>
+                                        <select id="installation_time" name="installation_time" required>
+                                            <option value="">Select time slot</option>
+                                            @foreach($availableTimeSlots as $timeSlot)
+                                                <option value="{{ $timeSlot }}" @selected($selectedInstallationTime === $timeSlot)>{{ \Carbon\Carbon::createFromFormat('H:i', $timeSlot)->format('g:i A') }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('installation_time')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <p class="admin-app-helper" id="installationTimeHint">Choose a technician and date to load available one-hour slots.</p>
+
+                                @error('schedule')
+                                    <span class="error">{{ $message }}</span>
+                                @enderror
+
+                                <div>
+                                    <button class="btn">Save Schedule</button>
+                                </div>
+                            </form>
+                        @elseif($isCancellationRequestedState)
+                            <form method="POST" action="{{ route('admin.applications.cancellation', $application) }}" class="admin-app-form">
+                                @csrf
+                                @method('PATCH')
+
+                                <div class="admin-app-field">
+                                    <label for="cancellation_notes">Admin notes</label>
+                                    <textarea id="cancellation_notes" name="cancellation_notes" rows="3" placeholder="Optional notes for the cancellation decision.">{{ old('cancellation_notes') }}</textarea>
+                                    @error('cancellation_notes')
+                                        <span class="error">{{ $message }}</span>
+                                    @enderror
+                                </div>
+
+                                @error('cancellation')
+                                    <span class="error">{{ $message }}</span>
+                                @enderror
+
+                                <div class="admin-app-actions">
+                                    <button type="submit" name="decision" value="approve" class="btn danger">Approve Cancellation</button>
+                                    <button type="submit" name="decision" value="reject" class="btn secondary">Reject Request</button>
+                                </div>
+                            </form>
+                        @elseif($isRescheduleRequiredState && $installation)
+                            <form method="POST" action="{{ route('admin.installations.reschedule', $installation) }}" class="admin-app-form">
+                                @csrf
+                                @method('PATCH')
+
+                                <div class="admin-app-form-grid">
+                                    <div class="admin-app-field admin-app-field--full">
+                                        <label for="technician_id">Technician</label>
+                                        <select id="technician_id" name="technician_id" required>
+                                            <option value="">Select Technician</option>
+                                            @foreach($technicians as $techUser)
+                                                <option value="{{ $techUser->id }}" @selected((string) $selectedTechnicianId === (string) $techUser->id)>
+                                                    {{ $techUser->name }} ({{ $techUser->email }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('technician_id')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field">
+                                        <label for="installation_date">Installation date</label>
+                                        <input id="installation_date" type="date" name="installation_date" value="{{ $selectedInstallationDate }}" required>
+                                        @error('installation_date')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field">
+                                        <label for="installation_time">Installation time</label>
+                                        <select id="installation_time" name="installation_time" required>
+                                            <option value="">Select time slot</option>
+                                            @foreach($availableTimeSlots as $timeSlot)
+                                                <option value="{{ $timeSlot }}" @selected($selectedInstallationTime === $timeSlot)>{{ \Carbon\Carbon::createFromFormat('H:i', $timeSlot)->format('g:i A') }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('installation_time')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <p class="admin-app-helper" id="installationTimeHint">Choose a technician and date to load available one-hour slots.</p>
+
+                                @error('reschedule')
+                                    <span class="error">{{ $message }}</span>
+                                @enderror
+
+                                <div>
+                                    <button class="btn">Reschedule Installation</button>
+                                </div>
+                            </form>
+                        @elseif($isInstallationScheduled && $installation)
+                            <form method="POST" action="{{ route('admin.installations.reassign', $installation) }}" class="admin-app-form">
+                                @csrf
+                                @method('PATCH')
+
+                                <div class="admin-app-form-grid">
+                                    <div class="admin-app-field admin-app-field--full">
+                                        <label for="technician_id">Reassign Technician</label>
+                                        <select id="technician_id" name="technician_id" required>
+                                            <option value="">Select Technician</option>
+                                            @foreach($technicians as $techUser)
+                                                <option value="{{ $techUser->id }}" @selected((string) $selectedTechnicianId === (string) $techUser->id)>
+                                                    {{ $techUser->name }} ({{ $techUser->email }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <p class="admin-app-helper">The installation remains scheduled; only the assigned technician changes.</p>
+                                        @error('technician_id')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field admin-app-field--full">
+                                        <label for="reassignment_reason">Reassignment reason <span class="field-badge optional">Optional</span></label>
+                                        <textarea id="reassignment_reason" name="reassignment_reason" rows="3" placeholder="Example: Technician unavailable for the assigned slot.">{{ old('reassignment_reason', $installation->reassignment_reason) }}</textarea>
+                                        @error('reassignment_reason')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                @error('reassignment')
+                                    <span class="error">{{ $message }}</span>
+                                @enderror
+
+                                <div>
+                                    <button class="btn">Reassign Technician</button>
+                                </div>
+                            </form>
+                        @elseif($isRejectedState)
                             <div class="admin-app-empty">
-                                <p class="admin-app-helper">No installation history recorded yet.</p>
+                                <span class="admin-app-inline-label">Review closed</span>
+                                <p class="admin-app-helper">This application has been rejected and is no longer available for scheduling.</p>
+                            </div>
+                        @elseif($isCancelledState)
+                            <div class="admin-app-empty">
+                                <span class="admin-app-inline-label">Application cancelled</span>
+                                <p class="admin-app-helper">This application was cancelled. The saved record remains available for review.</p>
                             </div>
                         @endif
                     </section>
                 @endif
-            </div>
+
+                @if($isCompletedState && $installation)
+                    <section class="admin-app-card">
+                        <div class="admin-app-card-head">
+                            <h2>Installation Photo</h2>
+                        </div>
+
+                        <x-photo-gallery
+                            :photos="$proofPhotos"
+                            title="Installation Photos"
+                            empty="No installation photo uploaded."
+                            button-text="View photo/photos"
+                            class="admin-app-photo"
+                        />
+                    </section>
+                @endif
+
+                <section class="admin-app-card">
+                    <div class="admin-app-card-head">
+                        <h2>Installation History</h2>
+                        <button type="button" class="btn secondary" data-open-installation-history-modal>View History</button>
+                    </div>
+
+                    <p class="admin-app-helper">
+                        {{ $installation && $installationLogs->isNotEmpty() ? $installationLogs->count() . ' history ' . \Illuminate\Support\Str::plural('entry', $installationLogs->count()) . ' recorded.' : 'No installation history recorded yet.' }}
+                    </p>
+                </section>
+            </aside>
         </div>
 
         <div class="admin-app-footer">
             <a href="{{ route('admin.applications.index') }}" class="btn secondary">Back to Applications</a>
+        </div>
+    </div>
+
+    <div class="admin-ticket-modal installation-history-modal" id="installationHistoryModal" aria-hidden="true">
+        <div class="admin-ticket-modal__backdrop" data-close-installation-history-modal></div>
+        <div class="admin-ticket-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="installationHistoryModalTitle">
+            <button type="button" class="admin-ticket-modal__close" data-close-installation-history-modal aria-label="Close installation history">&times;</button>
+            <div class="admin-ticket-modal__shell">
+                <div class="admin-ticket-modal__intro">
+                    <h2 id="installationHistoryModalTitle">Installation History</h2>
+                    <p>Review scheduling, reassignment, reschedule, and completion notes for this installation.</p>
+                </div>
+
+                <div class="installation-history-modal__body">
+                    @if($installation && $installationLogs->isNotEmpty())
+                        <div class="admin-app-timeline">
+                            @foreach($installationLogs as $log)
+                                <div class="admin-app-timeline-item">
+                                    <div class="admin-app-timeline-meta">
+                                        {{ $log->created_at?->displayDateTime('F d, Y h:i A') ?? '-' }} - {{ $log->user?->name ?? 'System' }}
+                                    </div>
+                                    <div class="admin-app-value">{{ $log->notes }}</div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="admin-app-empty">
+                            <p class="admin-app-helper">No installation history recorded yet.</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
 
@@ -905,7 +1439,7 @@
                         <button type="button" class="admin-app-map-modal__close" data-close-map-modal aria-label="Close pinned location map">&times;</button>
                     </div>
 
-                    <div id="adminApplicationMap" class="js-readonly-location-map admin-app-map" data-lat="{{ $locationLat }}" data-lng="{{ $locationLng }}" data-popup="{{ $fullAddress }}" data-empty-label="No pinned location available."></div>
+                    <div id="adminApplicationMap" class="js-readonly-location-map admin-app-map admin-app-map--modal" data-lat="{{ $locationLat }}" data-lng="{{ $locationLng }}" data-popup="{{ $fullAddress }}" data-empty-label="No pinned location available."></div>
 
                     <div class="admin-app-map-modal__meta">
                         <div class="admin-app-detail">
@@ -974,7 +1508,7 @@
                         zoom: 16,
                         scrollWheelZoom: false,
                         dragging: true,
-                        zoomControl: true,
+                        zoomControl: false,
                         attributionControl: true,
                         doubleClickZoom: false,
                         boxZoom: false,
@@ -1008,6 +1542,9 @@
             const mapModal = document.getElementById('applicationMapModal');
             const mapOpeners = document.querySelectorAll('[data-open-map-modal]');
             const mapClosers = document.querySelectorAll('[data-close-map-modal]');
+            const historyModal = document.getElementById('installationHistoryModal');
+            const historyOpeners = document.querySelectorAll('[data-open-installation-history-modal]');
+            const historyClosers = document.querySelectorAll('[data-close-installation-history-modal]');
             const technicianSelect = document.getElementById('technician_id');
             const installationDateInput = document.getElementById('installation_date');
             const installationTimeSelect = document.getElementById('installation_time');
@@ -1104,6 +1641,8 @@
                 installationTimeHint.textContent = `${availableCount} available one-hour slot${availableCount === 1 ? '' : 's'} for this technician on the selected date.`;
             };
 
+            initReadonlyMaps();
+
             if (mapModal && mapOpeners.length) {
                 const openMapModal = function () {
                     mapModal.classList.add('is-open');
@@ -1136,6 +1675,34 @@
                 document.addEventListener('keydown', function (event) {
                     if (event.key === 'Escape' && mapModal.classList.contains('is-open')) {
                         closeMapModal();
+                    }
+                });
+            }
+
+            if (historyModal && historyOpeners.length) {
+                const openHistoryModal = function () {
+                    historyModal.classList.add('is-open');
+                    historyModal.setAttribute('aria-hidden', 'false');
+                    document.body.classList.add('ticket-overlay-open');
+                };
+
+                const closeHistoryModal = function () {
+                    historyModal.classList.remove('is-open');
+                    historyModal.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('ticket-overlay-open');
+                };
+
+                historyOpeners.forEach(function (button) {
+                    button.addEventListener('click', openHistoryModal);
+                });
+
+                historyClosers.forEach(function (button) {
+                    button.addEventListener('click', closeHistoryModal);
+                });
+
+                document.addEventListener('keydown', function (event) {
+                    if (event.key === 'Escape' && historyModal.classList.contains('is-open')) {
+                        closeHistoryModal();
                     }
                 });
             }

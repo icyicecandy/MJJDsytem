@@ -256,7 +256,7 @@
 
                 <div class="upload-field apply-upload-field">
                     <label for="id_image">Valid ID Image</label>
-                    <input id="id_image" type="file" name="id_image" accept=".jpg,.jpeg,.png" required>
+                    <input id="id_image" type="file" name="id_image" accept=".jpg,.jpeg,.png,.webp" required>
                     @error('id_image')
                         <span class="error">{{ $message }}</span>
                     @enderror

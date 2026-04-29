@@ -38,33 +38,38 @@
         margin-top: 0.35rem;
     }
     .admin-installations-table {
-        table-layout: auto;
+        table-layout: fixed;
     }
     .admin-installations-table th:nth-child(1) {
-        width: 18%;
+        width: 10%;
     }
     .admin-installations-table th:nth-child(2) {
-        width: 17%;
+        width: 12%;
     }
     .admin-installations-table th:nth-child(3) {
-        width: 24%;
+        width: 9%;
     }
     .admin-installations-table th:nth-child(4) {
         width: 14%;
     }
     .admin-installations-table th:nth-child(5) {
-        width: 16%;
+        width: 17%;
     }
     .admin-installations-table th:nth-child(6) {
-        width: 8%;
+        width: 13%;
     }
     .admin-installations-table th:nth-child(7) {
-        width: 1%;
+        width: 11%;
+    }
+    .admin-installations-table th:nth-child(8) {
+        width: 8%;
+    }
+    .admin-installations-table th:nth-child(9) {
+        width: 6%;
     }
     .admin-installations-table th,
     .admin-installations-table td {
-        padding-top: 0.78rem;
-        padding-bottom: 0.78rem;
+        padding: 0.68rem 0.55rem;
     }
     .admin-installations-table .record-stack {
         display: grid;
@@ -84,7 +89,7 @@
         line-height: 1.28;
     }
     .admin-installations-table .address-preview {
-        max-width: 26rem;
+        max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -95,22 +100,14 @@
     .admin-installations-table .actions-cell {
         text-align: right;
         white-space: nowrap;
+        padding-left: 0.35rem;
+    }
+    .admin-installations-table .actions-cell .btn {
+        padding: 0.46rem 0.62rem;
+        font-size: 0.82rem;
     }
     .admin-installations-table .badge {
         white-space: nowrap;
-    }
-    .table-card-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem 1.15rem 0.2rem;
-    }
-    .table-card-head p {
-        margin: 0;
-        color: var(--color-text-muted);
-        font-size: 0.82rem;
-        line-height: 1.4;
     }
     @media (max-width: 980px) {
         .admin-installations-table .address-preview {
@@ -135,28 +132,21 @@
             <strong>{{ $scheduledCount }}</strong>
         </a>
         <a href="{{ route('admin.installations.index', array_filter(['group' => 'completed', 'search' => $search])) }}" class="admin-install-kpi card {{ !request()->filled('status') && $selectedGroup === 'completed' ? 'active' : '' }}">
-            <span class="record-muted admin-install-kpi-label">Installed</span>
+            <span class="record-muted admin-install-kpi-label">Installed / Activated</span>
             <strong>{{ $completedCount }}</strong>
         </a>
     </section>
 
     <section class="card table-card">
-        <div class="table-card-head">
-            <p>
-                @if($selectedGroup === 'completed')
-                    Showing completed and installed work so admin can review finished field jobs separately.
-                @else
-                    Showing scheduled and pending work so admin can focus on upcoming and incomplete jobs.
-                @endif
-            </p>
-        </div>
         <div class="table-wrap">
             <table class="telecom-table admin-installations-table">
                 <thead>
                     <tr>
                         <th>Job</th>
-                        <th>App Reference</th>
                         <th>Customer</th>
+                        <th>Plan</th>
+                        <th>Contact</th>
+                        <th>Address</th>
                         <th>Technician</th>
                         <th>Schedule</th>
                         <th>Status</th>
@@ -171,12 +161,14 @@
                                 ? trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''))
                                 : 'N/A';
                             $address = $application
-                                ? trim(collect([
-                                    $application->street_landmark,
+                                ? collect([
                                     $application->barangay,
                                     $application->municipality,
-                                ])->filter()->implode(', '))
+                                    $application->province,
+                                ])->filter()->implode(', ')
                                 : null;
+                            $contactNumber = $application?->mobile_number;
+                            $contactEmail = $application?->email;
                             $scheduleDate = $installation->installation_date?->format('M d, Y');
                             $scheduleTime = $installation->installation_time
                                 ? \Carbon\Carbon::parse($installation->installation_time)->format('h:i A')
@@ -187,25 +179,24 @@
                             <td>
                                 <div class="record-stack">
                                     <span class="record-strong">{{ method_exists($installation, 'displayJobReference') ? $installation->displayJobReference() : '#'.$installation->id }}</span>
-                                    <span class="record-muted">Internal ID: #{{ $installation->id }}</span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="record-stack">
-                                    @if($application)
-                                        <a href="{{ route('admin.applications.show', $application) }}" class="record-strong">{{ $application->reference_no ?? 'N/A' }}</a>
-                                        <span class="record-muted">Application record</span>
-                                    @else
-                                        <span class="record-strong">N/A</span>
-                                        <span class="record-muted">No linked application</span>
-                                    @endif
                                 </div>
                             </td>
                             <td>
                                 <div class="record-stack">
                                     <span class="record-strong">{{ $customerName }}</span>
-                                    <span class="record-muted address-preview">{{ $address ?: 'Address not available' }}</span>
                                 </div>
+                            </td>
+                            <td>
+                                <span class="record-strong">{{ $application?->plan_code ?: 'No plan' }}</span>
+                            </td>
+                            <td>
+                                <div class="record-stack">
+                                    <span class="record-strong">{{ $contactNumber ?: 'No contact number' }}</span>
+                                    <span class="record-muted">{{ $contactEmail ?: 'No email recorded' }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="record-muted address-preview">{{ $address ?: 'Address not available' }}</span>
                             </td>
                             <td>
                                 <div class="record-stack">
@@ -224,7 +215,7 @@
                             </td>
                             <td class="actions-cell">
                                 @if($application)
-                                    <a href="{{ route('admin.applications.show', $application) }}" class="btn secondary">Open</a>
+                                    <a href="{{ route('admin.applications.show', $application) }}" class="btn secondary">View</a>
                                 @else
                                     <span class="record-muted">No detail</span>
                                 @endif
@@ -232,10 +223,10 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7">
+                            <td colspan="9">
                                 <div class="empty-state compact">
                                     @if($selectedGroup === 'completed')
-                                        No completed installation jobs yet.
+                                        No completed or activated installation jobs yet.
                                     @else
                                         No scheduled or pending installation jobs yet.
                                     @endif

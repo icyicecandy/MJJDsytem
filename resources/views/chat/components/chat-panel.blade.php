@@ -10,6 +10,9 @@
     $contextTitle = $contextTitle ?? null;
     $panelTitle = $panelTitle ?? ($isCustomer ? ($chatState['identity_name'] ?? 'MJJD AI Assistant') : $user->name);
     $panelMeta = $panelMeta ?? null;
+    $canSendMessages = $canSendMessages ?? true;
+    $composerNotice = $composerNotice ?? null;
+    $showQuickReplies = $isCustomer && !empty($quickReplies) && in_array($mode, ['ai_active', 'waiting_for_human', 'staff_inactive'], true);
 @endphp
 
 <section class="chat-ui__panel">
@@ -60,6 +63,8 @@
                         $avatarLabel = $msg->sender_type === 'ai'
                             ? 'AI'
                             : Str::upper(Str::substr($msg->senderLabel(), 0, 1));
+                        $attachmentUrl = $msg->attachmentUrl();
+                        $attachmentLabel = $msg->attachmentOriginalName() ?: 'View image';
                     @endphp
 
                     <article class="chat-ui__message-row {{ $bubbleClass }}">
@@ -75,25 +80,44 @@
                                     <span>{{ $msg->created_at->displayTime() }}</span>
                                 </div>
                                 <div class="chat-ui__message-text">{{ $msg->message }}</div>
+                                @if($attachmentUrl)
+                                    <a href="{{ $attachmentUrl }}" target="_blank" rel="noopener noreferrer" class="chat-ui__message-attachment">
+                                        @if($msg->hasImageAttachment())
+                                            <img src="{{ $attachmentUrl }}" alt="{{ $attachmentLabel }}">
+                                        @endif
+                                        <span>{{ $attachmentLabel }}</span>
+                                    </a>
+                                @endif
                             </div>
                         @endif
                     </article>
                 @endforeach
             </div>
 
-            @if($isCustomer && !empty($quickReplies) && $mode === 'ai_active')
-                <div id="support-quick-replies" class="chat-ui__quick-replies">
+            @if($isCustomer)
+                <div id="support-quick-replies" class="chat-ui__quick-replies {{ $showQuickReplies ? '' : 'is-hidden' }}">
                     @foreach($quickReplies as $quickReply)
                         <button type="button" class="chat-ui__quick-reply" data-quick-reply="{{ $quickReply }}">{{ $quickReply }}</button>
                     @endforeach
                 </div>
             @endif
 
-            <form id="chat-form" method="POST" action="{{ $sendRoute }}" class="chat-ui__composer">
-                @csrf
-                <textarea name="message" rows="2" placeholder="{{ $isCustomer ? 'Write your message' : 'Reply to the customer' }}" required></textarea>
-                <button type="submit" class="chat-ui__button chat-ui__button--primary">Send</button>
-            </form>
+            @if($canSendMessages)
+                <form id="chat-form" method="POST" action="{{ $sendRoute }}" enctype="multipart/form-data" class="chat-ui__composer">
+                    @csrf
+                    <div class="chat-ui__composer-fields">
+                        <textarea name="message" rows="2" placeholder="{{ $isCustomer ? 'Write your message' : 'Reply to the customer' }}"></textarea>
+                        <div class="chat-ui__attachment-control">
+                            <label for="chat_attachment" class="chat-ui__attachment-button">Attach image</label>
+                            <input id="chat_attachment" type="file" name="chat_attachment" accept=".jpg,.jpeg,.png,.webp">
+                            <span data-chat-attachment-name>No image selected</span>
+                        </div>
+                    </div>
+                    <button type="submit" class="chat-ui__button chat-ui__button--primary">Send</button>
+                </form>
+            @elseif($composerNotice)
+                <div class="chat-ui__composer-notice">{{ $composerNotice }}</div>
+            @endif
         </div>
 
         @if(! $isCustomer && !empty($contextItems))

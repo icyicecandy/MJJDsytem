@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
+use App\Models\Installation;
+use App\Models\InstallationLog;
 use App\Support\AppNotificationSender;
+use App\Support\PublicUpload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -69,7 +72,7 @@ class CustomerApplicationController extends Controller
             'lat' => ['required', 'numeric'],
             'lng' => ['required', 'numeric'],
             'plan_code' => ['required', 'in:S2S_50,S2S_100'],
-            'id_image' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'id_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [
             'first_name.regex' => 'First name may only contain letters, spaces, hyphens, and apostrophes.',
             'last_name.regex' => 'Last name may only contain letters, spaces, hyphens, and apostrophes.',
@@ -102,7 +105,7 @@ class CustomerApplicationController extends Controller
             $reference = "APP-{$year}-{$random}";
         }
 
-        $idPath = $request->file('id_image')->store('applications/ids', 'public');
+        $idPath = PublicUpload::normalizePath($request->file('id_image')->store('application-ids', 'public'));
         $consentedAt = $user->consented_at ?? now();
 
         $payload = [
@@ -134,7 +137,7 @@ class CustomerApplicationController extends Controller
             'assessed_at' => null,
         ];
 
-        if ($existing && $existing->status === 'rejected') {
+        if ($existing && $existing->isTerminalForNewApplication()) {
             $existing->update($payload);
             $application = $existing;
         } else {
@@ -200,14 +203,90 @@ class CustomerApplicationController extends Controller
 
     public function show()
     {
-        $application = Auth::user()->application;
+        $application = Auth::user()->application()->with('installation.logs.user')->first();
 
         return view('customer.application', compact('application'));
     }
 
+    public function requestCancellation(Request $request)
+    {
+        $request->validate([
+            'cancellation_reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $application = Auth::user()->application()->with('installation')->first();
+
+        if (! $application) {
+            return back()->withErrors([
+                'cancellation' => 'No application is available for cancellation.',
+            ]);
+        }
+
+        $reason = trim((string) $request->input('cancellation_reason', ''));
+        $reasonSuffix = $reason !== '' ? ' Reason: ' . $reason : '';
+
+        if (in_array($application->status, [Application::STATUS_SUBMITTED, Application::STATUS_UNDER_REVIEW], true)
+            || ($application->status === Application::STATUS_APPROVED && ! $this->hasScheduledInstallation($application))) {
+            $application->update(['status' => Application::STATUS_CANCELLED]);
+
+            AppNotificationSender::sendToRole(
+                'admin',
+                'Application cancelled by customer',
+                $application->reference_no . ' was cancelled before installation scheduling.',
+                route('admin.applications.show', $application),
+                'application_cancelled_by_customer',
+                ['application_id' => $application->id],
+                Auth::id()
+            );
+
+            return back()->with('success', 'Your application has been cancelled.');
+        }
+
+        if ($application->status === Application::STATUS_SCHEDULED && $this->hasScheduledInstallation($application)) {
+            $installation = $application->installation;
+            $scheduledStart = $installation->scheduledStartAt();
+
+            if ($scheduledStart && $scheduledStart->lte(now()->addDay())) {
+                return back()->withErrors([
+                    'cancellation' => 'Cancellation requests for scheduled installations must be made more than 24 hours before the visit.',
+                ]);
+            }
+
+            $application->update(['status' => Application::STATUS_CANCELLATION_REQUESTED]);
+
+            InstallationLog::create([
+                'installation_id' => $installation->id,
+                'user_id' => Auth::id(),
+                'notes' => 'Customer requested cancellation.' . $reasonSuffix,
+            ]);
+
+            AppNotificationSender::sendToRole(
+                'admin',
+                'Installation cancellation requested',
+                $application->reference_no . ' is waiting for admin cancellation review.',
+                route('admin.applications.show', $application),
+                'installation_cancellation_requested',
+                ['application_id' => $application->id, 'installation_id' => $installation->id],
+                Auth::id()
+            );
+
+            return back()->with('success', 'Your cancellation request was sent for admin review.');
+        }
+
+        return back()->withErrors([
+            'cancellation' => 'This application cannot be cancelled from its current status.',
+        ]);
+    }
+
     private function hasActiveApplication(?Application $application): bool
     {
-        return $application !== null && $application->status !== 'rejected';
+        return $application !== null && ! $application->isTerminalForNewApplication();
+    }
+
+    private function hasScheduledInstallation(Application $application): bool
+    {
+        return $application->installation
+            && $application->installation->status === Installation::STATUS_SCHEDULED;
     }
 
     private function coordinatesAreWithinLuzon(float $lat, float $lng): bool

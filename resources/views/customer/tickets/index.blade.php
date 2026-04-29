@@ -9,12 +9,41 @@
             <h1>My Support Tickets</h1>
             <p>Track your reported issues, review queue or assignment updates, and open each support thread from one list.</p>
         </div>
-    </section>
-
-    <section class="card toolbar-card">
         <div class="toolbar-actions">
             <a href="{{ route('customer.tickets.index', ['create_ticket' => 1]) }}" class="btn" data-open-customer-ticket-modal>Create New Ticket</a>
         </div>
+    </section>
+
+    <section class="card toolbar-card">
+        <form method="GET" action="{{ route('customer.tickets.index') }}" class="toolbar-row">
+            <div class="toolbar-field">
+                <label for="customer_ticket_status">Status</label>
+                <select name="status" id="customer_ticket_status">
+                    <option value="">All</option>
+                    @foreach($statusOptions as $value => $label)
+                        <option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="toolbar-field grow">
+                <label for="customer_ticket_search">Search</label>
+                <input
+                    id="customer_ticket_search"
+                    type="text"
+                    name="search"
+                    value="{{ $search }}"
+                    placeholder="Tracking number, subject, description, or assigned staff"
+                >
+            </div>
+
+            <div class="toolbar-actions">
+                <button type="submit" class="btn">Filter</button>
+                @if($search !== '' || $selectedStatus !== '')
+                    <a href="{{ route('customer.tickets.index') }}" class="btn secondary">Reset</a>
+                @endif
+            </div>
+        </form>
     </section>
 
     <section class="card table-card">

@@ -6,6 +6,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
+use App\Support\PublicUpload;
 use Illuminate\Http\Request;
 
 class AdminTicketController extends Controller
@@ -182,12 +183,18 @@ class AdminTicketController extends Controller
         abort_unless($ticket->canReceiveReplies(), 422, 'Closed tickets cannot receive new replies.');
 
         $request->validate([
-            'message' => 'required|string',
+            'message' => ['nullable', 'required_without:ticket_attachment', 'string'],
+            'ticket_attachment' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
+
+        $attachmentPath = $request->hasFile('ticket_attachment')
+            ? PublicUpload::normalizePath($request->file('ticket_attachment')->store('ticket-attachments', 'public'))
+            : null;
 
         $ticket->messages()->create([
             'user_id' => auth()->id(),
-            'message' => $request->message,
+            'message' => trim((string) $request->input('message', '')) ?: 'Attachment uploaded.',
+            'attachment_path' => $attachmentPath,
         ]);
 
         return back();

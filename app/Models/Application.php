@@ -2,12 +2,23 @@
 
 namespace App\Models;
 
+use App\Support\PublicUpload;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Application extends Model
 {
     use HasFactory;
+
+    public const STATUS_SUBMITTED = 'submitted';
+    public const STATUS_UNDER_REVIEW = 'under_review';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_SCHEDULED = 'scheduled';
+    public const STATUS_CANCELLATION_REQUESTED = 'cancellation_requested';
+    public const STATUS_INSTALLED = 'installed';
+    public const STATUS_ACTIVATED = 'activated';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_REJECTED = 'rejected';
 
     protected $fillable = [
         'user_id',
@@ -73,5 +84,18 @@ class Application extends Model
             $this->province,
             $this->region,
         ])->filter()->implode(', ');
+    }
+
+    public function isTerminalForNewApplication(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_REJECTED,
+            self::STATUS_CANCELLED,
+        ], true);
+    }
+
+    public function idImageUrl(): ?string
+    {
+        return PublicUpload::url($this->id_image_path);
     }
 }

@@ -1,15 +1,15 @@
 <x-app-layout>
     <div class="apply-wizard-shell apply-done-shell">
         <div class="apply-stepper apply-stepper-complete">
-            <div class="apply-step is-complete"><span>?</span><label>Applicant</label></div>
-            <div class="apply-step is-complete"><span>?</span><label>Location</label></div>
-            <div class="apply-step is-complete"><span>?</span><label>Plan</label></div>
-            <div class="apply-step is-complete"><span>?</span><label>Upload ID</label></div>
-            <div class="apply-step is-complete"><span>?</span><label>Submitted</label></div>
+            <div class="apply-step is-complete"><span aria-hidden="true"></span><label>Applicant</label></div>
+            <div class="apply-step is-complete"><span aria-hidden="true"></span><label>Location</label></div>
+            <div class="apply-step is-complete"><span aria-hidden="true"></span><label>Plan</label></div>
+            <div class="apply-step is-complete"><span aria-hidden="true"></span><label>Upload ID</label></div>
+            <div class="apply-step is-complete"><span aria-hidden="true"></span><label>Submitted</label></div>
         </div>
 
         <section class="panel-card apply-done-card">
-            <div class="apply-done-icon">?</div>
+            <div class="apply-done-icon" aria-hidden="true"></div>
             <h1>Application Submitted!</h1>
             <p>
                 Thank you for choosing MJJD Telecom. Your reference number is

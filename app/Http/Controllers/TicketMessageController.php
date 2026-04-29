@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Support\PublicUpload;
 use Illuminate\Http\Request;
 
 class TicketMessageController extends Controller
@@ -19,12 +20,18 @@ class TicketMessageController extends Controller
         abort_unless($ticket->canReceiveReplies(), 422, 'Closed tickets cannot receive new replies.');
 
         $validated = $request->validate([
-            'message' => ['required', 'string'],
+            'message' => ['nullable', 'required_without:ticket_attachment', 'string'],
+            'ticket_attachment' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
+
+        $attachmentPath = $request->hasFile('ticket_attachment')
+            ? PublicUpload::normalizePath($request->file('ticket_attachment')->store('ticket-attachments', 'public'))
+            : null;
 
         $ticket->messages()->create([
             'user_id' => $user->id,
-            'message' => $validated['message'],
+            'message' => trim((string) ($validated['message'] ?? '')) ?: 'Attachment uploaded.',
+            'attachment_path' => $attachmentPath,
         ]);
 
         $ticket->touch();

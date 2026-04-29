@@ -95,6 +95,8 @@ class ProfileController extends Controller
     {
         $user = $request->user();
 
+        abort_unless($user->isAdmin(), 403);
+
         if (! $user->deletion_requested_at) {
             $user->forceFill([
                 'deletion_requested_at' => now(),
@@ -148,6 +150,8 @@ class ProfileController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
+        abort_unless($request->user()->isAdmin(), 403);
+
         $request->validateWithBag('userDeletion', [
             'password' => ['required', 'current_password'],
         ]);

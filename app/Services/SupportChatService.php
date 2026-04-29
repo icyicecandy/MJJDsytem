@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Events\ChatMessageSent;
 use App\Models\ChatMessage;
 use App\Models\User;
+use App\Support\PublicUpload;
 use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -47,7 +49,7 @@ class SupportChatService
     {
         $user->forceFill([
             'chat_available' => $available,
-            'is_online' => $available,
+            'is_online' => true,
             'last_seen' => now(),
         ])->save();
 
@@ -134,7 +136,22 @@ class SupportChatService
         }
 
         return $latest->assigned_staff_id !== $staff->id
-            || ! in_array($latest->conversation_status, $this->activeHumanConversationStatuses(), true);
+            || ! in_array($latest->conversation_status, ['assigned', 'active_human'], true);
+    }
+
+    protected function shouldCreateAiAssistanceNotice(?ChatMessage $latest, string $conversationStatus): bool
+    {
+        return in_array($conversationStatus, ['ai_active', 'waiting_for_human'], true)
+            && (
+                ! $latest
+                || $latest->assigned_staff_id !== null
+                || ! in_array($latest->conversation_status, ['ai_active', 'waiting_for_human'], true)
+            );
+    }
+
+    protected function shouldSwitchInactiveConversationToAi(?ChatMessage $latest): bool
+    {
+        return $this->assignedStaffIsInactive($latest);
     }
 
     protected function autoAssignableSupportUsers(): Collection
@@ -236,7 +253,7 @@ class SupportChatService
             return 'staff_inactive';
         }
 
-        if ($this->availableSupportUsers()->isEmpty()) {
+        if ($this->autoAssignableSupportUsers()->isEmpty()) {
             return 'ai_active';
         }
 
@@ -372,8 +389,13 @@ class SupportChatService
         $autoAssignableStaff = $this->autoAssignableSupportUsers();
         $mode = $latest?->conversation_status ?? ($autoAssignableStaff->isNotEmpty() ? 'assigned' : $this->waitingStatus($latest));
 
-        if ($this->assignedStaffIsInactive($latest) && $mode !== 'closed') {
-            $mode = 'staff_inactive';
+        if ($this->shouldSwitchInactiveConversationToAi($latest) && $mode !== 'closed') {
+            $mode = 'ai_active';
+            $assignedStaff = null;
+        }
+
+        if ($mode === 'waiting_for_human' && ! $assignedStaff) {
+            $mode = 'ai_active';
         }
 
         if ($mode === 'assigned' && ! $assignedStaff) {
@@ -429,7 +451,7 @@ class SupportChatService
             'status_class' => $statusClass,
             'assigned_staff' => $assignedStaff,
             'available_staff_count' => $availableStaff->count(),
-            'quick_replies' => $mode === 'ai_active' ? $this->quickReplies() : [],
+            'quick_replies' => in_array($mode, ['ai_active', 'waiting_for_human', 'staff_inactive'], true) ? $this->quickReplies() : [],
             'latest_message' => $latest,
         ];
     }
@@ -568,6 +590,14 @@ class SupportChatService
         return $latest?->assigned_staff_id === $staff->id;
     }
 
+    public function canStaffReply(User $staff, User $customer): bool
+    {
+        $latest = $this->latestConversationMessage($customer);
+
+        return $latest?->assigned_staff_id === $staff->id
+            && in_array($latest->conversation_status, ['assigned', 'active_human'], true);
+    }
+
     public function canTechnicianTakeOver(User $technician, User $customer): bool
     {
         if (! $technician->isTechnician() || ! $technician->isEffectivelyChatAvailable()) {
@@ -596,23 +626,44 @@ class SupportChatService
             return $latest;
         }
 
+        $message = $latest?->assigned_staff_id && (int) $latest->assigned_staff_id !== (int) $staff->id
+            ? 'This conversation has been reassigned and you are now connected to support ' . $staff->name . '.'
+            : 'You are now connected to ' . $staff->name;
+
         return $this->createSystemMessage(
             customer: $customer,
-            message: 'You are now connected to ' . $staff->name,
+            message: $message,
             assignedStaff: $staff,
             status: $activate ? 'active_human' : 'assigned',
             handoffStatus: $actor->id === $staff->id ? 'transferred_to_human' : 'assigned_to_human'
         );
     }
 
-    public function handleCustomerMessage(User $customer, string $message): array
+    protected function storeChatAttachment(?UploadedFile $attachment): ?array
+    {
+        if (! $attachment) {
+            return null;
+        }
+
+        return PublicUpload::attachmentMetadata(
+            $attachment,
+            $attachment->store('chat-attachments', 'public')
+        );
+    }
+
+    public function handleCustomerMessage(User $customer, string $message, ?UploadedFile $attachment = null): array
     {
         $latest = $this->latestConversationMessage($customer);
         $preferredStaff = null;
         $conversationStatus = 'waiting_for_human';
         $assignedStaffId = null;
+        $message = trim($message);
+        $displayMessage = $message !== '' ? $message : 'Image attachment';
+        $attachmentMetadata = $this->storeChatAttachment($attachment);
 
-        if ($this->assignedStaffIsInactive($latest)) {
+        if ($this->shouldSwitchInactiveConversationToAi($latest)) {
+            $conversationStatus = 'ai_active';
+        } elseif ($this->assignedStaffIsInactive($latest)) {
             $assignedStaffId = $latest?->assigned_staff_id;
             $preferredStaff = $latest?->assignedStaff;
             $conversationStatus = 'staff_inactive';
@@ -651,11 +702,12 @@ class SupportChatService
             'assigned_staff_id' => $assignedStaffId,
             'from_user_id' => $customer->id,
             'to_user_id' => $preferredStaff?->id,
-            'message' => $message,
+            'message' => $displayMessage,
             'sender_type' => 'customer',
             'message_type' => 'text',
             'conversation_status' => $conversationStatus,
             'handoff_status' => $preferredStaff ? 'assigned_to_human' : $conversationStatus,
+            'metadata' => $attachmentMetadata,
         ]);
         $created->push($customerMessage);
         event(new ChatMessageSent($customerMessage));
@@ -664,11 +716,21 @@ class SupportChatService
             return ['messages' => $created, 'state' => $this->conversationState($customer)];
         }
 
-        $ai = $this->ai->generateSupportReply($customer, $message);
-        $aiStatus = $ai['source'] === 'fallback' ? 'waiting_for_human' : 'ai_active';
+        if ($this->shouldCreateAiAssistanceNotice($latest, $conversationStatus)) {
+            $created->push($this->createSystemMessage(
+                customer: $customer,
+                message: 'No support staff are available right now. MJJD AI Assistant will assist for now while you wait.',
+                assignedStaff: null,
+                status: $conversationStatus,
+                handoffStatus: 'ai_assisting'
+            ));
+        }
+
+        $aiPrompt = $message !== '' ? $message : 'The customer uploaded an image attachment.';
+        $ai = $this->ai->generateSupportReply($customer, $aiPrompt);
         $responseStatus = $conversationStatus === 'staff_inactive'
             ? 'staff_inactive'
-            : ($conversationStatus === 'waiting_for_human' ? 'waiting_for_human' : $aiStatus);
+            : 'ai_active';
 
         $aiMessage = ChatMessage::create([
             'customer_id' => $customer->id,
@@ -689,35 +751,27 @@ class SupportChatService
         return ['messages' => $created, 'state' => $this->conversationState($customer)];
     }
 
-    public function handleStaffMessage(User $staff, User $customer, string $message): array
+    public function handleStaffMessage(User $staff, User $customer, string $message, ?UploadedFile $attachment = null): array
     {
         $created = collect();
-        $latest = $this->latestConversationMessage($customer);
 
-        if ($staff->isTechnician()) {
-            abort_unless($latest?->assigned_staff_id === $staff->id, 403);
-        }
+        abort_unless($this->canStaffReply($staff, $customer), 403);
 
-        if (! $latest || $latest->assigned_staff_id !== $staff->id || ! in_array($latest->conversation_status, ['assigned', 'active_human'], true)) {
-            $created->push($this->createSystemMessage(
-                customer: $customer,
-                message: 'You are now connected with ' . $staff->name . '.',
-                assignedStaff: $staff,
-                status: 'assigned',
-                handoffStatus: 'transferred_to_human'
-            ));
-        }
+        $message = trim($message);
+        $displayMessage = $message !== '' ? $message : 'Image attachment';
+        $attachmentMetadata = $this->storeChatAttachment($attachment);
 
         $agentMessage = ChatMessage::create([
             'customer_id' => $customer->id,
             'assigned_staff_id' => $staff->id,
             'from_user_id' => $staff->id,
             'to_user_id' => $customer->id,
-            'message' => $message,
+            'message' => $displayMessage,
             'sender_type' => 'agent',
             'message_type' => 'text',
             'conversation_status' => 'active_human',
             'handoff_status' => 'human_active',
+            'metadata' => $attachmentMetadata,
         ]);
 
         $created->push($agentMessage);

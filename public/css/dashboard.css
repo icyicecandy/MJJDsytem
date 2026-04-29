@@ -697,8 +697,9 @@ textarea { min-height: 120px; resize: vertical; }
 }
 .badge.open, .badge.active { background: rgba(59,130,246,0.12); color: #1d4ed8; }
 .badge.approved, .badge.completed, .badge.resolved { background: rgba(34,197,94,0.12); color: #15803d; }
-.badge.pending, .badge.in_progress, .badge.under_review { background: rgba(245,158,11,0.14); color: #b45309; }
+.badge.pending, .badge.in_progress, .badge.under_review, .badge.reschedule_required, .badge.cancellation_requested { background: rgba(245,158,11,0.14); color: #b45309; }
 .badge.scheduled, .badge.installed, .badge.info { background: rgba(59,130,246,0.12); color: #1d4ed8; }
+.badge.activated { background: rgba(20,184,166,0.14); color: #0f766e; }
 .badge.closed, .badge.queued { background: rgba(100,116,139,0.14); color: #475569; }
 .badge.rejected, .badge.cancelled, .badge.expired, .badge.error { background: rgba(239,68,68,0.12); color: #b91c1c; }
 .badge.urgency-low,
@@ -2279,6 +2280,47 @@ body.ticket-overlay-open {
     background: rgba(255, 255, 255, 0.92);
 }
 
+.installation-history-modal .admin-ticket-modal__dialog {
+    width: min(100%, 680px);
+    background: #ffffff;
+    color: #0f172a;
+}
+
+.installation-history-modal .admin-ticket-modal__close {
+    background: #eff6ff;
+    color: #0f172a;
+}
+
+.installation-history-modal .admin-ticket-modal__intro h2 {
+    color: #0f172a;
+}
+
+.installation-history-modal .admin-ticket-modal__intro p {
+    color: #64748b;
+}
+
+.installation-history-modal__body {
+    max-height: min(58vh, 520px);
+    overflow: auto;
+    padding: 0.25rem 0.1rem 0.1rem;
+}
+
+.installation-history-modal .admin-app-timeline-meta,
+.installation-history-modal .workflow-timeline-meta {
+    color: #64748b;
+}
+
+.installation-history-modal .admin-app-value,
+.installation-history-modal .workflow-value {
+    color: #0f172a;
+}
+
+.installation-history-modal .admin-app-empty,
+.installation-history-modal .workflow-empty {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
 .customer-ticket-modal {
     position: fixed;
     inset: 0;
@@ -2839,6 +2881,15 @@ body.ticket-overlay-open {
 .apply-step.is-complete span {
     background: #16a34a;
     color: #fff;
+    font-size: 0;
+}
+.apply-step.is-complete span::before {
+    content: "";
+    width: 0.42rem;
+    height: 0.76rem;
+    border: solid currentColor;
+    border-width: 0 3px 3px 0;
+    transform: translateY(-1px) rotate(45deg);
 }
 .apply-step.is-active label,
 .apply-step.is-complete label {
@@ -3068,8 +3119,14 @@ body.ticket-overlay-open {
     place-items: center;
     background: rgba(34, 197, 94, 0.16);
     color: #16a34a;
-    font-size: 2.4rem;
-    font-weight: 900;
+}
+.apply-done-icon::before {
+    content: "";
+    width: 1.05rem;
+    height: 1.9rem;
+    border: solid currentColor;
+    border-width: 0 6px 6px 0;
+    transform: translateY(-3px) rotate(45deg);
 }
 .apply-done-card h1 {
     margin: 0;
@@ -3131,6 +3188,9 @@ body.ticket-overlay-open {
     padding: 1rem;
 }
 .apply-live-map {
+    position: relative;
+    isolation: isolate;
+    z-index: 0;
     width: 100%;
     min-height: 380px;
     border-radius: 20px;
@@ -3170,12 +3230,21 @@ body.ticket-overlay-open {
     white-space: nowrap;
 }
 .location-map-canvas {
+    position: relative;
+    isolation: isolate;
+    z-index: 0;
     width: 100%;
     min-height: 300px;
     border-radius: 18px;
     overflow: hidden;
     border: 1px solid rgba(148, 163, 184, 0.24);
     background: linear-gradient(180deg, #eff5fb, #e5edf6);
+}
+.apply-live-map .leaflet-top,
+.apply-live-map .leaflet-bottom,
+.location-map-canvas .leaflet-top,
+.location-map-canvas .leaflet-bottom {
+    z-index: 5;
 }
 .location-map-canvas.is-empty {
     display: flex;

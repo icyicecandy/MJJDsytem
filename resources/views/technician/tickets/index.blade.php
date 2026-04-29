@@ -7,12 +7,6 @@
             </div>
         </section>
 
-        @if(session('success'))
-            <section class="notice-card">
-                {{ session('success') }}
-            </section>
-        @endif
-
         <section class="card ticket-queue-overview">
             <div class="ticket-queue-overview__head">
                 <form method="GET" action="{{ route('technician.tickets.index') }}" class="toolbar-row">
@@ -63,11 +57,11 @@
 
         <section class="card table-card">
             <div class="table-wrap">
-                <table class="telecom-table tech-ticket-table">
+                <table class="telecom-table admin-ticket-table">
                     <thead>
                         <tr>
-                            <th>Customer</th>
                             <th>Tracking Number</th>
+                            <th>Customer</th>
                             <th>Subject</th>
                             <th>Urgency</th>
                             <th>Status</th>
@@ -78,13 +72,11 @@
                     <tbody>
                         @forelse($tickets as $ticket)
                         <tr>
-                            <td>
-                                <div class="record-strong">{{ $ticket->user->name }}</div>
-                            </td>
                             <td><span class="record-strong">{{ $ticket->publicReference() }}</span></td>
                             <td>
-                                <span class="record-strong">{{ $ticket->subject }}</span>
+                                <span class="record-strong">{{ $ticket->user->name }}</span>
                             </td>
+                            <td>{{ $ticket->subject }}</td>
                             <td><span class="badge urgency-{{ $ticket->displayUrgencyClass() }}">{{ $ticket->displayUrgencyLabel() }}</span></td>
                             <td><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></td>
                             <td>{{ $ticket->created_at->displayDateTime() }}</td>

@@ -52,7 +52,7 @@
         <article class="metric-card">
             <div class="metric-head">
                 <div>
-                    <div class="metric-label">Installed Applications</div>
+                    <div class="metric-label">Installed / Activated Applications</div>
                     <div class="metric-value">{{ $installedApplications }}</div>
                     <div class="metric-meta">Completed installations</div>
                 </div>
@@ -101,6 +101,7 @@
                 <div class="quick-link-grid">
                     <a href="{{ route('admin.applications.index') }}" class="quick-link"><strong>Applications</strong><span>Review, approve, and schedule requests.</span></a>
                     <a href="{{ route('admin.installations.index') }}" class="quick-link"><strong>Installations</strong><span>Track field schedules and completions.</span></a>
+                    <a href="{{ route('admin.customers.index') }}" class="quick-link"><strong>Customers</strong><span>Review customer details, service status, and support history.</span></a>
                     <a href="{{ route('admin.technicians.index') }}" class="quick-link"><strong>Technicians</strong><span>Review technician details, workload, and upcoming schedules.</span></a>
                     <a href="{{ route('admin.tickets.index') }}" class="quick-link"><strong>Tickets</strong><span>Manage customer issues and assignments.</span></a>
                 </div>

@@ -2,7 +2,10 @@
 
 use App\Models\Application;
 use App\Models\Installation;
+use App\Models\InstallationLog;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 test('approved applications can be scheduled with assigned_at and installation pages remain accessible', function () {
     $admin = User::factory()->create(['role' => 'admin']);
@@ -48,14 +51,23 @@ test('approved applications can be scheduled with assigned_at and installation p
         ->and($installation->assigned_at)->not->toBeNull()
         ->and($application->refresh()->status)->toBe('scheduled');
 
+    $this->actingAs($admin)
+        ->get(route('admin.applications.show', $application, false))
+        ->assertOk()
+        ->assertSee('View History')
+        ->assertSee('installationHistoryModal');
+
     $this->actingAs($customer)
         ->get(route('customer.application.show', absolute: false))
         ->assertOk()
-        ->assertSee('Installation Assigned At');
+        ->assertDontSee('Installation Assigned At')
+        ->assertSee('Installation Date');
 
     $this->actingAs($technician)
         ->get(route('technician.installations.show', $installation, false))
         ->assertOk()
+        ->assertSee('View History')
+        ->assertSee('installationHistoryModal')
         ->assertSee('Assigned At');
 });
 
@@ -415,6 +427,8 @@ test('assigned technician can start an installation and move it to in progress',
 });
 
 test('assigned technician can complete an in-progress installation', function () {
+    Storage::fake('public');
+
     $technician = User::factory()->create(['role' => 'technician']);
     $customer = User::factory()->create(['role' => 'customer']);
 
@@ -450,6 +464,11 @@ test('assigned technician can complete an in-progress installation', function ()
         ->from(route('technician.installations.show', $installation, false))
         ->post(route('technician.installations.complete', $installation, false), [
             'technician_remarks' => 'Installation finished successfully.',
+            'nap_code' => 'NAP-001',
+            'port_number' => 'P1',
+            'equipment_serial_number' => 'EQ-12345',
+            'cable_length' => '80m',
+            'installation_photo' => UploadedFile::fake()->image('proof.png'),
         ]);
 
     $response
@@ -458,7 +477,66 @@ test('assigned technician can complete an in-progress installation', function ()
 
     expect($installation->refresh()->status)->toBe('completed')
         ->and($installation->completed_at)->not->toBeNull()
+        ->and($installation->nap_code)->toBe('NAP-001')
+        ->and($installation->port_number)->toBe('P1')
+        ->and($installation->equipment_serial_number)->toBe('EQ-12345')
+        ->and($installation->cable_length)->toBe('80m')
+        ->and($installation->installation_photo_path)->toStartWith('installation-photos/')
         ->and($application->refresh()->status)->toBe('installed');
+
+    Storage::disk('public')->assertExists($installation->installation_photo_path);
+
+    expect(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%NAP Code: NAP-001%')->exists())->toBeTrue();
+});
+
+test('assigned technician can activate a completed installation', function () {
+    $technician = User::factory()->create(['role' => 'technician']);
+    $customer = User::factory()->create(['role' => 'customer']);
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-0305',
+        'first_name' => 'Alex',
+        'last_name' => 'Doe',
+        'email' => 'alex305@example.com',
+        'mobile_number' => '09170003305',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'street_landmark' => 'Near plaza',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => Application::STATUS_INSTALLED,
+    ]);
+
+    $installation = Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $technician->id,
+        'assigned_at' => now(),
+        'installation_date' => '2026-05-06',
+        'installation_time' => '14:00',
+        'status' => Installation::STATUS_COMPLETED,
+        'completed_at' => now(),
+        'technician_remarks' => 'Installed and ready for activation.',
+    ]);
+
+    $response = $this
+        ->actingAs($technician)
+        ->from(route('technician.installations.show', $installation, false))
+        ->patch(route('technician.installations.activate', $installation, false));
+
+    $response
+        ->assertRedirect(route('technician.installations.show', $installation, false))
+        ->assertSessionHasNoErrors();
+
+    expect($installation->refresh()->status)->toBe(Installation::STATUS_ACTIVATED)
+        ->and($installation->activation_status)->toBe(Installation::STATUS_ACTIVATED)
+        ->and($installation->activation_date)->not->toBeNull()
+        ->and($application->refresh()->status)->toBe(Application::STATUS_ACTIVATED);
+
+    expect(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%marked activated%')->exists())->toBeTrue();
 });
 
 test('scheduled installations cannot be marked completed directly', function () {
@@ -546,4 +624,172 @@ test('only the assigned technician can update installation workflow status', fun
         ->assertForbidden();
 
     expect($installation->refresh()->status)->toBe('scheduled');
+});
+
+test('admin can reassign a scheduled installation without changing scheduled status', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $customer = User::factory()->create(['role' => 'customer']);
+    $oldTechnician = User::factory()->create(['role' => 'technician', 'name' => 'Old Tech']);
+    $newTechnician = User::factory()->create(['role' => 'technician', 'name' => 'New Tech']);
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-0401',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane401@example.com',
+        'mobile_number' => '09170003333',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'street_landmark' => 'Near plaza',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => 'scheduled',
+    ]);
+
+    $installation = Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $oldTechnician->id,
+        'assigned_at' => now(),
+        'installation_date' => now()->addDays(3)->format('Y-m-d'),
+        'installation_time' => '09:00',
+        'status' => 'scheduled',
+    ]);
+
+    $this->actingAs($admin)
+        ->from(route('admin.applications.show', $application, false))
+        ->patch(route('admin.installations.reassign', $installation, false), [
+            'technician_id' => $newTechnician->id,
+            'reassignment_reason' => 'Technician unavailable.',
+        ])
+        ->assertRedirect(route('admin.applications.show', $application, false))
+        ->assertSessionHasNoErrors();
+
+    $installation->refresh();
+
+    expect($installation->technician_id)->toBe($newTechnician->id)
+        ->and($installation->status)->toBe('scheduled')
+        ->and($installation->reassignment_reason)->toBe('Technician unavailable.')
+        ->and($application->refresh()->status)->toBe('scheduled')
+        ->and(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%Technician reassigned due to unavailability.%')->exists())->toBeTrue();
+});
+
+test('scheduled customer cancellation requires admin approval', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = User::factory()->create(['role' => 'technician']);
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-0402',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane402@example.com',
+        'mobile_number' => '09170004444',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'street_landmark' => 'Near plaza',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => 'scheduled',
+    ]);
+
+    $installation = Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $technician->id,
+        'assigned_at' => now(),
+        'installation_date' => now()->addDays(3)->format('Y-m-d'),
+        'installation_time' => '10:00',
+        'status' => 'scheduled',
+    ]);
+
+    $this->actingAs($customer)
+        ->from(route('customer.application.show', absolute: false))
+        ->patch(route('customer.application.cancel', absolute: false), [
+            'cancellation_reason' => 'Schedule conflict.',
+        ])
+        ->assertRedirect(route('customer.application.show', absolute: false))
+        ->assertSessionHasNoErrors();
+
+    expect($application->refresh()->status)->toBe('cancellation_requested')
+        ->and($installation->refresh()->status)->toBe('scheduled');
+
+    $this->actingAs($admin)
+        ->from(route('admin.applications.show', $application, false))
+        ->patch(route('admin.applications.cancellation', $application, false), [
+            'decision' => 'approve',
+            'cancellation_notes' => 'Approved by admin.',
+        ])
+        ->assertRedirect(route('admin.applications.show', $application, false))
+        ->assertSessionHasNoErrors();
+
+    expect($application->refresh()->status)->toBe('cancelled')
+        ->and($installation->refresh()->status)->toBe('cancelled')
+        ->and(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%Cancellation request approved by admin.%')->exists())->toBeTrue();
+});
+
+test('technician can mark reschedule required and admin can reschedule', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $technician = User::factory()->create(['role' => 'technician']);
+    $customer = User::factory()->create(['role' => 'customer']);
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-0403',
+        'first_name' => 'John',
+        'last_name' => 'Doe',
+        'email' => 'john403@example.com',
+        'mobile_number' => '09170005555',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'street_landmark' => 'Near plaza',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => 'scheduled',
+    ]);
+
+    $installation = Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $technician->id,
+        'assigned_at' => now(),
+        'installation_date' => now()->addDays(2)->format('Y-m-d'),
+        'installation_time' => '11:00',
+        'status' => 'in_progress',
+    ]);
+
+    $this->actingAs($technician)
+        ->from(route('technician.installations.show', $installation, false))
+        ->patch(route('technician.installations.status', $installation, false), [
+            'status' => 'reschedule_required',
+            'technician_remarks' => 'Customer unavailable at location',
+        ])
+        ->assertRedirect(route('technician.installations.show', $installation, false))
+        ->assertSessionHasNoErrors();
+
+    expect($installation->refresh()->status)->toBe('reschedule_required')
+        ->and($installation->technician_remarks)->toBe('Customer unavailable at location');
+
+    $this->actingAs($admin)
+        ->from(route('admin.applications.show', $application, false))
+        ->patch(route('admin.installations.reschedule', $installation, false), [
+            'technician_id' => $technician->id,
+            'installation_date' => now()->addDays(4)->format('Y-m-d'),
+            'installation_time' => '13:00',
+        ])
+        ->assertRedirect(route('admin.applications.show', $application, false))
+        ->assertSessionHasNoErrors();
+
+    expect($installation->refresh()->status)->toBe('scheduled')
+        ->and(\Carbon\Carbon::parse($installation->installation_time)->format('H:i'))->toBe('13:00')
+        ->and($application->refresh()->status)->toBe('scheduled')
+        ->and(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%Installation rescheduled by admin%')->exists())->toBeTrue();
 });

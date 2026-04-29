@@ -164,7 +164,8 @@ class ChatController extends Controller
         $user = $this->resolveConversationUser($roleOrUser, $user);
 
         $request->validate([
-            'message' => ['required', 'string', 'max:4000'],
+            'message' => ['nullable', 'required_without:chat_attachment', 'string', 'max:4000'],
+            'chat_attachment' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         $me = Auth::user();
@@ -172,11 +173,12 @@ class ChatController extends Controller
 
         if (! $me->isCustomer()) {
             abort_unless($this->supportChat->canStaffViewConversation($me, $user), 403);
+            abort_unless($this->supportChat->canStaffReply($me, $user), 403);
         }
 
         $result = $me->isCustomer()
-            ? $this->supportChat->handleCustomerMessage($me, $request->message)
-            : $this->supportChat->handleStaffMessage($me, $user, $request->message);
+            ? $this->supportChat->handleCustomerMessage($me, (string) $request->input('message', ''), $request->file('chat_attachment'))
+            : $this->supportChat->handleStaffMessage($me, $user, (string) $request->input('message', ''), $request->file('chat_attachment'));
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
@@ -200,6 +202,14 @@ class ChatController extends Controller
 
         if ($me->isTechnician()) {
             abort_unless($this->supportChat->canTechnicianTakeOver($me, $user), 403);
+        }
+
+        if ($me->isAdmin()) {
+            $me->forceFill([
+                'chat_available' => true,
+                'is_online' => true,
+                'last_seen' => now(),
+            ])->save();
         }
 
         $this->supportChat->markPresence($me);
@@ -226,7 +236,16 @@ class ChatController extends Controller
             ->where('id', $validated['assigned_staff_id'])
             ->firstOrFail();
 
-        if (! $staff->isEffectivelyChatAvailable()) {
+        $isSelfAssignment = (int) $staff->id === (int) $me->id;
+
+        if ($isSelfAssignment) {
+            $staff->forceFill([
+                'chat_available' => true,
+                'is_online' => true,
+                'last_seen' => now(),
+            ])->save();
+            $staff->refresh();
+        } elseif (! $staff->isEffectivelyChatAvailable()) {
             return back()->withErrors([
                 'assigned_staff_id' => 'Selected staff member is not currently available for chat.',
             ]);
@@ -318,6 +337,10 @@ class ChatController extends Controller
             'conversation_status' => $msg->conversation_status,
             'assigned_staff_id' => $msg->assigned_staff_id,
             'assigned_staff_name' => optional($msg->assignedStaff)->name,
+            'attachment_url' => $msg->attachmentUrl(),
+            'attachment_path' => $msg->attachmentPath(),
+            'attachment_original_name' => $msg->attachmentOriginalName(),
+            'attachment_is_image' => $msg->hasImageAttachment(),
             'from_user_id' => $msg->from_user_id,
             'created_at' => $msg->created_at->displayTime(),
         ])->values();
@@ -334,6 +357,7 @@ class ChatController extends Controller
                 : ($chatState['status_label'] ?? null),
             'identity_name' => $chatState['identity_name'] ?? null,
             'identity_role' => $chatState['identity_role'] ?? null,
+            'assigned_staff_id' => optional($chatState['assigned_staff'] ?? null)->id,
             'assigned_staff_name' => optional($chatState['assigned_staff'] ?? null)->name,
             'quick_replies' => $chatState['quick_replies'] ?? [],
         ];

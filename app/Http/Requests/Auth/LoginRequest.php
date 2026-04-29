@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -55,6 +56,13 @@ class LoginRequest extends FormRequest
             RateLimiter::hit($this->throttleKey());
 
             $this->throwLoginError(trans('auth.failed'));
+        }
+
+        if (Auth::user()?->isDisabled()) {
+            Auth::guard('web')->logout();
+            RateLimiter::hit($this->throttleKey());
+
+            $this->throwLoginError(User::DISABLED_ACCOUNT_MESSAGE);
         }
 
         RateLimiter::clear($this->throttleKey());

@@ -12,7 +12,7 @@
     </section>
 
     <section class="card toolbar-card">
-        @php $statuses = ['' => 'All','submitted'=>'Submitted','under_review'=>'Under Review','approved'=>'Approved','rejected'=>'Rejected','scheduled'=>'Scheduled','installed'=>'Installed']; @endphp
+        @php $statuses = ['' => 'All','submitted'=>'Submitted','under_review'=>'Under Review','approved'=>'Approved','cancellation_requested'=>'Cancellation Requested','rejected'=>'Rejected','scheduled'=>'Scheduled','installed'=>'Installed','activated'=>'Activated','cancelled'=>'Cancelled']; @endphp
         <form method="GET" action="{{ route('admin.applications.index') }}" class="toolbar-row">
             <div class="toolbar-field">
                 <label for="application_status_filter">Status</label>

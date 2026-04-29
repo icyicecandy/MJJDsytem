@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Application;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Support\AppNotificationSender;
+use App\Support\PublicUpload;
 use Illuminate\Http\Request;
 
 class TechnicianDashboardController extends Controller
@@ -26,15 +28,20 @@ class TechnicianDashboardController extends Controller
             ->where('technician_id', $technicianId);
 
         $scheduledInstallations = (clone $baseQuery)
-            ->where('status', '!=', 'completed')
-            ->orderByRaw("CASE WHEN status = 'scheduled' THEN 0 ELSE 1 END")
+            ->whereIn('status', [
+                Installation::STATUS_SCHEDULED,
+                Installation::STATUS_IN_PROGRESS,
+                Installation::STATUS_RESCHEDULE_REQUIRED,
+            ])
+            ->orderByRaw("CASE WHEN status = 'scheduled' THEN 0 WHEN status = 'in_progress' THEN 1 WHEN status = 'reschedule_required' THEN 2 ELSE 3 END")
             ->orderBy('installation_date')
             ->orderBy('installation_time')
             ->orderBy('id')
             ->get();
 
         $completedInstallations = (clone $baseQuery)
-            ->where('status', 'completed')
+            ->whereIn('status', Installation::completedStatuses())
+            ->latest('activation_date')
             ->latest('completed_at')
             ->latest('id')
             ->get();
@@ -60,7 +67,8 @@ class TechnicianDashboardController extends Controller
         abort_if($installation->technician_id !== auth()->id(), 403);
 
         $validated = $request->validate([
-            'status' => ['required', 'in:in_progress'],
+            'status' => ['required', 'in:in_progress,reschedule_required'],
+            'technician_remarks' => ['required_if:status,reschedule_required', 'nullable', 'string', 'max:1000'],
         ]);
 
         if (! $installation->canTransitionTo($validated['status'])) {
@@ -69,9 +77,35 @@ class TechnicianDashboardController extends Controller
             ]);
         }
 
-        $installation->update([
+        $updateData = [
             'status' => $validated['status'],
-        ]);
+        ];
+
+        if ($validated['status'] === Installation::STATUS_RESCHEDULE_REQUIRED) {
+            $updateData['technician_remarks'] = $validated['technician_remarks'];
+        }
+
+        $installation->update($updateData);
+
+        if ($validated['status'] === Installation::STATUS_RESCHEDULE_REQUIRED) {
+            InstallationLog::create([
+                'installation_id' => $installation->id,
+                'user_id' => auth()->id(),
+                'notes' => 'Installation marked as reschedule required. Remarks: ' . $validated['technician_remarks'],
+            ]);
+
+            AppNotificationSender::sendToRole(
+                'admin',
+                'Installation requires reschedule',
+                'Installation #' . $installation->id . ' was marked reschedule required by ' . auth()->user()->name . '.',
+                route('admin.applications.show', $installation->application),
+                'installation_reschedule_required',
+                ['installation_id' => $installation->id, 'application_id' => $installation->application_id],
+                auth()->id()
+            );
+
+            return back()->with('success', 'Installation marked as reschedule required.');
+        }
 
         InstallationLog::create([
             'installation_id' => $installation->id,
@@ -94,31 +128,46 @@ class TechnicianDashboardController extends Controller
 
         $validated = $request->validate([
             'technician_remarks' => ['required', 'string'],
-            'installation_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:4096'],
+            'nap_code' => ['required', 'string', 'max:100'],
+            'port_number' => ['required', 'string', 'max:50'],
+            'equipment_serial_number' => ['required', 'string', 'max:100'],
+            'cable_length' => ['required', 'string', 'max:50'],
+            'installation_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
-        $directory = 'installations/' . $installation->id;
         $updateData = [
-            'status' => 'completed',
+            'status' => Installation::STATUS_COMPLETED,
             'completed_at' => now(),
             'technician_remarks' => $validated['technician_remarks'],
+            'nap_code' => $validated['nap_code'],
+            'port_number' => $validated['port_number'],
+            'equipment_serial_number' => $validated['equipment_serial_number'],
+            'cable_length' => $validated['cable_length'],
         ];
 
         if ($request->hasFile('installation_photo')) {
-            $updateData['installation_photo_path'] = $request->file('installation_photo')->store($directory, 'public');
+            $updateData['installation_photo_path'] = PublicUpload::normalizePath($request->file('installation_photo')->store('installation-photos', 'public'));
         }
 
         $installation->update($updateData);
 
+        $technicalNotes = sprintf(
+            ' Technical details: NAP Code: %s; Port No.: %s; Equipment Serial No.: %s; Cable Length: %s.',
+            $validated['nap_code'],
+            $validated['port_number'],
+            $validated['equipment_serial_number'],
+            $validated['cable_length'],
+        );
+
         InstallationLog::create([
             'installation_id' => $installation->id,
             'user_id' => auth()->id(),
-            'notes' => 'Installation marked completed. Remarks: ' . $validated['technician_remarks'],
+            'notes' => 'Installation marked completed. Remarks: ' . $validated['technician_remarks'] . $technicalNotes,
         ]);
 
         if ($installation->application) {
             $installation->application->update([
-                'status' => 'installed',
+                'status' => Application::STATUS_INSTALLED,
             ]);
 
             if ($installation->application->user) {
@@ -145,5 +194,58 @@ class TechnicianDashboardController extends Controller
         }
 
         return back()->with('success', 'Installation marked as completed.');
+    }
+
+    public function activate(Installation $installation)
+    {
+        abort_if($installation->technician_id !== auth()->id(), 403);
+
+        if (! $installation->canTransitionTo(Installation::STATUS_ACTIVATED)) {
+            return back()->withErrors([
+                'status' => 'Only completed installations can be marked as activated.',
+            ]);
+        }
+
+        $installation->update([
+            'status' => Installation::STATUS_ACTIVATED,
+            'activation_status' => Installation::STATUS_ACTIVATED,
+            'activation_date' => now()->toDateString(),
+        ]);
+
+        InstallationLog::create([
+            'installation_id' => $installation->id,
+            'user_id' => auth()->id(),
+            'notes' => 'Installation marked activated by technician.',
+        ]);
+
+        if ($installation->application) {
+            $installation->application->update([
+                'status' => Application::STATUS_ACTIVATED,
+            ]);
+
+            if ($installation->application->user) {
+                AppNotificationSender::send(
+                    $installation->application->user,
+                    'Service activated',
+                    'Your service has been activated. Open your application page to review the latest status.',
+                    route('customer.application.show'),
+                    'installation_activated',
+                    ['installation_id' => $installation->id, 'application_id' => $installation->application->id],
+                    auth()->id()
+                );
+            }
+
+            AppNotificationSender::sendToRole(
+                'admin',
+                'Installation activated',
+                'Installation #' . $installation->id . ' has been activated by ' . auth()->user()->name . '.',
+                route('admin.applications.show', $installation->application),
+                'installation_activated_admin',
+                ['installation_id' => $installation->id, 'application_id' => $installation->application->id],
+                auth()->id()
+            );
+        }
+
+        return back()->with('success', 'Installation marked as activated.');
     }
 }

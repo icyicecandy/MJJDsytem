@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PublicUpload;
 use Illuminate\Database\Eloquent\Model;
 
 class TicketMessage extends Model
@@ -21,5 +22,15 @@ class TicketMessage extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function attachmentUrl(): ?string
+    {
+        return PublicUpload::url($this->attachment_path);
+    }
+
+    public function hasImageAttachment(): bool
+    {
+        return PublicUpload::isImage($this->attachment_path);
     }
 }

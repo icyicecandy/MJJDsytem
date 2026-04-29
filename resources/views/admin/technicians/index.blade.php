@@ -4,22 +4,30 @@
 
 @php
     $statusLabels = [
-        'available' => 'Available',
-        'assigned' => 'Assigned',
-        'on_duty' => 'On Duty',
-        'off_duty' => 'Off Duty',
-        'on_leave' => 'On Leave',
+        'active' => 'Active',
+        'disabled' => 'Disabled',
     ];
 @endphp
 
 @push('styles')
 <style>
-    .admin-technicians-table th:nth-child(1) { width: 26%; }
-    .admin-technicians-table th:nth-child(2) { width: 20%; }
-    .admin-technicians-table th:nth-child(3) { width: 18%; }
+    .admin-technicians-table th,
+    .admin-technicians-table td {
+        padding-left: 0.55rem;
+        padding-right: 0.55rem;
+    }
+    .admin-technicians-table th:nth-child(1) { width: 12%; }
+    .admin-technicians-table th:nth-child(2) { width: 12%; }
+    .admin-technicians-table th:nth-child(3) { width: 15%; }
     .admin-technicians-table th:nth-child(4) { width: 14%; }
-    .admin-technicians-table th:nth-child(5) { width: 14%; }
-    .admin-technicians-table th:nth-child(6) { width: 8%; }
+    .admin-technicians-table th:nth-child(5) { width: 15%; }
+    .admin-technicians-table th:nth-child(6) { width: 14%; }
+    .admin-technicians-table th:nth-child(7) { width: 10%; }
+    .admin-technicians-table th:nth-child(8),
+    .admin-technicians-table td.actions-cell {
+        width: 8%;
+        white-space: nowrap;
+    }
     .admin-technicians-table .record-stack {
         display: grid;
         gap: 0.2rem;
@@ -28,20 +36,29 @@
         font-size: 0.84rem;
         line-height: 1.35;
     }
-    .admin-technicians-table .availability-dot {
-        width: 0.65rem;
-        height: 0.65rem;
+    .admin-technicians-table .status-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-self: start;
+        width: fit-content;
+        border: 1px solid transparent;
         border-radius: 999px;
-        display: inline-block;
-        margin-right: 0.45rem;
-        vertical-align: middle;
-        background: #94a3b8;
+        padding: 0.26rem 0.68rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
     }
-    .admin-technicians-table .availability-dot.available { background: #22c55e; }
-    .admin-technicians-table .availability-dot.assigned { background: #3b82f6; }
-    .admin-technicians-table .availability-dot.on_duty { background: #14b8a6; }
-    .admin-technicians-table .availability-dot.off_duty { background: #94a3b8; }
-    .admin-technicians-table .availability-dot.on_leave { background: #f59e0b; }
+    .admin-technicians-table .status-pill--active {
+        color: #15803d;
+        background: #dcfce7;
+        border-color: #bbf7d0;
+    }
+    .admin-technicians-table .status-pill--disabled {
+        color: #475569;
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
     .admin-technicians-table .next-schedule {
         white-space: nowrap;
     }
@@ -53,7 +70,7 @@
     <section class="card section-title-card">
         <div>
             <h1>Technicians</h1>
-            <p>Review technician records, core contact details, availability, and direct access to the full technician profile from one admin operations list.</p>
+            <p>Review technician records, core contact details, account state, and direct access to the full technician profile from one admin operations list.</p>
         </div>
     </section>
 
@@ -71,7 +88,7 @@
 
             <div class="toolbar-field grow">
                 <label for="search">Search</label>
-                <input type="text" name="search" id="search" value="{{ $search }}" placeholder="Technician name, email, phone, shift, status">
+                <input type="text" name="search" id="search" value="{{ $search }}" placeholder="Technician ID, first name, last name, email, phone, shift, status">
             </div>
 
             <div class="toolbar-actions">
@@ -84,14 +101,13 @@
     </section>
 
     <section class="card table-card">
-        <div class="table-card-head">
-            <p>This list keeps the overview lean. Open a technician record to review workload, assigned installations, open tickets, and schedule details.</p>
-        </div>
         <div class="table-wrap">
             <table class="telecom-table admin-technicians-table">
                 <thead>
                     <tr>
-                        <th>Technician</th>
+                        <th>Technician ID</th>
+                        <th>First Name</th>
+                        <th>Last Name</th>
                         <th>Contact Details</th>
                         <th>Address</th>
                         <th>Shift</th>
@@ -102,22 +118,34 @@
                 <tbody>
                     @forelse($technicians as $technician)
                         @php
-                            $statusValue = $technician->technician_status ?: 'available';
+                            $statusValue = $technician->isDisabled() ? 'disabled' : 'active';
                             $statusLabel = $statusLabels[$statusValue] ?? ucfirst(str_replace('_', ' ', $statusValue));
                             $nextInstallation = $technician->installations->first();
                             $chatStatusLabel = $technician->chatAvailabilityLabel();
+                            $firstName = $technician->displayFirstName();
+                            $lastName = $technician->displayLastName();
+                            $shiftParts = array_map('trim', explode(',', $technician->displayTechnicianShift(), 2));
+                            $shiftTime = $shiftParts[0] ?? $technician->displayTechnicianShift();
+                            $shiftDays = $shiftParts[1] ?? '';
                         @endphp
                         <tr>
                             <td>
+                                <span class="record-strong">{{ $technician->displayTechnicianRecordId() }}</span>
+                            </td>
+                            <td>
                                 <div class="record-stack">
-                                    <span class="record-strong">{{ $technician->name }}</span>
-                                    <span class="record-muted">{{ $technician->email ?: 'No email on file' }}</span>
+                                    <span class="record-strong">{{ $firstName !== '' ? $firstName : 'N/A' }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="record-stack">
+                                    <span class="record-strong">{{ $lastName !== '' ? $lastName : 'N/A' }}</span>
                                 </div>
                             </td>
                             <td>
                                 <div class="record-stack">
                                     <span class="record-strong">{{ $technician->phone ?: 'No contact number' }}</span>
-                                    <span class="record-muted">Chat: {{ $chatStatusLabel }}</span>
+                                    <span class="record-muted">{{ $technician->email ?: 'No email on file' }}</span>
                                 </div>
                             </td>
                             <td>
@@ -125,20 +153,21 @@
                             </td>
                             <td>
                                 <div class="record-stack">
-                                    <span class="record-strong">{{ $technician->technician_shift ?: 'Not set' }}</span>
-                                    <span class="record-muted next-schedule">
-                                        @if($nextInstallation && $nextInstallation->installation_date)
+                                    <span class="record-muted">{{ $shiftTime }}</span>
+                                    @if($shiftDays !== '')
+                                        <span class="record-muted">{{ $shiftDays }}</span>
+                                    @endif
+                                    @if($nextInstallation && $nextInstallation->installation_date)
+                                        <span class="record-muted next-schedule">
                                             Next: {{ $nextInstallation->installation_date->format('M d, Y') }}
-                                        @else
-                                            No upcoming schedule
-                                        @endif
-                                    </span>
+                                        </span>
+                                    @endif
                                 </div>
                             </td>
                             <td>
                                 <div class="record-stack">
-                                    <span class="record-strong"><span class="availability-dot {{ $statusValue }}"></span>{{ $statusLabel }}</span>
-                                    <span class="record-muted">{{ $chatStatusLabel }}</span>
+                                    <span class="status-pill status-pill--{{ $statusValue }}">{{ $statusLabel }}</span>
+                                    <span class="record-muted">Chat: {{ $chatStatusLabel }}</span>
                                 </div>
                             </td>
                             <td class="actions-cell">
@@ -147,7 +176,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6"><div class="empty-state compact">No technician records matched the current filter.</div></td>
+                            <td colspan="8"><div class="empty-state compact">No technician records matched the current filter.</div></td>
                         </tr>
                     @endforelse
                 </tbody>

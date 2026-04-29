@@ -32,6 +32,11 @@ test('high visibility pages load without obvious failures', function () {
     $this->post('/logout');
 
     $this->actingAs($admin)->get('/admin/dashboard')->assertOk();
+    $this->actingAs($admin)->get(route('admin.customers.index', absolute: false))->assertOk();
+    $this->actingAs($admin)
+        ->get(route('admin.customers.show', $customer, false))
+        ->assertOk()
+        ->assertSee('Customer Information');
     $this->actingAs($admin)->get(route('admin.installations.index', absolute: false))->assertOk()->assertSee('Scheduled');
     $this->actingAs($admin)
         ->get(route('admin.applications.show', Application::first(), false))

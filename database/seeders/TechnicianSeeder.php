@@ -24,16 +24,24 @@ class TechnicianSeeder extends Seeder
         ];
 
         foreach ($technicians as $technician) {
-            User::updateOrCreate(
+            $user = User::updateOrCreate(
                 ['email' => $technician['email']],
                 [
                     'name' => $technician['name'],
                     'phone' => $technician['phone'],
                     'password' => Hash::make('password'),
                     'role' => 'technician',
+                    'technician_shift' => User::TECHNICIAN_STANDARD_SHIFT,
+                    'technician_status' => 'available',
                     'email_verified_at' => now(),
                 ]
             );
+
+            if (! $user->technician_id) {
+                $user->forceFill([
+                    'technician_id' => User::formatTechnicianId((int) $user->id),
+                ])->saveQuietly();
+            }
         }
     }
 }

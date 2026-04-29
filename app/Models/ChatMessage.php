@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PublicUpload;
 use Illuminate\Database\Eloquent\Model;
 
 class ChatMessage extends Model
@@ -55,5 +56,25 @@ class ChatMessage extends Model
             'agent' => optional($this->fromUser)->name ?? 'Support Agent',
             default => optional($this->fromUser)->name ?? 'Support',
         };
+    }
+
+    public function attachmentPath(): ?string
+    {
+        return PublicUpload::normalizePath($this->metadata['attachment_path'] ?? null);
+    }
+
+    public function attachmentUrl(): ?string
+    {
+        return PublicUpload::url($this->attachmentPath());
+    }
+
+    public function attachmentOriginalName(): ?string
+    {
+        return $this->metadata['attachment_original_name'] ?? null;
+    }
+
+    public function hasImageAttachment(): bool
+    {
+        return PublicUpload::isImage($this->attachmentPath());
     }
 }

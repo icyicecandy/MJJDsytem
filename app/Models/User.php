@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
 
@@ -14,15 +15,24 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
+    public const TECHNICIAN_STANDARD_SHIFT = '8:00 AM - 5:00 PM, Mon - Fri';
+    public const DISABLED_ACCOUNT_MESSAGE = 'This account has been disabled. Please contact an administrator.';
+    public const CUSTOMER_ID_PREFIX = 'CUS';
+    public const TECHNICIAN_ID_PREFIX = 'TECH';
+
     protected $fillable = [
         'name',
         'email',
+        'customer_id',
+        'technician_id',
         'google_id',
         'username',
         'bio',
         'phone',
         'phone_verified_at',
         'address',
+        'technician_shift',
+        'technician_status',
         'date_of_birth',
         'gender',
         'avatar_path',
@@ -35,6 +45,8 @@ class User extends Authenticatable
         'profile_visibility',
         'data_sharing_enabled',
         'deletion_requested_at',
+        'disabled_at',
+        'disabled_by',
         'password',
         'role',
         'agreed_to_terms',
@@ -58,6 +70,29 @@ class User extends Authenticatable
         'initials',
     ];
 
+    protected static function booted(): void
+    {
+        static::created(function (User $user): void {
+            $updates = [];
+
+            if ($user->isCustomer()
+                && blank($user->customer_id)
+                && Schema::hasColumn($user->getTable(), 'customer_id')) {
+                $updates['customer_id'] = self::formatCustomerId((int) $user->id);
+            }
+
+            if ($user->isTechnician()
+                && blank($user->technician_id)
+                && Schema::hasColumn($user->getTable(), 'technician_id')) {
+                $updates['technician_id'] = self::formatTechnicianId((int) $user->id);
+            }
+
+            if ($updates !== []) {
+                $user->forceFill($updates)->saveQuietly();
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -76,6 +111,7 @@ class User extends Authenticatable
             'sms_notifications' => 'boolean',
             'data_sharing_enabled' => 'boolean',
             'deletion_requested_at' => 'datetime',
+            'disabled_at' => 'datetime',
         ];
     }
 
@@ -139,6 +175,50 @@ class User extends Authenticatable
         return $this->role === 'customer';
     }
 
+    public function isDisabled(): bool
+    {
+        return $this->disabled_at !== null;
+    }
+
+    public static function formatCustomerId(int $id): string
+    {
+        return sprintf('%s-%06d', self::CUSTOMER_ID_PREFIX, $id);
+    }
+
+    public static function formatTechnicianId(int $id): string
+    {
+        return sprintf('%s-%06d', self::TECHNICIAN_ID_PREFIX, $id);
+    }
+
+    public function displayCustomerRecordId(): string
+    {
+        return $this->customer_id ?: self::formatCustomerId((int) $this->id);
+    }
+
+    public function displayTechnicianRecordId(): string
+    {
+        return $this->technician_id ?: self::formatTechnicianId((int) $this->id);
+    }
+
+    public function displayFirstName(): string
+    {
+        $segments = preg_split('/\s+/', trim((string) $this->name), 2);
+
+        return $segments[0] ?? '';
+    }
+
+    public function displayLastName(): string
+    {
+        $segments = preg_split('/\s+/', trim((string) $this->name), 2);
+
+        return $segments[1] ?? '';
+    }
+
+    public function displayTechnicianShift(): string
+    {
+        return self::TECHNICIAN_STANDARD_SHIFT;
+    }
+
     public function ticketMessages()
     {
         return $this->hasMany(\App\Models\TicketMessage::class);
@@ -169,6 +249,11 @@ class User extends Authenticatable
         return $this->hasMany(\App\Models\InstallationLog::class);
     }
 
+    public function disabledBy()
+    {
+        return $this->belongsTo(self::class, 'disabled_by');
+    }
+
     public function appNotifications()
     {
         return $this->hasMany(AppNotification::class)->latest();
@@ -177,6 +262,11 @@ class User extends Authenticatable
     public function scopeTechnicians($query)
     {
         return $query->where('role', 'technician');
+    }
+
+    public function scopeCustomers($query)
+    {
+        return $query->where('role', 'customer');
     }
 
     public function scopeAvailableSupport($query)
@@ -206,7 +296,15 @@ class User extends Authenticatable
 
     public function chatAvailabilityState(): string
     {
-        if ($this->isEffectivelyChatAvailable()) {
+        if (! ($this->isAdmin() || $this->isTechnician())) {
+            return 'offline';
+        }
+
+        if (! $this->is_online || ! $this->hasRecentChatActivity()) {
+            return 'offline';
+        }
+
+        if ($this->chat_available) {
             return 'available';
         }
 

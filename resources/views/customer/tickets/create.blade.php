@@ -30,7 +30,7 @@
                 <textarea name="description" rows="5" required>{{ old('description') }}</textarea>
 
                 <label for="ticket_photo">Photo <span class="field-badge optional">Optional</span></label>
-                <input id="ticket_photo" type="file" name="ticket_photo" accept=".jpg,.jpeg,.png">
+                <input id="ticket_photo" type="file" name="ticket_photo" accept=".jpg,.jpeg,.png,.webp">
                 <p class="text-muted mt-1">Attach one image if it helps show the issue more clearly.</p>
 
                 <button type="submit" class="btn">Create Ticket</button>

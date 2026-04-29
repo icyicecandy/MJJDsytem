@@ -1058,8 +1058,7 @@
                 <span class="public-contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></span>
                 <div>
                     <strong>Business Hours</strong>
-                    <span>Mon - Fri: 9am - 5pm</span><br>
-                    <span>Sat: 9am - 12pm</span>
+                    <span>Mon - Fri: 8:00 AM - 5:00 PM</span>
                 </div>
             </article>
             <article class="public-contact-item">
@@ -1206,7 +1205,6 @@
     });
 </script>
 @endpush
-
 
 
 

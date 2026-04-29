@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Application;
 use App\Models\Installation;
+use App\Models\InstallationLog;
 use App\Models\User;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
@@ -49,7 +50,7 @@ class AdminApplicationController extends Controller
 
     public function show(Application $application)
     {
-        $application->load(['installation', 'assessor']);
+        $application->load(['installation.technician', 'installation.logs.user', 'assessor']);
         $technicians = User::where('role', 'technician')->orderBy('name')->get();
         $activeSchedules = Installation::query()
             ->whereIn('status', Installation::activeSchedulingStatuses())
@@ -66,7 +67,16 @@ class AdminApplicationController extends Controller
     {
         $previousStatus = $application->status;
 
-        if (in_array($application->status, ['approved', 'scheduled', 'installed', 'completed', 'rejected'], true)) {
+        if (in_array($application->status, [
+            Application::STATUS_APPROVED,
+            Application::STATUS_SCHEDULED,
+            Application::STATUS_CANCELLATION_REQUESTED,
+            Application::STATUS_INSTALLED,
+            Application::STATUS_ACTIVATED,
+            'completed',
+            Application::STATUS_REJECTED,
+            Application::STATUS_CANCELLED,
+        ], true)) {
             return back()->withErrors([
                 'status' => 'This application decision is already locked.',
             ]);
@@ -172,7 +182,7 @@ class AdminApplicationController extends Controller
             'installation_time' => ['required', Rule::in(Installation::AVAILABLE_TIME_SLOTS)],
         ]);
 
-        if ($application->status !== 'approved') {
+        if ($application->status !== Application::STATUS_APPROVED) {
             return back()->withErrors([
                 'schedule' => 'Applications must be approved before they can be scheduled.',
             ]);
@@ -186,9 +196,9 @@ class AdminApplicationController extends Controller
         }
 
         $installation = Installation::where('application_id', $application->id)->first();
-        if ($installation && in_array($installation->status, ['scheduled', 'completed'], true)) {
+        if ($installation && (in_array($installation->status, [Installation::STATUS_SCHEDULED], true) || in_array($installation->status, Installation::completedStatuses(), true))) {
             return back()->withErrors([
-                'schedule' => $installation->status === 'scheduled'
+                'schedule' => $installation->status === Installation::STATUS_SCHEDULED
                     ? 'This application has already been scheduled.'
                     : 'This installation has already been completed.',
             ]);
@@ -212,12 +222,18 @@ class AdminApplicationController extends Controller
                 'assigned_at' => now(),
                 'installation_date' => $validated['installation_date'],
                 'installation_time' => $validated['installation_time'],
-                'status' => 'scheduled',
+                'status' => Installation::STATUS_SCHEDULED,
             ]
         );
 
         $application->update([
-            'status' => 'scheduled',
+            'status' => Application::STATUS_SCHEDULED,
+        ]);
+
+        InstallationLog::create([
+            'installation_id' => $installation->id,
+            'user_id' => auth()->id(),
+            'notes' => 'Installation scheduled for ' . $installation->installation_date?->format('F d, Y') . ' at ' . Carbon::parse($installation->installation_time)->format('g:i A') . '.',
         ]);
 
         AppNotificationSender::send(
@@ -246,6 +262,80 @@ class AdminApplicationController extends Controller
         CustomerEmailSender::sendApplicationScheduled($application);
 
         return back()->with('success', 'Installation scheduled successfully.');
+    }
+
+    public function cancellationDecision(Request $request, Application $application)
+    {
+        $validated = $request->validate([
+            'decision' => ['required', Rule::in(['approve', 'reject'])],
+            'cancellation_notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if ($application->status !== Application::STATUS_CANCELLATION_REQUESTED) {
+            return back()->withErrors([
+                'cancellation' => 'This application is not waiting for cancellation review.',
+            ]);
+        }
+
+        $application->loadMissing(['installation', 'user']);
+        $installation = $application->installation;
+        $notesSuffix = filled($validated['cancellation_notes'] ?? null)
+            ? ' Notes: ' . $validated['cancellation_notes']
+            : '';
+
+        if ($validated['decision'] === 'approve') {
+            $application->update(['status' => Application::STATUS_CANCELLED]);
+
+            if ($installation) {
+                $installation->update(['status' => Installation::STATUS_CANCELLED]);
+
+                InstallationLog::create([
+                    'installation_id' => $installation->id,
+                    'user_id' => auth()->id(),
+                    'notes' => 'Cancellation request approved by admin.' . $notesSuffix,
+                ]);
+            }
+
+            if ($application->user) {
+                AppNotificationSender::send(
+                    $application->user,
+                    'Cancellation approved',
+                    'Your application cancellation request was approved.',
+                    route('customer.application.show'),
+                    'application_cancelled',
+                    ['application_id' => $application->id, 'installation_id' => $installation?->id],
+                    auth()->id()
+                );
+            }
+
+            return back()->with('success', 'Cancellation request approved.');
+        }
+
+        $application->update([
+            'status' => $installation ? Application::STATUS_SCHEDULED : Application::STATUS_APPROVED,
+        ]);
+
+        if ($installation) {
+            InstallationLog::create([
+                'installation_id' => $installation->id,
+                'user_id' => auth()->id(),
+                'notes' => 'Cancellation request rejected by admin. Installation remains scheduled.' . $notesSuffix,
+            ]);
+        }
+
+        if ($application->user) {
+            AppNotificationSender::send(
+                $application->user,
+                'Cancellation request rejected',
+                'Your installation schedule remains active.',
+                route('customer.application.show'),
+                'application_cancellation_rejected',
+                ['application_id' => $application->id, 'installation_id' => $installation?->id],
+                auth()->id()
+            );
+        }
+
+        return back()->with('success', 'Cancellation request rejected. Installation remains scheduled.');
     }
 
     private function supportsAssessmentFields(): bool

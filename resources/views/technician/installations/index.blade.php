@@ -4,6 +4,11 @@
         display: grid;
         gap: 1.25rem;
     }
+    .tech-install-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+    }
     .tech-install-kpi {
         display: block;
         padding: 1rem 1.1rem;
@@ -27,30 +32,83 @@
     .tech-install-kpi-label {
         display: block;
     }
-    .tech-install-kpis {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 1rem;
-    }
-
     .tech-install-kpi strong {
         display: block;
         font-size: 1.5rem;
         margin-top: 0.35rem;
     }
-    .tech-install-list .record-muted {
-        margin-top: 0.15rem;
+    .admin-installations-table {
+        table-layout: fixed;
     }
-    .job-ref {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    .admin-installations-table th:nth-child(1) {
+        width: 11%;
+    }
+    .admin-installations-table th:nth-child(2) {
+        width: 13%;
+    }
+    .admin-installations-table th:nth-child(3) {
+        width: 10%;
+    }
+    .admin-installations-table th:nth-child(4) {
+        width: 15%;
+    }
+    .admin-installations-table th:nth-child(5) {
+        width: 21%;
+    }
+    .admin-installations-table th:nth-child(6) {
+        width: 13%;
+    }
+    .admin-installations-table th:nth-child(7) {
+        width: 9%;
+    }
+    .admin-installations-table th:nth-child(8) {
+        width: 8%;
+    }
+    .admin-installations-table th,
+    .admin-installations-table td {
+        padding: 0.68rem 0.55rem;
+    }
+    .admin-installations-table .record-stack {
+        display: grid;
+        gap: 0.14rem;
+        min-width: 0;
+    }
+    .admin-installations-table .record-stack .record-strong,
+    .admin-installations-table .record-stack .record-muted {
+        display: block;
+    }
+    .admin-installations-table .record-strong {
+        font-size: 0.95rem;
+        line-height: 1.25;
+    }
+    .admin-installations-table .record-muted {
         font-size: 0.78rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: #475569;
+        line-height: 1.28;
     }
-    @media (max-width: 768px) {
-        .tech-install-kpi {
-            width: 100%;
+    .admin-installations-table .address-preview {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .admin-installations-table .schedule-cell {
+        white-space: nowrap;
+    }
+    .admin-installations-table .actions-cell {
+        text-align: right;
+        white-space: nowrap;
+        padding-left: 0.35rem;
+    }
+    .admin-installations-table .actions-cell .btn {
+        padding: 0.46rem 0.62rem;
+        font-size: 0.82rem;
+    }
+    .admin-installations-table .badge {
+        white-space: nowrap;
+    }
+    @media (max-width: 980px) {
+        .admin-installations-table .address-preview {
+            max-width: 18rem;
         }
     }
 </style>
@@ -75,72 +133,91 @@
                 <strong>{{ $scheduledInstallations->count() }}</strong>
             </a>
             <a href="{{ route('technician.installations.index', ['group' => 'completed']) }}" class="tech-install-kpi card {{ $selectedGroup === 'completed' ? 'active' : '' }}">
-                <span class="record-muted tech-install-kpi-label">Installed</span>
+                <span class="record-muted tech-install-kpi-label">Installed / Activated</span>
                 <strong>{{ $completedInstallations->count() }}</strong>
             </a>
         </section>
 
-        <section class="card table-card tech-install-list">
+        <section class="card table-card">
             <div class="table-wrap">
-                <table class="telecom-table tech-table">
+                <table class="telecom-table admin-installations-table">
                     <thead>
                         <tr>
                             <th>Job</th>
                             <th>Customer</th>
+                            <th>Plan</th>
                             <th>Contact</th>
-                            <th>Status</th>
+                            <th>Address</th>
                             <th>Schedule</th>
-                            <th class="col-actions text-end">Action</th>
+                            <th>Status</th>
+                            <th class="col-actions">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($activeInstallations as $installation)
                             @php
                                 $application = $installation->application;
+                                $customerName = $application
+                                    ? trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''))
+                                    : 'N/A';
+                                $address = $application
+                                    ? collect([
+                                        $application->barangay,
+                                        $application->municipality,
+                                        $application->province,
+                                    ])->filter()->implode(', ')
+                                    : null;
+                                $contactNumber = $application?->mobile_number;
+                                $contactEmail = $application?->email;
+                                $scheduleDate = $installation->installation_date?->format('M d, Y');
+                                $scheduleTime = $installation->installation_time
+                                    ? \Carbon\Carbon::parse($installation->installation_time)->format('h:i A')
+                                    : null;
+                                $statusLabel = ucfirst(str_replace('_', ' ', $installation->status));
                             @endphp
                             <tr>
                                 <td>
-                                    <div class="record-strong">{{ $installation->displayJobReference() }}</div>
-                                    <div class="record-muted">Application Ref: {{ $application->reference_no ?? 'N/A' }}</div>
+                                    <div class="record-stack">
+                                        <span class="record-strong">{{ $installation->displayJobReference() }}</span>
+                                    </div>
                                 </td>
                                 <td>
-                                    @if($application)
-                                        <div class="record-strong">{{ trim($application->first_name . ' ' . $application->last_name) }}</div>
-                                        <div class="record-muted">{{ $application->barangay ?? 'Service area pending' }}</div>
-                                    @else
-                                        -
-                                    @endif
+                                    <div class="record-stack">
+                                        <span class="record-strong">{{ $customerName }}</span>
+                                    </div>
                                 </td>
                                 <td>
-                                    @if($application)
-                                        <div class="record-strong">{{ $application->mobile_number ?: 'Not provided' }}</div>
-                                    @else
-                                        -
-                                    @endif
+                                    <span class="record-strong">{{ $application?->plan_code ?: 'No plan' }}</span>
                                 </td>
                                 <td>
-                                    <span class="badge {{ $installation->status ?? 'info' }}">{{ $installation->displayStatusLabel() }}</span>
+                                    <div class="record-stack">
+                                        <span class="record-strong">{{ $contactNumber ?: 'No contact number' }}</span>
+                                        <span class="record-muted">{{ $contactEmail ?: 'No email recorded' }}</span>
+                                    </div>
                                 </td>
                                 <td>
-                                    @if($installation->installation_date)
-                                        <div class="record-strong">{{ $installation->installation_date->format('F d, Y') }}</div>
-                                        <div class="record-muted">{{ $installation->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('h:i A') : 'Time to be confirmed' }}</div>
-                                    @else
-                                        <div class="record-strong">No schedule yet</div>
-                                        <div class="record-muted">Awaiting confirmation</div>
-                                    @endif
+                                    <span class="record-muted address-preview">{{ $address ?: 'Address not available' }}</span>
                                 </td>
-                                <td class="actions-cell text-end">
+                                <td class="schedule-cell">
+                                    <div class="record-stack">
+                                        <span class="record-strong">{{ $scheduleDate ?? 'Not scheduled' }}</span>
+                                        <span class="record-muted">{{ $scheduleTime ?? 'Time to be confirmed' }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge {{ $installation->status ?? 'info' }}">{{ $statusLabel }}</span>
+                                </td>
+                                <td class="actions-cell">
                                     <a href="{{ route('technician.installations.show', $installation->id) }}" class="btn secondary">
-                                        {{ $installation->isCompleted() ? 'Review' : 'Open Job' }}
+                                        {{ $installation->isFinalized() ? 'Review' : 'Open Job' }}
                                     </a>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6">
+                                <td colspan="8">
                                     <div class="empty-state compact">
-                                        {{ $selectedGroup === 'completed' ? 'No completed installation jobs yet.' : 'No scheduled or pending jobs assigned yet.' }}
+                                        {{ $selectedGroup === 'completed' ? 'No completed or activated installation jobs yet.' : 'No scheduled or pending jobs assigned yet.' }}
                                     </div>
                                 </td>
                             </tr>

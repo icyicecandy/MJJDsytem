@@ -37,6 +37,23 @@ test('users can not authenticate with invalid password', function () {
     $this->assertGuest();
 });
 
+test('disabled users can not authenticate', function () {
+    $user = User::factory()->create([
+        'role' => 'technician',
+        'disabled_at' => now(),
+    ]);
+
+    $response = $this->post('/login', [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertGuest();
+    $response
+        ->assertSessionHasErrors('email', null, 'login')
+        ->assertSessionHas('auth_modal', 'login');
+});
+
 test('users can logout', function () {
     $user = User::factory()->create();
 

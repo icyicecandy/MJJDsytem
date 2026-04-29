@@ -26,7 +26,14 @@ function firstServiceArea(): array
 test('customer application stores consent metadata', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['role' => 'customer']);
+    $user = User::factory()->create([
+        'role' => 'customer',
+        'agreed_to_terms' => true,
+        'agreed_to_privacy' => true,
+        'consented_at' => now(),
+        'terms_version' => '2026-03',
+        'privacy_version' => '2026-03',
+    ]);
     $area = firstServiceArea();
 
     $response = $this
@@ -60,9 +67,64 @@ test('customer application stores consent metadata', function () {
         ->and($application->agreed_to_privacy)->toBeTrue()
         ->and($application->consented_at)->not->toBeNull()
         ->and($application->terms_version)->toBe('2026-03')
-        ->and($application->privacy_version)->toBe('2026-03');
+        ->and($application->privacy_version)->toBe('2026-03')
+        ->and($application->id_image_path)->toStartWith('application-ids/');
 
     Storage::disk('public')->assertExists($application->id_image_path);
+});
+
+test('cancelled customer application can be submitted again with the same details', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['role' => 'customer']);
+    $area = firstServiceArea();
+
+    $payload = [
+        'first_name' => 'Jane',
+        'last_name' => 'Soriano',
+        'email' => 'jane@example.com',
+        'mobile_number' => '09154123872',
+        'region' => $area['region'],
+        'province' => $area['province'],
+        'municipality' => $area['municipality'],
+        'barangay' => $area['barangay'],
+        'street_landmark' => null,
+        'lat' => 16.2,
+        'lng' => 121.0,
+        'plan_code' => 'S2S_50',
+    ];
+
+    $this
+        ->actingAs($user)
+        ->post(route('customer.apply.store'), $payload + [
+            'id_image' => UploadedFile::fake()->image('first-id.png'),
+        ])
+        ->assertRedirect();
+
+    $application = $user->refresh()->application;
+    $originalId = $application->id;
+
+    $this
+        ->actingAs($user)
+        ->patch(route('customer.application.cancel', absolute: false))
+        ->assertRedirect();
+
+    expect($application->refresh()->status)->toBe(Application::STATUS_CANCELLED);
+
+    $this
+        ->actingAs($user)
+        ->post(route('customer.apply.store'), $payload + [
+            'id_image' => UploadedFile::fake()->image('second-id.png'),
+        ])
+        ->assertRedirect();
+
+    $application->refresh();
+
+    expect(Application::where('user_id', $user->id)->count())->toBe(1)
+        ->and($application->id)->toBe($originalId)
+        ->and($application->status)->toBe(Application::STATUS_SUBMITTED)
+        ->and($application->email)->toBe('jane@example.com')
+        ->and($application->mobile_number)->toBe('09154123872');
 });
 
 test('rejected applications cannot be scheduled', function () {

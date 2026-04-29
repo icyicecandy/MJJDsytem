@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,11 +31,22 @@ class AuthenticatedSessionController extends Controller
 
         $user = $request->user();
 
+        if ($user->isDisabled()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return back()
+                ->withInput($request->only('email', 'remember'))
+                ->withErrors(['email' => User::DISABLED_ACCOUNT_MESSAGE], 'login')
+                ->with('auth_modal', 'login');
+        }
+
         if ($user->isAdmin() || $user->isTechnician()) {
             $user->forceFill([
                 'is_online' => true,
                 'last_seen' => now(),
-                'chat_available' => $user->chat_available ?? true,
+                'chat_available' => true,
             ])->save();
         }
 

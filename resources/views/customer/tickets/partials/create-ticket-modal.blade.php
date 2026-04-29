@@ -53,7 +53,7 @@
 
                 <div class="customer-ticket-modal__field">
                     <label for="customer_ticket_photo">Photo <span class="field-badge optional">Optional</span></label>
-                    <input id="customer_ticket_photo" type="file" name="ticket_photo" accept=".jpg,.jpeg,.png">
+                    <input id="customer_ticket_photo" type="file" name="ticket_photo" accept=".jpg,.jpeg,.png,.webp">
                     <p class="customer-ticket-modal__helper">Attach one image if it helps show the issue more clearly.</p>
                     @error('ticket_photo')
                         <p class="customer-ticket-modal__error">{{ $message }}</p>
