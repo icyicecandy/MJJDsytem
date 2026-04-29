@@ -4,6 +4,7 @@ use App\Models\Application;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -303,6 +304,337 @@ test('same technician can be scheduled on the next one hour slot', function () {
         ->and($application->refresh()->status)->toBe('scheduled');
 });
 
+test('customer can request installation reschedule with preferred date and time', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = User::factory()->create(['role' => 'technician']);
+    $currentDate = now()->addDays(3)->toDateString();
+    $preferredDate = now()->addDays(5)->toDateString();
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-0301',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane301@example.com',
+        'mobile_number' => '09170000301',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'street_landmark' => 'Near plaza',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => 'scheduled',
+    ]);
+
+    $installation = Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $technician->id,
+        'assigned_at' => now(),
+        'installation_date' => $currentDate,
+        'installation_time' => '09:00',
+        'status' => Installation::STATUS_SCHEDULED,
+    ]);
+
+    $response = $this
+        ->actingAs($customer)
+        ->from(route('customer.application.show', absolute: false))
+        ->patch(route('customer.application.reschedule', absolute: false), [
+            'reschedule_preferred_date' => $preferredDate,
+            'reschedule_preferred_time' => '10:00',
+            'reschedule_reason' => 'Customer will be out of town.',
+        ]);
+
+    $response
+        ->assertRedirect(route('customer.application.show', absolute: false))
+        ->assertSessionHasNoErrors();
+
+    $installation->refresh();
+
+    expect($installation->hasPendingCustomerRescheduleRequest())->toBeTrue()
+        ->and($installation->reschedule_preferred_date->format('Y-m-d'))->toBe($preferredDate)
+        ->and(Carbon::parse($installation->reschedule_preferred_time)->format('H:i'))->toBe('10:00')
+        ->and($installation->reschedule_request_reason)->toBe('Customer will be out of town.')
+        ->and($installation->installation_date->format('Y-m-d'))->toBe($currentDate)
+        ->and($installation->status)->toBe(Installation::STATUS_SCHEDULED);
+});
+
+test('customer reschedule page only lists dates with available technician slots', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = User::factory()->create(['role' => 'technician']);
+    $currentDate = now()->addDays(3)->toDateString();
+    $fullDate = now()->addDays(5)->toDateString();
+    $freeDate = now()->addDays(6)->toDateString();
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-0311',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane311@example.com',
+        'mobile_number' => '09170000311',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'street_landmark' => 'Near plaza',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => 'scheduled',
+    ]);
+
+    Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $technician->id,
+        'assigned_at' => now(),
+        'installation_date' => $currentDate,
+        'installation_time' => '09:00',
+        'status' => Installation::STATUS_SCHEDULED,
+    ]);
+
+    foreach (Installation::AVAILABLE_TIME_SLOTS as $index => $timeSlot) {
+        $blockedApplication = Application::create([
+            'user_id' => User::factory()->create(['role' => 'customer'])->id,
+            'reference_no' => 'APP-2026-0311-B' . $index,
+            'first_name' => 'Blocked',
+            'last_name' => 'Slot',
+            'email' => 'blocked311' . $index . '@example.com',
+            'mobile_number' => '0917311' . str_pad((string) $index, 4, '0', STR_PAD_LEFT),
+            'region' => 'Ilocos Region',
+            'province' => 'Pangasinan',
+            'municipality' => 'Bayambang',
+            'barangay' => 'Dusoc',
+            'street_landmark' => 'Near plaza',
+            'lat' => 15.7333,
+            'lng' => 120.3833,
+            'plan_code' => 'S2S_50',
+            'status' => 'scheduled',
+        ]);
+
+        Installation::create([
+            'application_id' => $blockedApplication->id,
+            'technician_id' => $technician->id,
+            'assigned_at' => now(),
+            'installation_date' => $fullDate,
+            'installation_time' => $timeSlot,
+            'status' => Installation::STATUS_SCHEDULED,
+        ]);
+    }
+
+    $this
+        ->actingAs($customer)
+        ->get(route('customer.application.show', absolute: false))
+        ->assertOk()
+        ->assertSee(Carbon::parse($freeDate)->format('F j, Y'))
+        ->assertDontSee(Carbon::parse($fullDate)->format('F j, Y'));
+});
+
+test('customer cannot request reschedule for a taken technician slot', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $otherCustomer = User::factory()->create(['role' => 'customer']);
+    $technician = User::factory()->create(['role' => 'technician']);
+    $currentDate = now()->addDays(3)->toDateString();
+    $preferredDate = now()->addDays(5)->toDateString();
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-0312',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane312@example.com',
+        'mobile_number' => '09170000312',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'street_landmark' => 'Near plaza',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => 'scheduled',
+    ]);
+
+    $otherApplication = Application::create([
+        'user_id' => $otherCustomer->id,
+        'reference_no' => 'APP-2026-0313',
+        'first_name' => 'Other',
+        'last_name' => 'Customer',
+        'email' => 'other313@example.com',
+        'mobile_number' => '09170000313',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'street_landmark' => 'Near plaza',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => 'scheduled',
+    ]);
+
+    $installation = Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $technician->id,
+        'assigned_at' => now(),
+        'installation_date' => $currentDate,
+        'installation_time' => '09:00',
+        'status' => Installation::STATUS_SCHEDULED,
+    ]);
+
+    Installation::create([
+        'application_id' => $otherApplication->id,
+        'technician_id' => $technician->id,
+        'assigned_at' => now(),
+        'installation_date' => $preferredDate,
+        'installation_time' => '10:00',
+        'status' => Installation::STATUS_SCHEDULED,
+    ]);
+
+    $this
+        ->actingAs($customer)
+        ->from(route('customer.application.show', absolute: false))
+        ->patch(route('customer.application.reschedule', absolute: false), [
+            'reschedule_preferred_date' => $preferredDate,
+            'reschedule_preferred_time' => '10:00',
+            'reschedule_reason' => 'Customer wants this unavailable slot.',
+        ])
+        ->assertRedirect(route('customer.application.show', absolute: false))
+        ->assertSessionHasErrors('reschedule_preferred_time');
+
+    expect($installation->refresh()->hasPendingCustomerRescheduleRequest())->toBeFalse();
+});
+
+test('admin approves customer reschedule request and updates installation schedule', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = User::factory()->create(['role' => 'technician']);
+    $newDate = now()->addDays(6)->toDateString();
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-0302',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane302@example.com',
+        'mobile_number' => '09170000302',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'street_landmark' => 'Near plaza',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => 'scheduled',
+    ]);
+
+    $installation = Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $technician->id,
+        'assigned_at' => now(),
+        'installation_date' => now()->addDays(3)->toDateString(),
+        'installation_time' => '09:00',
+        'status' => Installation::STATUS_SCHEDULED,
+        'reschedule_requested_at' => now(),
+        'reschedule_preferred_date' => $newDate,
+        'reschedule_preferred_time' => '10:00',
+        'reschedule_request_reason' => 'Customer requested a morning visit.',
+    ]);
+
+    $response = $this
+        ->actingAs($admin)
+        ->from(route('admin.applications.show', $application, false))
+        ->patch(route('admin.applications.reschedule', $application, false), [
+            'decision' => 'approve',
+            'technician_id' => $technician->id,
+            'installation_date' => $newDate,
+            'installation_time' => '10:00',
+        ]);
+
+    $response
+        ->assertRedirect(route('admin.applications.show', $application, false))
+        ->assertSessionHasNoErrors();
+
+    $installation->refresh();
+
+    expect($installation->installation_date->format('Y-m-d'))->toBe($newDate)
+        ->and(Carbon::parse($installation->installation_time)->format('H:i'))->toBe('10:00')
+        ->and($installation->reschedule_reviewed_at)->not->toBeNull()
+        ->and($installation->reschedule_rejection_reason)->toBeNull()
+        ->and($application->refresh()->status)->toBe(Application::STATUS_SCHEDULED)
+        ->and(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%Customer reschedule request approved%')->exists())->toBeTrue();
+});
+
+test('admin rejection of customer reschedule request requires and stores reason', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = User::factory()->create(['role' => 'technician']);
+    $currentDate = now()->addDays(3)->toDateString();
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-0303',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane303@example.com',
+        'mobile_number' => '09170000303',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'street_landmark' => 'Near plaza',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => 'scheduled',
+    ]);
+
+    $installation = Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $technician->id,
+        'assigned_at' => now(),
+        'installation_date' => $currentDate,
+        'installation_time' => '09:00',
+        'status' => Installation::STATUS_SCHEDULED,
+        'reschedule_requested_at' => now(),
+        'reschedule_preferred_date' => now()->addDays(5)->toDateString(),
+        'reschedule_preferred_time' => '10:00',
+        'reschedule_request_reason' => 'Customer requested a different day.',
+    ]);
+
+    $this
+        ->actingAs($admin)
+        ->from(route('admin.applications.show', $application, false))
+        ->patch(route('admin.applications.reschedule', $application, false), [
+            'decision' => 'reject',
+        ])
+        ->assertRedirect(route('admin.applications.show', $application, false))
+        ->assertSessionHasErrors('reschedule_rejection_reason');
+
+    expect($installation->refresh()->hasPendingCustomerRescheduleRequest())->toBeTrue();
+
+    $response = $this
+        ->actingAs($admin)
+        ->from(route('admin.applications.show', $application, false))
+        ->patch(route('admin.applications.reschedule', $application, false), [
+            'decision' => 'reject',
+            'reschedule_rejection_reason' => 'No technician slot is available for the requested time.',
+        ]);
+
+    $response
+        ->assertRedirect(route('admin.applications.show', $application, false))
+        ->assertSessionHasNoErrors();
+
+    $installation->refresh();
+
+    expect($installation->hasPendingCustomerRescheduleRequest())->toBeFalse()
+        ->and($installation->installation_date->format('Y-m-d'))->toBe($currentDate)
+        ->and($installation->reschedule_rejection_reason)->toBe('No technician slot is available for the requested time.')
+        ->and($installation->reschedule_reviewed_at)->not->toBeNull();
+});
+
 test('different technician can use the same time slot on the same date', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $customerA = User::factory()->create(['role' => 'customer']);
@@ -468,7 +800,10 @@ test('assigned technician can complete an in-progress installation', function ()
             'port_number' => 'P1',
             'equipment_serial_number' => 'EQ-12345',
             'cable_length' => '80m',
-            'installation_photo' => UploadedFile::fake()->image('proof.png'),
+            'installation_photos' => [
+                UploadedFile::fake()->image('proof-a.png'),
+                UploadedFile::fake()->image('proof-b.png'),
+            ],
         ]);
 
     $response
@@ -482,9 +817,12 @@ test('assigned technician can complete an in-progress installation', function ()
         ->and($installation->equipment_serial_number)->toBe('EQ-12345')
         ->and($installation->cable_length)->toBe('80m')
         ->and($installation->installation_photo_path)->toStartWith('installation-photos/')
+        ->and($installation->installation_photo_paths)->toHaveCount(2)
         ->and($application->refresh()->status)->toBe('installed');
 
-    Storage::disk('public')->assertExists($installation->installation_photo_path);
+    foreach ($installation->installation_photo_paths as $path) {
+        Storage::disk('public')->assertExists($path);
+    }
 
     expect(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%NAP Code: NAP-001%')->exists())->toBeTrue();
 });

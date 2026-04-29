@@ -7,7 +7,6 @@ use App\Models\ChatMessage;
 use App\Models\User;
 use App\Support\PublicUpload;
 use Carbon\Carbon;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -639,27 +638,20 @@ class SupportChatService
         );
     }
 
-    protected function storeChatAttachment(?UploadedFile $attachment): ?array
+    protected function storeChatAttachments(array $attachments): ?array
     {
-        if (! $attachment) {
-            return null;
-        }
-
-        return PublicUpload::attachmentMetadata(
-            $attachment,
-            $attachment->store('chat-attachments', 'public')
-        );
+        return PublicUpload::attachmentMetadataMany($attachments, 'chat-attachments');
     }
 
-    public function handleCustomerMessage(User $customer, string $message, ?UploadedFile $attachment = null): array
+    public function handleCustomerMessage(User $customer, string $message, array $attachments = []): array
     {
         $latest = $this->latestConversationMessage($customer);
         $preferredStaff = null;
         $conversationStatus = 'waiting_for_human';
         $assignedStaffId = null;
         $message = trim($message);
-        $displayMessage = $message !== '' ? $message : 'Image attachment';
-        $attachmentMetadata = $this->storeChatAttachment($attachment);
+        $displayMessage = $message !== '' ? $message : (count($attachments) > 1 ? 'Image attachments' : 'Image attachment');
+        $attachmentMetadata = $this->storeChatAttachments($attachments);
 
         if ($this->shouldSwitchInactiveConversationToAi($latest)) {
             $conversationStatus = 'ai_active';
@@ -751,15 +743,15 @@ class SupportChatService
         return ['messages' => $created, 'state' => $this->conversationState($customer)];
     }
 
-    public function handleStaffMessage(User $staff, User $customer, string $message, ?UploadedFile $attachment = null): array
+    public function handleStaffMessage(User $staff, User $customer, string $message, array $attachments = []): array
     {
         $created = collect();
 
         abort_unless($this->canStaffReply($staff, $customer), 403);
 
         $message = trim($message);
-        $displayMessage = $message !== '' ? $message : 'Image attachment';
-        $attachmentMetadata = $this->storeChatAttachment($attachment);
+        $displayMessage = $message !== '' ? $message : (count($attachments) > 1 ? 'Image attachments' : 'Image attachment');
+        $attachmentMetadata = $this->storeChatAttachments($attachments);
 
         $agentMessage = ChatMessage::create([
             'customer_id' => $customer->id,

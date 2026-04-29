@@ -15,7 +15,7 @@ class TechnicianTicketController extends Controller
     {
         $selectedStatus = $request->query('status', 'all');
         $search = trim((string) $request->query('search', ''));
-        if (! in_array($selectedStatus, ['all', 'open', 'queued', 'in_progress', 'resolved', 'closed'], true)) {
+        if (! in_array($selectedStatus, ['all', 'open', 'queued', 'in_progress', 'resolved', 'closed', 'cancelled'], true)) {
             $selectedStatus = 'all';
         }
 
@@ -47,6 +47,7 @@ class TechnicianTicketController extends Controller
             'in_progress' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_IN_PROGRESS)->count(),
             'resolved' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_RESOLVED)->count(),
             'closed' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_CLOSED)->count(),
+            'cancelled' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_CANCELLED)->count(),
         ];
 
         return view('technician.tickets.index', compact('tickets', 'queueSummary', 'selectedStatus', 'search'));
@@ -68,6 +69,11 @@ class TechnicianTicketController extends Controller
             'message' => 'Technician started work on this ticket.',
         ]);
 
+        system_log(
+            'Ticket Status Changed',
+            'Ticket ' . $ticket->publicReference() . ' status changed to In progress by ' . Auth::user()->name . '.'
+        );
+
         return back()->with('success', 'Ticket work started.');
     }
 
@@ -79,6 +85,12 @@ class TechnicianTicketController extends Controller
             return redirect()
                 ->route('technician.tickets.show', $ticket)
                 ->with('success', 'Ticket is already marked as resolved.');
+        }
+
+        if ($ticket->isCancellationRequested()) {
+            return back()
+                ->withInput()
+                ->with('error', 'Customer requested cancellation. Waiting for admin decision.');
         }
 
         if ($ticket->status !== Ticket::STATUS_IN_PROGRESS) {
@@ -129,6 +141,11 @@ class TechnicianTicketController extends Controller
             Auth::id()
         );
 
+        system_log(
+            'Ticket Resolved',
+            'Ticket ' . $ticket->publicReference() . ' was resolved by ' . Auth::user()->name . '.'
+        );
+
         return redirect()
             ->route('technician.tickets.index')
             ->with('success', 'Ticket marked as resolved.');
@@ -146,21 +163,25 @@ class TechnicianTicketController extends Controller
     public function reply(Request $request, Ticket $ticket)
     {
         abort_unless($ticket->technician_id === Auth::id(), 403);
-        abort_unless($ticket->canReceiveReplies(), 422, 'Closed tickets cannot receive new replies.');
+        abort_unless($ticket->canReceiveReplies(), 422, 'Closed or cancelled tickets cannot receive new replies.');
 
         $request->validate([
-            'message' => ['nullable', 'required_without:ticket_attachment', 'string'],
+            'message' => ['nullable', 'required_without_all:ticket_attachment,ticket_attachments', 'string'],
             'ticket_attachment' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'ticket_attachments' => ['nullable', 'array', 'max:5'],
+            'ticket_attachments.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
-        $attachmentPath = $request->hasFile('ticket_attachment')
-            ? PublicUpload::normalizePath($request->file('ticket_attachment')->store('ticket-attachments', 'public'))
-            : null;
+        $attachmentPaths = PublicUpload::storeFiles(
+            PublicUpload::flattenFiles($request->file('ticket_attachments', []), $request->file('ticket_attachment')),
+            'ticket-attachments'
+        );
 
         $ticket->messages()->create([
             'user_id' => Auth::id(),
             'message' => trim((string) $request->input('message', '')) ?: 'Attachment uploaded.',
-            'attachment_path' => $attachmentPath,
+            'attachment_path' => $attachmentPaths[0] ?? null,
+            'attachment_paths' => $attachmentPaths,
         ]);
 
         $ticket->touch();

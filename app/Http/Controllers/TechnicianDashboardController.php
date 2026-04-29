@@ -19,6 +19,10 @@ class TechnicianDashboardController extends Controller
     public function installations(Request $request)
     {
         $technicianId = auth()->id();
+        $selectedStatus = $request->query('status');
+        if (! in_array($selectedStatus, [Installation::STATUS_IN_PROGRESS, Installation::STATUS_ACTIVATED], true)) {
+            $selectedStatus = null;
+        }
         $selectedGroup = $request->query('group', 'scheduled');
         if (! in_array($selectedGroup, ['scheduled', 'completed'], true)) {
             $selectedGroup = 'scheduled';
@@ -30,17 +34,29 @@ class TechnicianDashboardController extends Controller
         $scheduledInstallations = (clone $baseQuery)
             ->whereIn('status', [
                 Installation::STATUS_SCHEDULED,
-                Installation::STATUS_IN_PROGRESS,
                 Installation::STATUS_RESCHEDULE_REQUIRED,
             ])
-            ->orderByRaw("CASE WHEN status = 'scheduled' THEN 0 WHEN status = 'in_progress' THEN 1 WHEN status = 'reschedule_required' THEN 2 ELSE 3 END")
+            ->orderByRaw("CASE WHEN status = 'scheduled' THEN 0 WHEN status = 'reschedule_required' THEN 1 ELSE 2 END")
+            ->orderBy('installation_date')
+            ->orderBy('installation_time')
+            ->orderBy('id')
+            ->get();
+
+        $inProgressInstallations = (clone $baseQuery)
+            ->where('status', Installation::STATUS_IN_PROGRESS)
             ->orderBy('installation_date')
             ->orderBy('installation_time')
             ->orderBy('id')
             ->get();
 
         $completedInstallations = (clone $baseQuery)
-            ->whereIn('status', Installation::completedStatuses())
+            ->where('status', Installation::STATUS_COMPLETED)
+            ->latest('completed_at')
+            ->latest('id')
+            ->get();
+
+        $activatedInstallations = (clone $baseQuery)
+            ->where('status', Installation::STATUS_ACTIVATED)
             ->latest('activation_date')
             ->latest('completed_at')
             ->latest('id')
@@ -48,8 +64,11 @@ class TechnicianDashboardController extends Controller
 
         return view('technician.installations.index', compact(
             'scheduledInstallations',
+            'inProgressInstallations',
             'completedInstallations',
-            'selectedGroup'
+            'activatedInstallations',
+            'selectedGroup',
+            'selectedStatus'
         ));
     }
 
@@ -94,6 +113,11 @@ class TechnicianDashboardController extends Controller
                 'notes' => 'Installation marked as reschedule required. Remarks: ' . $validated['technician_remarks'],
             ]);
 
+            system_log(
+                'Reschedule Required',
+                'Installation ' . $installation->displayJobReference() . ' was marked as reschedule required by ' . auth()->user()->name . '.'
+            );
+
             AppNotificationSender::sendToRole(
                 'admin',
                 'Installation requires reschedule',
@@ -112,6 +136,11 @@ class TechnicianDashboardController extends Controller
             'user_id' => auth()->id(),
             'notes' => 'Installation status updated to in progress.',
         ]);
+
+        system_log(
+            'Installation Started',
+            'Installation ' . $installation->displayJobReference() . ' was started by ' . auth()->user()->name . '.'
+        );
 
         return back()->with('success', 'Installation started successfully.');
     }
@@ -132,7 +161,12 @@ class TechnicianDashboardController extends Controller
             'port_number' => ['required', 'string', 'max:50'],
             'equipment_serial_number' => ['required', 'string', 'max:100'],
             'cable_length' => ['required', 'string', 'max:50'],
+            'installation_photos' => ['required_without:installation_photo', 'array', 'min:1', 'max:10'],
+            'installation_photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'installation_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ], [
+            'installation_photos.required_without' => 'Upload at least one proof of installation photo.',
+            'installation_photos.*.image' => 'Each proof of installation file must be an image.',
         ]);
 
         $updateData = [
@@ -145,8 +179,14 @@ class TechnicianDashboardController extends Controller
             'cable_length' => $validated['cable_length'],
         ];
 
-        if ($request->hasFile('installation_photo')) {
-            $updateData['installation_photo_path'] = PublicUpload::normalizePath($request->file('installation_photo')->store('installation-photos', 'public'));
+        $proofPaths = PublicUpload::storeFiles(
+            PublicUpload::flattenFiles($request->file('installation_photos', []), $request->file('installation_photo')),
+            'installation-photos'
+        );
+
+        if (! empty($proofPaths)) {
+            $updateData['installation_photo_path'] = $proofPaths[0];
+            $updateData['installation_photo_paths'] = $proofPaths;
         }
 
         $installation->update($updateData);
@@ -164,6 +204,11 @@ class TechnicianDashboardController extends Controller
             'user_id' => auth()->id(),
             'notes' => 'Installation marked completed. Remarks: ' . $validated['technician_remarks'] . $technicalNotes,
         ]);
+
+        system_log(
+            'Installation Completed',
+            'Installation ' . $installation->displayJobReference() . ' was completed by ' . auth()->user()->name . '.'
+        );
 
         if ($installation->application) {
             $installation->application->update([

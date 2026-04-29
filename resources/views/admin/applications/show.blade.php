@@ -242,9 +242,23 @@
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 0.75rem;
         }
+        .admin-app-actions--decision {
+            grid-template-columns: repeat(3, max-content);
+            justify-content: start;
+            gap: 0.5rem;
+        }
         .admin-app-actions .btn {
             width: 100%;
             justify-content: center;
+        }
+        .admin-app-actions--decision .btn {
+            width: auto;
+            min-height: 2.1rem;
+            min-width: 0;
+            padding: 0.48rem 0.72rem;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            line-height: 1.15;
         }
         .admin-app-timeline {
             position: relative;
@@ -810,13 +824,16 @@
         $isCancelledState = $statusKey === 'cancelled';
         $isInstallationScheduled = $installation?->status === \App\Models\Installation::STATUS_SCHEDULED;
         $isRescheduleRequiredState = $installation?->status === \App\Models\Installation::STATUS_RESCHEDULE_REQUIRED;
+        $hasPendingCustomerRescheduleRequest = $installation?->hasPendingCustomerRescheduleRequest() ?? false;
         $showReviewSummary = $application->assessed_at || filled($application->assessment_notes) || filled($application->serviceability_status) || filled($application->slot_availability_status) || filled($application->rejection_reason);
-        $showAdminActionCard = $showReviewSummary || $isReviewState || $isApprovedState || $isRejectedState || $isInstallationScheduled || $isRescheduleRequiredState || $isCancellationRequestedState;
+        $showAdminActionCard = $showReviewSummary || $isReviewState || $isApprovedState || $isRejectedState || $isInstallationScheduled || $isRescheduleRequiredState || $isCancellationRequestedState || $hasPendingCustomerRescheduleRequest;
         $submittedSummary = match ($statusKey) {
             'submitted' => 'This application is ready for manual review and decision.',
             'under_review' => 'Assessment is in progress. Review details can still be updated.',
             'approved' => 'The review is complete. The next step is assigning a technician and installation slot.',
-            'scheduled' => 'The application is approved and already scheduled for installation.',
+            'scheduled' => $hasPendingCustomerRescheduleRequest
+                ? 'The customer requested a new installation schedule. Review the preferred date and time before approving or rejecting.'
+                : 'The application is approved and already scheduled for installation.',
             'cancellation_requested' => 'The customer requested cancellation. Admin review is required before changing the schedule.',
             'installed', 'completed' => 'Installation is complete and waiting for manual service activation.',
             'activated' => 'The customer service has been activated.',
@@ -870,6 +887,11 @@
             : 'Not scheduled';
         $completedAtLabel = $installation?->completed_at?->displayDateTime('F d, Y h:i A') ?? 'Not completed yet';
         $activationDateLabel = $installation?->activation_date?->format('F d, Y') ?? 'Not activated yet';
+        $selectedRescheduleDate = old('installation_date', $installation?->reschedule_preferred_date?->format('Y-m-d') ?: $selectedInstallationDate);
+        $selectedRescheduleTime = old('installation_time', $installation?->reschedule_preferred_time ? \Carbon\Carbon::parse($installation->reschedule_preferred_time)->format('H:i') : $selectedInstallationTime);
+        $reschedulePreferredLabel = $installation?->reschedule_preferred_date
+            ? $installation->reschedule_preferred_date->format('F d, Y') . ' - ' . ($installation->reschedule_preferred_time ? \Carbon\Carbon::parse($installation->reschedule_preferred_time)->format('g:i A') : 'Time not set')
+            : 'No preferred schedule recorded';
     @endphp
 
     <div class="admin-app-review">
@@ -952,7 +974,10 @@
                     </div>
 
                     <x-photo-gallery
-                        :photos="['Valid ID' => $application->id_image_path]"
+                        :photos="[
+                            'Valid ID with 3 signatures' => $application->id_image_path,
+                            'Valid ID held by customer' => $application->id_selfie_image_path,
+                        ]"
                         title="Valid ID"
                         empty="No valid ID uploaded."
                         button-text="View ID"
@@ -1039,6 +1064,20 @@
                             <span class="admin-app-summary-note">Installation visit</span>
                         </div>
 
+                        @if($hasPendingCustomerRescheduleRequest)
+                            <div class="admin-app-mini-card admin-app-mini-card--full">
+                                <span class="admin-app-label">Customer requested reschedule</span>
+                                <strong>{{ $reschedulePreferredLabel }}</strong>
+                                <span class="admin-app-summary-note">{{ $installation->reschedule_request_reason ?: 'No reason recorded.' }}</span>
+                            </div>
+                        @elseif($installation?->reschedule_reviewed_at && filled($installation->reschedule_rejection_reason))
+                            <div class="admin-app-mini-card admin-app-mini-card--full">
+                                <span class="admin-app-label">Latest reschedule rejection</span>
+                                <strong>{{ $installation->reschedule_reviewed_at->displayDateTime('F d, Y h:i A') }}</strong>
+                                <span class="admin-app-summary-note">{{ $installation->reschedule_rejection_reason }}</span>
+                            </div>
+                        @endif
+
                         <div class="admin-app-mini-card admin-app-mini-card--full">
                             <span class="admin-app-label">Completed at</span>
                             <strong>{{ $completedAtLabel }}</strong>
@@ -1084,6 +1123,8 @@
                                     Technician Scheduling
                                 @elseif($isCancellationRequestedState)
                                     Cancellation Review
+                                @elseif($hasPendingCustomerRescheduleRequest)
+                                    Customer Reschedule Review
                                 @elseif($isRescheduleRequiredState)
                                     Reschedule Installation
                                 @elseif($isInstallationScheduled)
@@ -1173,7 +1214,7 @@
                                     <span class="error">{{ $message }}</span>
                                 @enderror
 
-                                <div class="admin-app-actions">
+                                <div class="admin-app-actions admin-app-actions--decision">
                                     <button type="submit" name="status" value="approved" class="btn success" data-status-action="approved">Approve</button>
                                     <button type="submit" name="status" value="under_review" class="btn secondary" data-status-action="under_review">Save as Under Review</button>
                                     <button type="submit" name="status" value="rejected" class="btn danger" data-status-action="rejected">Reject</button>
@@ -1230,6 +1271,86 @@
 
                                 <div>
                                     <button class="btn">Save Schedule</button>
+                                </div>
+                            </form>
+                        @elseif($hasPendingCustomerRescheduleRequest && $installation)
+                            <form method="POST" action="{{ route('admin.applications.reschedule', $application) }}" class="admin-app-form">
+                                @csrf
+                                @method('PATCH')
+
+                                <div class="admin-app-summary-box">
+                                    <div class="admin-app-detail-grid">
+                                        <div class="admin-app-detail">
+                                            <span class="admin-app-label">Customer preferred schedule</span>
+                                            <div class="admin-app-value">{{ $reschedulePreferredLabel }}</div>
+                                        </div>
+                                        <div class="admin-app-detail">
+                                            <span class="admin-app-label">Requested at</span>
+                                            <div class="admin-app-value">{{ $installation->reschedule_requested_at?->displayDateTime('F d, Y h:i A') ?? 'Not recorded' }}</div>
+                                        </div>
+                                        <div class="admin-app-detail admin-app-detail--full">
+                                            <span class="admin-app-label">Customer reason</span>
+                                            <div class="admin-app-value">{{ $installation->reschedule_request_reason ?: 'No reason recorded.' }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="admin-app-form-grid">
+                                    <div class="admin-app-field admin-app-field--full">
+                                        <label for="technician_id">Technician</label>
+                                        <select id="technician_id" name="technician_id">
+                                            <option value="">Select Technician</option>
+                                            @foreach($technicians as $techUser)
+                                                <option value="{{ $techUser->id }}" @selected((string) $selectedTechnicianId === (string) $techUser->id)>
+                                                    {{ $techUser->name }} ({{ $techUser->email }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <p class="admin-app-helper">Approving the request updates the installation to the selected schedule.</p>
+                                        @error('technician_id')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field">
+                                        <label for="installation_date">Installation date</label>
+                                        <input id="installation_date" type="date" name="installation_date" value="{{ $selectedRescheduleDate }}">
+                                        @error('installation_date')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field">
+                                        <label for="installation_time">Installation time</label>
+                                        <select id="installation_time" name="installation_time">
+                                            <option value="">Select time slot</option>
+                                            @foreach($availableTimeSlots as $timeSlot)
+                                                <option value="{{ $timeSlot }}" @selected($selectedRescheduleTime === $timeSlot)>{{ \Carbon\Carbon::createFromFormat('H:i', $timeSlot)->format('g:i A') }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('installation_time')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="admin-app-field admin-app-field--full">
+                                        <label for="reschedule_rejection_reason">Rejection reason</label>
+                                        <textarea id="reschedule_rejection_reason" name="reschedule_rejection_reason" rows="3" placeholder="Required when rejecting the reschedule request.">{{ old('reschedule_rejection_reason') }}</textarea>
+                                        @error('reschedule_rejection_reason')
+                                            <span class="error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <p class="admin-app-helper" id="installationTimeHint">Choose a technician and date to load available one-hour slots.</p>
+
+                                @error('reschedule')
+                                    <span class="error">{{ $message }}</span>
+                                @enderror
+
+                                <div class="admin-app-actions">
+                                    <button type="submit" name="decision" value="approve" class="btn success">Approve Reschedule</button>
+                                    <button type="submit" name="decision" value="reject" class="btn danger">Reject Request</button>
                                 </div>
                             </form>
                         @elseif($isCancellationRequestedState)

@@ -116,7 +116,19 @@
 
 <x-app-layout>
     @php
-        $activeInstallations = $selectedGroup === 'completed' ? $completedInstallations : $scheduledInstallations;
+        $selectedStatus = $selectedStatus ?? null;
+        $activeInstallations = match ($selectedStatus) {
+            'in_progress' => $inProgressInstallations,
+            'activated' => $activatedInstallations,
+            default => $selectedGroup === 'completed' ? $completedInstallations : $scheduledInstallations,
+        };
+        $emptyMessage = match ($selectedStatus) {
+            'in_progress' => 'No in-progress installation jobs assigned yet.',
+            'activated' => 'No activated installation jobs assigned yet.',
+            default => $selectedGroup === 'completed'
+                ? 'No installed installation jobs assigned yet.'
+                : 'No scheduled or pending jobs assigned yet.',
+        };
     @endphp
 
     <div class="tech-page tech-install-shell">
@@ -128,13 +140,21 @@
         </section>
 
         <section class="tech-install-kpis">
-            <a href="{{ route('technician.installations.index', ['group' => 'scheduled']) }}" class="tech-install-kpi card {{ $selectedGroup === 'scheduled' ? 'active' : '' }}">
+            <a href="{{ route('technician.installations.index', ['group' => 'scheduled']) }}" class="tech-install-kpi card {{ ! $selectedStatus && $selectedGroup === 'scheduled' ? 'active' : '' }}">
                 <span class="record-muted tech-install-kpi-label">Scheduled</span>
                 <strong>{{ $scheduledInstallations->count() }}</strong>
             </a>
-            <a href="{{ route('technician.installations.index', ['group' => 'completed']) }}" class="tech-install-kpi card {{ $selectedGroup === 'completed' ? 'active' : '' }}">
-                <span class="record-muted tech-install-kpi-label">Installed / Activated</span>
+            <a href="{{ route('technician.installations.index', ['status' => 'in_progress']) }}" class="tech-install-kpi card {{ $selectedStatus === 'in_progress' ? 'active' : '' }}">
+                <span class="record-muted tech-install-kpi-label">In Progress</span>
+                <strong>{{ $inProgressInstallations->count() }}</strong>
+            </a>
+            <a href="{{ route('technician.installations.index', ['group' => 'completed']) }}" class="tech-install-kpi card {{ ! $selectedStatus && $selectedGroup === 'completed' ? 'active' : '' }}">
+                <span class="record-muted tech-install-kpi-label">Installed</span>
                 <strong>{{ $completedInstallations->count() }}</strong>
+            </a>
+            <a href="{{ route('technician.installations.index', ['status' => 'activated']) }}" class="tech-install-kpi card {{ $selectedStatus === 'activated' ? 'active' : '' }}">
+                <span class="record-muted tech-install-kpi-label">Activated</span>
+                <strong>{{ $activatedInstallations->count() }}</strong>
             </a>
         </section>
 
@@ -216,9 +236,7 @@
                         @empty
                             <tr>
                                 <td colspan="8">
-                                    <div class="empty-state compact">
-                                        {{ $selectedGroup === 'completed' ? 'No completed or activated installation jobs yet.' : 'No scheduled or pending jobs assigned yet.' }}
-                                    </div>
+                                    <div class="empty-state compact">{{ $emptyMessage }}</div>
                                 </td>
                             </tr>
                         @endforelse

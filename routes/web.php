@@ -11,6 +11,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AdminTicketController;
 use App\Http\Controllers\TechnicianTicketController;
 use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\SystemLogController;
 use App\Http\Controllers\Admin\TechnicianController;
 use App\Models\Application;
 use App\Models\Installation;
@@ -88,11 +89,14 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:custo
     Route::get('/customer/apply/done', [CustomerApplicationController::class, 'done'])->name('customer.apply.done');
     Route::get('/customer/application', [CustomerApplicationController::class, 'show'])->name('customer.application.show');
     Route::patch('/customer/application/cancellation', [CustomerApplicationController::class, 'requestCancellation'])->name('customer.application.cancel');
+    Route::patch('/customer/application/reschedule', [CustomerApplicationController::class, 'requestReschedule'])->name('customer.application.reschedule');
     Route::get('/customer/tickets', [TicketController::class, 'index'])->name('customer.tickets.index');
     Route::get('/customer/tickets/create', [TicketController::class, 'create'])->name('customer.tickets.create');
     Route::post('/customer/tickets', [TicketController::class, 'store'])->name('customer.tickets.store');
     Route::get('/customer/tickets/{ticket}', [TicketController::class, 'show'])->name('customer.tickets.show');
     Route::post('/customer/tickets/{ticket}/reply', [TicketController::class, 'reply'])->name('customer.tickets.reply');
+    Route::patch('/customer/tickets/{ticket}/cancel', [TicketController::class, 'cancel'])->name('customer.tickets.cancel');
+    Route::patch('/customer/tickets/{ticket}/request-cancellation', [TicketController::class, 'requestCancellation'])->name('customer.tickets.cancellation.request');
     Route::patch('/customer/tickets/{ticket}/close', [TicketController::class, 'close'])->name('customer.tickets.close');
     Route::patch('/customer/tickets/{ticket}/reopen', [TicketController::class, 'reopen'])->name('customer.tickets.reopen');
 });
@@ -114,11 +118,15 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin
     Route::patch('/admin/applications/{application}/status', [AdminApplicationController::class, 'updateStatus'])->name('admin.applications.status');
     Route::post('/admin/applications/{application}/schedule', [AdminApplicationController::class, 'schedule'])->name('admin.applications.schedule');
     Route::patch('/admin/applications/{application}/cancellation', [AdminApplicationController::class, 'cancellationDecision'])->name('admin.applications.cancellation');
+    Route::patch('/admin/applications/{application}/reschedule', [AdminApplicationController::class, 'rescheduleDecision'])->name('admin.applications.reschedule');
     Route::get('/admin/tickets', [AdminTicketController::class, 'index'])->name('admin.tickets.index');
     Route::patch('/admin/tickets/{ticket}', [AdminTicketController::class, 'update'])->name('admin.tickets.update');
     Route::get('/admin/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('admin.tickets.show');
     Route::post('/admin/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])->name('admin.tickets.reply');
     Route::patch('/admin/tickets/{ticket}/reopen-request', [AdminTicketController::class, 'approveReopenRequest'])->name('admin.tickets.reopen-request.approve');
+    Route::patch('/admin/tickets/{ticket}/cancellation/approve', [AdminTicketController::class, 'approveCancellation'])->name('admin.tickets.cancellation.approve');
+    Route::patch('/admin/tickets/{ticket}/cancellation/reject', [AdminTicketController::class, 'rejectCancellation'])->name('admin.tickets.cancellation.reject');
+    Route::get('/admin/system-logs', [SystemLogController::class, 'index'])->name('admin.system-logs.index');
     Route::get('/admin/installations', [\App\Http\Controllers\Admin\InstallationController::class, 'index'])->name('admin.installations.index');
     Route::patch('/admin/installations/{installation}/reassign', [\App\Http\Controllers\Admin\InstallationController::class, 'reassign'])->name('admin.installations.reassign');
     Route::patch('/admin/installations/{installation}/reschedule', [\App\Http\Controllers\Admin\InstallationController::class, 'reschedule'])->name('admin.installations.reschedule');
@@ -141,8 +149,9 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:techn
                 Ticket::STATUS_OPEN,
                 Ticket::STATUS_QUEUED,
                 Ticket::STATUS_IN_PROGRESS,
+                Ticket::STATUS_CANCELLATION_REQUESTED,
             ])
-            ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 WHEN status = 'queued' THEN 1 WHEN status = 'open' THEN 2 ELSE 3 END")
+            ->orderByRaw("CASE WHEN status = 'cancellation_requested' THEN 0 WHEN status = 'in_progress' THEN 1 WHEN status = 'queued' THEN 2 WHEN status = 'open' THEN 3 ELSE 4 END")
             ->oldest('created_at')
             ->get();
 

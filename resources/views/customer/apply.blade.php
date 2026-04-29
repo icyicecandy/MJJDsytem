@@ -74,7 +74,7 @@
 
                     <div class="apply-field">
                         <label for="email">Email Address</label>
-                        <input id="email" type="email" name="email" value="{{ old('email', $application->email ?? auth()->user()->email) }}" required>
+                        <input id="email" type="email" name="email" value="{{ old('email', $application->email ?? auth()->user()->email) }}" required maxlength="255" autocomplete="email">
                         @error('email')
                             <span class="error">{{ $message }}</span>
                         @enderror
@@ -83,7 +83,7 @@
 
                     <div class="apply-field">
                         <label for="mobile_number">Mobile Number</label>
-                        <input id="mobile_number" type="text" name="mobile_number" value="{{ old('mobile_number', $application->mobile_number ?? auth()->user()->phone) }}" placeholder="09XX XXX XXXX" required>
+                        <input id="mobile_number" type="tel" name="mobile_number" value="{{ old('mobile_number', $application->mobile_number ?? auth()->user()->phone) }}" placeholder="09171234567" required maxlength="16" inputmode="tel" autocomplete="tel" pattern="^\+?[0-9]{10,15}$">
                         @error('mobile_number')
                             <span class="error">{{ $message }}</span>
                         @enderror
@@ -252,14 +252,23 @@
                 <div class="apply-step-head">
                     <div>
                         <h1>Upload Valid ID</h1>
-                        <p>Attach one clear image of a valid ID for account verification.</p>
+                        <p>Upload both required ID verification photos before submitting your application.</p>
                     </div>
                 </div>
 
                 <div class="upload-field apply-upload-field">
-                    <label for="id_image">Valid ID Image</label>
+                    <label for="id_image">Valid ID with 3 signatures</label>
+                    <p class="text-muted mt-1">Place the valid ID on a sheet of paper with three signatures beside it, then upload one clear photo.</p>
                     <input id="id_image" type="file" name="id_image" accept=".jpg,.jpeg,.png,.webp" required>
                     @error('id_image')
+                        <span class="error">{{ $message }}</span>
+                    @enderror
+                </div>
+                <div class="upload-field apply-upload-field">
+                    <label for="id_selfie_image">Customer holding valid ID</label>
+                    <p class="text-muted mt-1">Upload one clear photo of the customer holding the same valid ID beside their face.</p>
+                    <input id="id_selfie_image" type="file" name="id_selfie_image" accept=".jpg,.jpeg,.png,.webp" required>
+                    @error('id_selfie_image')
                         <span class="error">{{ $message }}</span>
                     @enderror
                 </div>
@@ -284,7 +293,8 @@
                     <div class="tracking-meta"><strong>Address</strong><span id="reviewAddress">-</span></div>
                     <div class="tracking-meta"><strong>Location Pin</strong><span id="reviewPin">Not set</span></div>
                     <div class="tracking-meta"><strong>Plan</strong><span id="reviewPlan">-</span></div>
-                    <div class="tracking-meta"><strong>ID Upload</strong><span id="reviewId">Required</span></div>
+                    <div class="tracking-meta"><strong>ID with signatures</strong><span id="reviewId">Required</span></div>
+                    <div class="tracking-meta"><strong>ID held by customer</strong><span id="reviewIdSelfie">Required</span></div>
                 </div>
 
                 <div class="apply-step-actions between">
@@ -310,7 +320,8 @@
         const addressSummary = document.getElementById('applyAddressSummary');
         const statusText = document.getElementById('applyMapStatus');
         const mapElement = document.getElementById('customerApplyMap');
-        const fileInput = document.getElementById('id_image');
+        const idSignatureInput = document.getElementById('id_image');
+        const idSelfieInput = document.getElementById('id_selfie_image');
         const firstNameInput = document.getElementById('first_name');
         const lastNameInput = document.getElementById('last_name');
         const emailInput = document.getElementById('email');
@@ -351,6 +362,9 @@
         let latestGeocodeRequest = 0;
         let contactCheckPromise = null;
         const namePattern = /^[A-Za-z][A-Za-z\s'-]*$/;
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const mobileCharactersPattern = /^\+?[0-9]*$/;
+        const mobilePattern = /^\+?[0-9]{10,15}$/;
 
         function setLiveError(field, errorEl, message) {
             if (!field) return;
@@ -390,14 +404,81 @@
             return true;
         }
 
+        function normalizeEmailValue(value) {
+            return String(value || '')
+                .replace(/[\u200B-\u200D\uFEFF]/g, '')
+                .replace(/\s+/g, '')
+                .trim();
+        }
+
+        function validateEmailFormat() {
+            if (!emailInput) return true;
+
+            const value = normalizeEmailValue(emailInput.value);
+            if (emailInput.value !== value) {
+                emailInput.value = value;
+            }
+
+            if (value === '') {
+                setLiveError(emailInput, emailDuplicateError, '');
+                return true;
+            }
+
+            if (!emailPattern.test(value)) {
+                setLiveError(emailInput, emailDuplicateError, 'Please enter a valid email address.');
+                return false;
+            }
+
+            setLiveError(emailInput, emailDuplicateError, '');
+            return true;
+        }
+
+        function normalizeMobileValue(value) {
+            return String(value || '')
+                .replace(/[\u200B-\u200D\uFEFF]/g, '')
+                .replace(/\s+/g, '')
+                .trim();
+        }
+
+        function validateMobileNumber(options = {}) {
+            if (!mobileInput) return true;
+
+            const value = normalizeMobileValue(mobileInput.value);
+            const enforceComplete = options.enforceComplete !== false;
+            if (mobileInput.value !== value) {
+                mobileInput.value = value;
+            }
+
+            if (value === '') {
+                setLiveError(mobileInput, mobileDuplicateError, '');
+                return true;
+            }
+
+            if (!mobileCharactersPattern.test(value)) {
+                setLiveError(mobileInput, mobileDuplicateError, 'Contact number may only contain numbers and an optional leading plus sign.');
+                return false;
+            }
+
+            if ((enforceComplete || value.replace(/^\+/, '').length >= 10) && !mobilePattern.test(value)) {
+                setLiveError(mobileInput, mobileDuplicateError, 'Enter a valid contact number with 10 to 15 digits.');
+                return false;
+            }
+
+            setLiveError(mobileInput, mobileDuplicateError, '');
+            return true;
+        }
+
         function shouldCheckDuplicate(field) {
             if (!field) return false;
             const value = field.value.trim();
             if (value === '') return false;
-            if (field.type === 'email') {
-                return field.checkValidity();
+            if (field === emailInput) {
+                return validateEmailFormat();
             }
-            return value.length >= 10;
+            if (field === mobileInput) {
+                return validateMobileNumber();
+            }
+            return false;
         }
 
         function runContactDuplicateCheck() {
@@ -414,8 +495,6 @@
             }
 
             if ([...payload.keys()].length === 0) {
-                setDuplicateState(emailInput, emailDuplicateError, '');
-                setDuplicateState(mobileInput, mobileDuplicateError, '');
                 return Promise.resolve(true);
             }
 
@@ -436,8 +515,12 @@
                     const emailMessage = data?.email?.duplicate ? (data.email.message || 'This email address is already used in another application.') : '';
                     const mobileMessage = data?.mobile_number?.duplicate ? (data.mobile_number.message || 'This mobile number is already used in another application.') : '';
 
-                    setDuplicateState(emailInput, emailDuplicateError, emailMessage);
-                    setDuplicateState(mobileInput, mobileDuplicateError, mobileMessage);
+                    if (payload.has('email')) {
+                        setDuplicateState(emailInput, emailDuplicateError, emailMessage);
+                    }
+                    if (payload.has('mobile_number')) {
+                        setDuplicateState(mobileInput, mobileDuplicateError, mobileMessage);
+                    }
 
                     return !emailMessage && !mobileMessage;
                 })
@@ -498,7 +581,8 @@
             setText('reviewAddress', currentAddressParts().join(', ') || '-');
             setText('reviewPin', latInput && lngInput && latInput.value && lngInput.value ? `${latInput.value}, ${lngInput.value}` : 'Not set');
             setText('reviewPlan', checkedPlan ? checkedPlan.value.replace('_', ' ') : '-');
-            setText('reviewId', fileInput && fileInput.files.length ? fileInput.files[0].name : 'Required');
+            setText('reviewId', idSignatureInput && idSignatureInput.files.length ? idSignatureInput.files[0].name : 'Required');
+            setText('reviewIdSelfie', idSelfieInput && idSelfieInput.files.length ? idSelfieInput.files[0].name : 'Required');
             updateAddressSummary();
         }
 
@@ -527,6 +611,19 @@
                 const invalidNameField = [firstNameInput, lastNameInput].find(field => field && !field.checkValidity());
                 if (invalidNameField) {
                     invalidNameField.reportValidity();
+                }
+                return false;
+            }
+
+            const contactFormatValid = [
+                validateEmailFormat(),
+                validateMobileNumber(),
+            ].every(Boolean);
+
+            if (!contactFormatValid) {
+                const invalidContactField = [emailInput, mobileInput].find(field => field && !field.checkValidity());
+                if (invalidContactField) {
+                    invalidContactField.reportValidity();
                 }
                 return false;
             }
@@ -590,11 +687,23 @@
             return true;
         }
 
+        function validateUploadStep() {
+            for (const field of [idSignatureInput, idSelfieInput]) {
+                if (field && !field.checkValidity()) {
+                    field.reportValidity();
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         function validateStep(step) {
             step = Number(step);
             if (step === 1) return validateApplicantStep();
             if (step === 2) return validateLocationStep();
             if (step === 3) return validatePlanStep();
+            if (step === 4) return validateUploadStep();
             return true;
         }
 
@@ -1224,18 +1333,45 @@
             field.addEventListener('change', updateReview);
         });
 
-        [emailInput, mobileInput].forEach(field => {
-            if (!field) return;
-
-            field.addEventListener('input', function () {
-                setDuplicateState(field, field === emailInput ? emailDuplicateError : mobileDuplicateError, '');
-                scheduleContactDuplicateCheck();
+        if (emailInput) {
+            emailInput.addEventListener('input', function () {
+                const emailValid = validateEmailFormat();
+                updateReview();
+                if (emailInput.value !== '' && emailValid) {
+                    scheduleContactDuplicateCheck();
+                } else {
+                    clearTimeout(contactCheckTimer);
+                }
             });
 
-            field.addEventListener('blur', function () {
-                runContactDuplicateCheck();
+            emailInput.addEventListener('blur', function () {
+                emailInput.value = normalizeEmailValue(emailInput.value);
+                updateReview();
+                if (validateEmailFormat()) {
+                    runContactDuplicateCheck();
+                }
             });
-        });
+        }
+
+        if (mobileInput) {
+            mobileInput.addEventListener('input', function () {
+                const mobileValid = validateMobileNumber({ enforceComplete: false });
+                updateReview();
+                if (mobilePattern.test(mobileInput.value.trim()) && mobileValid) {
+                    scheduleContactDuplicateCheck();
+                } else {
+                    clearTimeout(contactCheckTimer);
+                }
+            });
+
+            mobileInput.addEventListener('blur', function () {
+                mobileInput.value = normalizeMobileValue(mobileInput.value);
+                updateReview();
+                if (validateMobileNumber()) {
+                    runContactDuplicateCheck();
+                }
+            });
+        }
 
         [
             [firstNameInput, firstNameLiveError, 'First name'],

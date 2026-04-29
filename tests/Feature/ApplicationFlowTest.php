@@ -69,6 +69,7 @@ test('customer application stores consent metadata', function () {
             'lng' => 121.0,
             'plan_code' => 'S2S_50',
             'id_image' => UploadedFile::fake()->image('id.png'),
+            'id_selfie_image' => UploadedFile::fake()->image('id-selfie.png'),
             'agreed_to_terms' => '1',
             'agreed_to_privacy' => '1',
             'terms_version' => '2026-03',
@@ -85,9 +86,44 @@ test('customer application stores consent metadata', function () {
         ->and($application->consented_at)->not->toBeNull()
         ->and($application->terms_version)->toBe('2026-03')
         ->and($application->privacy_version)->toBe('2026-03')
-        ->and($application->id_image_path)->toStartWith('application-ids/');
+        ->and($application->id_image_path)->toStartWith('application-ids/')
+        ->and($application->id_selfie_image_path)->toStartWith('application-ids/');
 
     Storage::disk('public')->assertExists($application->id_image_path);
+    Storage::disk('public')->assertExists($application->id_selfie_image_path);
+});
+
+test('customer application rejects invalid email and mobile number formats', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['role' => 'customer']);
+    $area = firstServiceArea();
+
+    $response = $this
+        ->actingAs($user)
+        ->from(route('customer.apply', absolute: false))
+        ->post(route('customer.apply.store'), [
+            'first_name' => 'Jane',
+            'last_name' => 'Doe',
+            'email' => 'jane-at-example.test',
+            'mobile_number' => '0917ABC4567',
+            'region' => $area['region'],
+            'province' => $area['province'],
+            'municipality' => $area['municipality'],
+            'barangay' => $area['barangay'],
+            'street_landmark' => 'Near plaza',
+            'lat' => 16.2,
+            'lng' => 121.0,
+            'plan_code' => 'S2S_50',
+            'id_image' => UploadedFile::fake()->image('id.png'),
+            'id_selfie_image' => UploadedFile::fake()->image('id-selfie.png'),
+        ]);
+
+    $response
+        ->assertRedirect(route('customer.apply', absolute: false))
+        ->assertSessionHasErrors(['email', 'mobile_number']);
+
+    expect($user->refresh()->application)->toBeNull();
 });
 
 test('cancelled customer application can be submitted again with the same details', function () {
@@ -115,6 +151,7 @@ test('cancelled customer application can be submitted again with the same detail
         ->actingAs($user)
         ->post(route('customer.apply.store'), $payload + [
             'id_image' => UploadedFile::fake()->image('first-id.png'),
+            'id_selfie_image' => UploadedFile::fake()->image('first-id-selfie.png'),
         ])
         ->assertRedirect();
 
@@ -132,6 +169,7 @@ test('cancelled customer application can be submitted again with the same detail
         ->actingAs($user)
         ->post(route('customer.apply.store'), $payload + [
             'id_image' => UploadedFile::fake()->image('second-id.png'),
+            'id_selfie_image' => UploadedFile::fake()->image('second-id-selfie.png'),
         ])
         ->assertRedirect();
 

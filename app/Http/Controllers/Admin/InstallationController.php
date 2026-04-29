@@ -16,6 +16,16 @@ class InstallationController extends Controller
     public function index(Request $request)
     {
         $status = $request->query('status');
+        if ($status && ! in_array($status, [
+            Installation::STATUS_SCHEDULED,
+            Installation::STATUS_IN_PROGRESS,
+            Installation::STATUS_RESCHEDULE_REQUIRED,
+            Installation::STATUS_COMPLETED,
+            Installation::STATUS_ACTIVATED,
+            Installation::STATUS_CANCELLED,
+        ], true)) {
+            $status = null;
+        }
         $search = trim((string) $request->query('search', ''));
         $selectedGroup = $request->query('group', 'scheduled');
         if (! in_array($selectedGroup, ['scheduled', 'completed'], true)) {
@@ -31,11 +41,10 @@ class InstallationController extends Controller
         if ($status) {
             $query->where('status', $status);
         } elseif ($selectedGroup === 'completed') {
-            $query->whereIn('status', Installation::completedStatuses());
+            $query->where('status', Installation::STATUS_COMPLETED);
         } else {
             $query->whereIn('status', [
                 Installation::STATUS_SCHEDULED,
-                Installation::STATUS_IN_PROGRESS,
                 Installation::STATUS_RESCHEDULE_REQUIRED,
             ]);
         }
@@ -67,13 +76,20 @@ class InstallationController extends Controller
         $scheduledCount = Installation::query()
             ->whereIn('status', [
                 Installation::STATUS_SCHEDULED,
-                Installation::STATUS_IN_PROGRESS,
                 Installation::STATUS_RESCHEDULE_REQUIRED,
             ])
             ->count();
 
+        $inProgressCount = Installation::query()
+            ->where('status', Installation::STATUS_IN_PROGRESS)
+            ->count();
+
         $completedCount = Installation::query()
-            ->whereIn('status', Installation::completedStatuses())
+            ->where('status', Installation::STATUS_COMPLETED)
+            ->count();
+
+        $activatedCount = Installation::query()
+            ->where('status', Installation::STATUS_ACTIVATED)
             ->count();
 
         $installations = $query->paginate(15)->withQueryString();
@@ -84,7 +100,9 @@ class InstallationController extends Controller
             'search',
             'selectedGroup',
             'scheduledCount',
-            'completedCount'
+            'inProgressCount',
+            'completedCount',
+            'activatedCount'
         ));
     }
 
@@ -140,6 +158,11 @@ class InstallationController extends Controller
             'user_id' => auth()->id(),
             'notes' => 'Technician reassigned due to unavailability. Previous technician: ' . $oldTechnicianName . '. New technician: ' . $technician->name . ($reason !== '' ? '. Reason: ' . $reason : ''),
         ]);
+
+        system_log(
+            'Reassigned Technician',
+            'Reassigned ' . $installation->displayJobReference() . ' from ' . $oldTechnicianName . ' to ' . $technician->name . '.'
+        );
 
         AppNotificationSender::send(
             $technician,
@@ -217,6 +240,11 @@ class InstallationController extends Controller
             'user_id' => auth()->id(),
             'notes' => 'Installation rescheduled by admin for ' . $installation->installation_date?->format('F d, Y') . ' at ' . Carbon::parse($installation->installation_time)->format('g:i A') . '.',
         ]);
+
+        system_log(
+            'Installation Rescheduled',
+            'Rescheduled ' . $installation->displayJobReference() . ' for ' . $installation->installation_date?->format('M d, Y') . ' at ' . Carbon::parse($installation->installation_time)->format('h:i A') . '.'
+        );
 
         AppNotificationSender::send(
             $technician,

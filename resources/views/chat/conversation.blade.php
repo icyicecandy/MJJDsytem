@@ -205,7 +205,7 @@
         const assignedStaffSelect = document.getElementById('assigned_staff_id');
         const assignToMeButtons = document.querySelectorAll('[data-assign-to-me]');
         const textarea = form ? form.querySelector('textarea[name="message"]') : null;
-        const attachmentInput = form ? form.querySelector('input[name="chat_attachment"]') : null;
+        const attachmentInput = form ? form.querySelector('input[type="file"]') : null;
         const attachmentName = form ? form.querySelector('[data-chat-attachment-name]') : null;
         const submitButton = form ? form.querySelector('button[type="submit"]') : null;
         const meId = {{ auth()->id() }};
@@ -281,30 +281,44 @@
         }
 
         function attachmentHtml(message) {
-            if (message.attachment_missing || (message.attachment_path && !message.attachment_url)) {
-                return `
-                    <div class="chat-ui__message-attachment is-missing">
-                        <span>Uploaded file not found.</span>
-                    </div>
-                `;
+            let attachments = Array.isArray(message.attachments) ? message.attachments : [];
+
+            if (!attachments.length && message.attachment_path) {
+                attachments = [{
+                    path: message.attachment_path,
+                    url: message.attachment_url,
+                    original_name: message.attachment_original_name || 'View image',
+                    is_image: message.attachment_is_image,
+                    missing: message.attachment_missing || !message.attachment_url,
+                }];
             }
 
-            if (!message.attachment_url) {
+            if (!attachments.length) {
                 return '';
             }
 
-            const label = escapeHtml(message.attachment_original_name || 'View image');
-            const url = escapeHtml(message.attachment_url);
-            const image = message.attachment_is_image
-                ? `<img src="${url}" alt="${label}">`
-                : '';
+            return attachments.map((attachment) => {
+                if (attachment.missing || !attachment.url) {
+                    return `
+                        <div class="chat-ui__message-attachment is-missing">
+                            <span>Uploaded file not found.</span>
+                        </div>
+                    `;
+                }
 
-            return `
-                <a href="${url}" target="_blank" rel="noopener noreferrer" class="chat-ui__message-attachment">
-                    ${image}
-                    <span>${label}</span>
-                </a>
-            `;
+                const label = escapeHtml(attachment.original_name || 'View image');
+                const url = escapeHtml(attachment.url);
+                const image = attachment.is_image
+                    ? `<img src="${url}" alt="${label}">`
+                    : '';
+
+                return `
+                    <a href="${url}" target="_blank" rel="noopener noreferrer" class="chat-ui__message-attachment">
+                        ${image}
+                        <span>${label}</span>
+                    </a>
+                `;
+            }).join('');
         }
 
         function appendMessage(message) {
@@ -385,7 +399,7 @@
             if (!chatWindow) return;
 
             const nearBottom = (chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight) < 120;
-            const signature = JSON.stringify((messages || []).map((message) => [message.id, message.message, message.attachment_path, message.created_at]));
+            const signature = JSON.stringify((messages || []).map((message) => [message.id, message.message, message.attachment_path, message.attachments, message.created_at]));
 
             if (signature === lastSignature) {
                 return;
@@ -488,8 +502,8 @@
             if (!form || !textarea || isSending) return;
 
             const message = textarea.value.trim();
-            const attachment = attachmentInput && attachmentInput.files && attachmentInput.files[0] ? attachmentInput.files[0] : null;
-            if (!message && !attachment) return;
+            const attachments = attachmentInput && attachmentInput.files ? Array.from(attachmentInput.files) : [];
+            if (!message && !attachments.length) return;
 
             setSendingState(true);
             const formData = new FormData(form);
@@ -542,8 +556,10 @@
         function updateAttachmentName() {
             if (!attachmentInput || !attachmentName) return;
 
-            const file = attachmentInput.files && attachmentInput.files[0] ? attachmentInput.files[0] : null;
-            attachmentName.textContent = file ? file.name : 'No image selected';
+            const files = attachmentInput.files ? Array.from(attachmentInput.files) : [];
+            attachmentName.textContent = files.length
+                ? files.map((file) => file.name).join(', ')
+                : 'No images selected';
         }
 
         if (attachmentInput) {

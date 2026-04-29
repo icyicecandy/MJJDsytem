@@ -6,11 +6,16 @@
 @php
     $isResolved = $ticket->status === \App\Models\Ticket::STATUS_RESOLVED;
     $isClosed = $ticket->status === \App\Models\Ticket::STATUS_CLOSED;
+    $isCancellationRequested = $ticket->isCancellationRequested();
+    $isCancelled = $ticket->isCancelled();
+    $isReadOnly = $ticket->isReadOnly();
     $hasPendingReopenRequest = $ticket->hasPendingReopenRequest();
     $assignedStaff = optional($ticket->technician)->name ?? 'Unassigned Queue';
     $statusHelper = match ($ticket->status) {
         \App\Models\Ticket::STATUS_RESOLVED => 'Waiting for customer confirmation',
+        \App\Models\Ticket::STATUS_CANCELLATION_REQUESTED => 'Customer requested cancellation',
         \App\Models\Ticket::STATUS_CLOSED => $hasPendingReopenRequest ? 'Customer requested reopening' : 'Ticket closed',
+        \App\Models\Ticket::STATUS_CANCELLED => 'Ticket cancelled',
         \App\Models\Ticket::STATUS_IN_PROGRESS => 'Technician is working on this ticket',
         default => 'Waiting for work to begin',
     };
@@ -39,12 +44,11 @@
 
                 <p class="ticket-detail-description">{{ $ticket->description }}</p>
 
-                <x-upload-preview
-                    :path="$ticket->photo_path"
-                    label="Ticket photo"
+                <x-photo-gallery
+                    :photos="$ticket->photoGalleryItems()"
+                    title="Ticket photos"
                     empty="No ticket attachment uploaded."
                     button-text="View attachment"
-                    image-alt="Ticket issue photo"
                 />
             </section>
 
@@ -66,7 +70,11 @@
                                 || str_starts_with($messageText, 'Ticket closed by')
                                 || str_starts_with($messageText, 'Ticket reopen requested by')
                                 || str_starts_with($messageText, 'Ticket reopen request approved by')
-                                || str_starts_with($messageText, 'Ticket reopened by');
+                                || str_starts_with($messageText, 'Ticket reopened by')
+                                || str_starts_with($messageText, 'Customer cancelled this ticket')
+                                || str_starts_with($messageText, 'Customer requested ticket cancellation')
+                                || str_starts_with($messageText, 'Admin approved ticket cancellation')
+                                || str_starts_with($messageText, 'Admin rejected cancellation request');
                             $messageClass = $isSystemMessage ? 'is-system' : ($isCustomerMessage ? 'is-customer' : 'is-staff');
                         @endphp
                         <article class="ticket-message-row {{ $messageClass }}">
@@ -76,13 +84,14 @@
                                     <span>{{ $msg->created_at->displayDateTime('M d, Y h:i A') }}</span>
                                 </div>
                                 <p>{{ $messageText }}</p>
-                                <x-upload-preview
-                                    :path="$msg->attachment_path"
-                                    label="Message attachment"
-                                    button-text="View attachment"
-                                    :show-empty="false"
-                                    class="ticket-message-attachment"
-                                />
+                                @if($msg->attachmentPaths())
+                                    <x-photo-gallery
+                                        :photos="$msg->attachmentGalleryItems()"
+                                        title="Message attachments"
+                                        button-text="View attachment"
+                                        class="ticket-message-attachment"
+                                    />
+                                @endif
                             </div>
                         </article>
                     @empty
@@ -95,17 +104,23 @@
                 <div class="ticket-detail-section-head">
                     <div>
                         <h2>Reply</h2>
-                        <p>{{ $isClosed ? 'Replies are disabled because this ticket is closed.' : 'Send an update to everyone on this ticket.' }}</p>
+                        <p>{{ $isReadOnly ? 'Replies are disabled because this ticket is closed or cancelled.' : 'Send an update to everyone on this ticket.' }}</p>
                     </div>
                 </div>
 
-                @if(! $isClosed)
+                @if(! $isReadOnly)
                     <form method="POST" action="{{ route('admin.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form">
                         @csrf
                         <textarea name="message" rows="5" placeholder="Type your reply..."></textarea>
-                        <label for="admin_ticket_attachment">Attachment <span class="field-badge optional">Optional</span></label>
-                        <input id="admin_ticket_attachment" type="file" name="ticket_attachment" accept=".jpg,.jpeg,.png,.webp">
+                        <label for="admin_ticket_attachment">Attachments <span class="field-badge optional">Optional</span></label>
+                        <input id="admin_ticket_attachment" type="file" name="ticket_attachments[]" accept=".jpg,.jpeg,.png,.webp" multiple>
                         @error('ticket_attachment')
+                            <p class="error">{{ $message }}</p>
+                        @enderror
+                        @error('ticket_attachments')
+                            <p class="error">{{ $message }}</p>
+                        @enderror
+                        @error('ticket_attachments.*')
                             <p class="error">{{ $message }}</p>
                         @enderror
                         <div class="ticket-form-actions">
@@ -114,10 +129,7 @@
                     </form>
                 @else
                     <div class="ticket-reply-disabled">
-                        <textarea rows="4" disabled placeholder="Ticket closed"></textarea>
-                        <div class="ticket-form-actions">
-                            <button class="btn" disabled>Send Reply</button>
-                        </div>
+                        <p class="ticket-sidebar-note">This ticket is read-only.</p>
                     </div>
                 @endif
             </section>
@@ -152,7 +164,7 @@
 
             <section class="ticket-detail-card ticket-sidebar-card">
                 <h2>Assignment</h2>
-                @if(! $isClosed)
+                @if(! $isReadOnly && ! $isCancellationRequested)
                     <form method="post" action="{{ route('admin.tickets.update', $ticket) }}" class="ticket-action-form">
                         @csrf
                         @method('PATCH')
@@ -169,13 +181,27 @@
                         <button class="btn">{{ $ticket->technician_id ? 'Update Assignment' : 'Assign Technician' }}</button>
                     </form>
                 @else
-                    <p class="ticket-sidebar-note">Assignment is locked because this ticket is closed.</p>
+                    <p class="ticket-sidebar-note">Assignment is locked for this ticket status.</p>
                 @endif
             </section>
 
             <section class="ticket-detail-card ticket-sidebar-card">
                 <h2>Status Actions</h2>
-                @if($hasPendingReopenRequest)
+                @if($isCancellationRequested)
+                    <div class="ticket-action-form">
+                        <p class="ticket-sidebar-note">Customer requested cancellation. Review the request before any other status update.</p>
+                        <form method="post" action="{{ route('admin.tickets.cancellation.approve', $ticket) }}">
+                            @csrf
+                            @method('PATCH')
+                            <button class="btn danger">Approve Cancellation</button>
+                        </form>
+                        <form method="post" action="{{ route('admin.tickets.cancellation.reject', $ticket) }}">
+                            @csrf
+                            @method('PATCH')
+                            <button class="btn secondary">Reject Cancellation</button>
+                        </form>
+                    </div>
+                @elseif($hasPendingReopenRequest)
                     <div class="ticket-action-form">
                         <p class="ticket-sidebar-note"><strong>Reopen reason:</strong> {{ $ticket->reopen_reason }}</p>
                         <form method="post" action="{{ route('admin.tickets.reopen-request.approve', $ticket) }}">
@@ -184,7 +210,7 @@
                             <button class="btn">Accept Reopen Request</button>
                         </form>
                     </div>
-                @elseif(! $isClosed)
+                @elseif(! $isReadOnly)
                     <form method="post" action="{{ route('admin.tickets.update', $ticket) }}" class="ticket-action-form">
                         @csrf
                         @method('PATCH')
@@ -196,7 +222,7 @@
                         @endunless
                     </form>
                 @else
-                    <p class="ticket-sidebar-note">Ticket closed. No further status actions are available.</p>
+                    <p class="ticket-sidebar-note">Ticket {{ $isCancelled ? 'cancelled' : 'closed' }}. No further status actions are available.</p>
                 @endif
             </section>
 

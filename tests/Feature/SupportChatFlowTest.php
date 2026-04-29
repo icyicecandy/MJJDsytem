@@ -12,7 +12,6 @@ beforeEach(function () {
     config()->set('services.support_chat.presence_window_seconds', 90);
     config()->set('services.support_chat.max_active_conversations_per_staff', 1);
 });
-
 function makeSupportUser(string $role, array $attributes = []): User
 {
     return User::factory()->create(array_merge([
@@ -427,7 +426,7 @@ test('programmed greeting response is returned before external ai fallback', fun
     $reply = app(SupportAiService::class)->generateSupportReply($customer, 'hi');
 
     expect($reply['source'])->toBe('programmed')
-        ->and($reply['answer'])->toBe('Hello! I’m the MJJD Telecom assistant. I can help with common questions while our support team is unavailable or assisting other customers.');
+        ->and($reply['answer'])->toBe('Hello! I\'m the MJJD Telecom assistant. I can help with common questions while our support team is unavailable or assisting other customers.');
 });
 
 test('programmed availability response is returned for support availability questions', function () {
@@ -447,7 +446,7 @@ test('programmed application response is returned for application questions', fu
     $reply = app(SupportAiService::class)->generateSupportReply($customer, 'how to apply?');
 
     expect($reply['source'])->toBe('programmed')
-        ->and($reply['answer'])->toBe('To apply, submit your service application form with your contact information, service address, selected plan, and a valid ID. The admin will review serviceability before scheduling installation.');
+        ->and($reply['answer'])->toBe('To apply, submit your contact information, service address, selected plan, and two valid ID photos: one photo of the ID placed on paper with three signatures, and one photo of the customer holding the same ID. The admin will review serviceability before scheduling installation.');
 });
 
 test('programmed ticket response is returned for service issue questions', function () {
@@ -467,7 +466,7 @@ test('unknown questions fall back to the default support guidance when external 
     $reply = app(SupportAiService::class)->generateSupportReply($customer, 'what is your refund matrix?');
 
     expect($reply['source'])->toBe('fallback')
-        ->and($reply['answer'])->toBe('I’m not fully sure about that yet, but I can help with applications, installation schedules, tracking, tickets, and available plans. A staff member can also take over when available.');
+        ->and($reply['answer'])->toBe('I\'m not fully sure about that yet, but I can help with applications, installation schedules, tracking, tickets, and available plans. A staff member can also take over when available.');
 });
 
 test('customer replies do not auto reassign a conversation after admin takes over', function () {

@@ -746,18 +746,24 @@
                                     <input id="cable_length" type="text" name="cable_length" value="{{ old('cable_length', $installation->cable_length) }}" maxlength="50" required>
                                 </div>
                                 <div class="workflow-field full">
-                                    <label for="installation_photo">Upload proof of installation <span class="field-badge optional">Optional</span></label>
+                                    <label for="installation_photo">Upload proof of installation <span class="field-badge required">Required</span></label>
                                     <label class="workflow-upload-zone" for="installation_photo">
-                                        <span class="workflow-upload-button">Choose Photo</span>
-                                        <span class="workflow-note">JPG, JPEG, PNG, or WEBP. Tap to replace before submitting.</span>
-                                        <input id="installation_photo" type="file" name="installation_photo" accept=".jpg,.jpeg,.png,.webp">
+                                        <span class="workflow-upload-button">Choose Photos</span>
+                                        <span class="workflow-note">Upload one or more JPG, JPEG, PNG, or WEBP proof photos before completing the job.</span>
+                                        <input id="installation_photo" type="file" name="installation_photos[]" accept=".jpg,.jpeg,.png,.webp" multiple required>
                                     </label>
+                                    @error('installation_photos')
+                                        <p class="error">{{ $message }}</p>
+                                    @enderror
+                                    @error('installation_photos.*')
+                                        <p class="error">{{ $message }}</p>
+                                    @enderror
                                     <div class="workflow-photo-preview" data-photo-preview>
                                         <img src="" alt="Selected installation proof preview" data-photo-preview-image>
                                         <div>
-                                            <span class="workflow-label">Selected Photo</span>
+                                            <span class="workflow-label">Selected Photos</span>
                                             <div class="workflow-value" data-review-photo>No file selected.</div>
-                                            <p class="workflow-note">Select a different file to replace it.</p>
+                                            <p class="workflow-note">Select again to replace the selected files before submitting.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1106,8 +1112,11 @@
 
                 if (photoNode && photoField) {
                     const updatePhoto = function () {
-                        const file = photoField.files && photoField.files[0] ? photoField.files[0] : null;
-                        photoNode.textContent = file ? file.name : 'No file selected.';
+                        const files = photoField.files ? Array.from(photoField.files) : [];
+                        const file = files[0] || null;
+                        photoNode.textContent = files.length
+                            ? files.map(function (item) { return item.name; }).join(', ')
+                            : 'No file selected.';
 
                         if (photoPreviewUrl) {
                             URL.revokeObjectURL(photoPreviewUrl);

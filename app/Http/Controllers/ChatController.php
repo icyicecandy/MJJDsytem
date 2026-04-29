@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\SupportChatService;
+use App\Support\PublicUpload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -164,8 +165,10 @@ class ChatController extends Controller
         $user = $this->resolveConversationUser($roleOrUser, $user);
 
         $request->validate([
-            'message' => ['nullable', 'required_without:chat_attachment', 'string', 'max:4000'],
+            'message' => ['nullable', 'required_without_all:chat_attachment,chat_attachments', 'string', 'max:4000'],
             'chat_attachment' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'chat_attachments' => ['nullable', 'array', 'max:5'],
+            'chat_attachments.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         $me = Auth::user();
@@ -176,9 +179,11 @@ class ChatController extends Controller
             abort_unless($this->supportChat->canStaffReply($me, $user), 403);
         }
 
+        $attachments = PublicUpload::flattenFiles($request->file('chat_attachments', []), $request->file('chat_attachment'));
+
         $result = $me->isCustomer()
-            ? $this->supportChat->handleCustomerMessage($me, (string) $request->input('message', ''), $request->file('chat_attachment'))
-            : $this->supportChat->handleStaffMessage($me, $user, (string) $request->input('message', ''), $request->file('chat_attachment'));
+            ? $this->supportChat->handleCustomerMessage($me, (string) $request->input('message', ''), $attachments)
+            : $this->supportChat->handleStaffMessage($me, $user, (string) $request->input('message', ''), $attachments);
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
@@ -214,6 +219,11 @@ class ChatController extends Controller
 
         $this->supportChat->markPresence($me);
         $this->supportChat->takeOver($me, $user);
+
+        system_log(
+            'Staff Takeover',
+            $me->name . ' took over the chat conversation with ' . $user->name . '.'
+        );
 
         return back()->with('success', 'Conversation assigned to ' . $me->name . '.');
     }
@@ -253,6 +263,11 @@ class ChatController extends Controller
 
         $this->supportChat->markPresence($me);
         $this->supportChat->assignConversation($me, $customer, $staff);
+
+        system_log(
+            'Conversation Assigned',
+            'Assigned chat conversation with ' . $customer->name . ' to ' . $staff->name . '.'
+        );
 
         return back()->with('success', 'Conversation reassigned to ' . $staff->name . '.');
     }
@@ -342,6 +357,7 @@ class ChatController extends Controller
             'attachment_original_name' => $msg->attachmentOriginalName(),
             'attachment_is_image' => $msg->hasImageAttachment(),
             'attachment_missing' => $msg->attachmentPath() && ! $msg->attachmentExists(),
+            'attachments' => $msg->attachmentItems(),
             'from_user_id' => $msg->from_user_id,
             'created_at' => $msg->created_at->displayTime(),
         ])->values();

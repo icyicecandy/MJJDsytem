@@ -33,7 +33,7 @@ class SupportAiService
         return [
             [
                 'keywords' => ['hi', 'hello', 'good morning', 'good afternoon', 'good evening'],
-                'answer' => 'Hello! I’m the MJJD Telecom assistant. I can help with common questions while our support team is unavailable or assisting other customers.',
+                'answer' => 'Hello! I\'m the MJJD Telecom assistant. I can help with common questions while our support team is unavailable or assisting other customers.',
             ],
             [
                 'keywords' => ['is anyone available', 'are you available', 'can i talk to support', 'can i talk to a person', 'human support', 'staff available', 'technician available'],
@@ -41,7 +41,7 @@ class SupportAiService
             ],
             [
                 'keywords' => ['how to apply', 'application requirements', 'requirements', 'valid id', 'service application'],
-                'answer' => 'To apply, submit your service application form with your contact information, service address, selected plan, and a valid ID. The admin will review serviceability before scheduling installation.',
+                'answer' => 'To apply, submit your contact information, service address, selected plan, and two valid ID photos: one photo of the ID placed on paper with three signatures, and one photo of the customer holding the same ID. The admin will review serviceability before scheduling installation.',
             ],
             [
                 'keywords' => ['installation', 'schedule', 'technician', 'appointment', 'when will install'],
@@ -61,7 +61,7 @@ class SupportAiService
             ],
             [
                 'keywords' => ['thank you', 'thanks', 'okay', 'ok'],
-                'answer' => 'You’re welcome! You may continue asking questions here, and support staff can assist when available.',
+                'answer' => 'You\'re welcome! You may continue asking questions here, and support staff can assist when available.',
             ],
         ];
     }
@@ -219,7 +219,7 @@ PROMPT;
     {
         return [
             'source' => 'fallback',
-            'answer' => 'I’m not fully sure about that yet, but I can help with applications, installation schedules, tracking, tickets, and available plans. A staff member can also take over when available.',
+            'answer' => 'I\'m not fully sure about that yet, but I can help with applications, installation schedules, tracking, tickets, and available plans. A staff member can also take over when available.',
             'confidence' => 0.0,
             'metadata' => ['fallback' => true],
         ];

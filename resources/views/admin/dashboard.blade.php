@@ -104,6 +104,7 @@
                     <a href="{{ route('admin.customers.index') }}" class="quick-link"><strong>Customers</strong><span>Review customer details, service status, and support history.</span></a>
                     <a href="{{ route('admin.technicians.index') }}" class="quick-link"><strong>Technicians</strong><span>Review technician details, workload, and upcoming schedules.</span></a>
                     <a href="{{ route('admin.tickets.index') }}" class="quick-link"><strong>Tickets</strong><span>Manage customer issues and assignments.</span></a>
+                    <a href="{{ route('admin.system-logs.index') }}" class="quick-link"><strong>System Logs</strong><span>View the latest recorded system activity.</span></a>
                 </div>
             </div>
         </div>

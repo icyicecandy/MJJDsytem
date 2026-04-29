@@ -163,10 +163,20 @@ class AdminApplicationController extends Controller
 
         if ($validated['status'] === 'approved' && $previousStatus !== 'approved') {
             CustomerEmailSender::sendApplicationApproved($application);
+
+            system_log(
+                'Application Approved',
+                'Application ' . $application->reference_no . ' was approved by ' . auth()->user()->name . '.'
+            );
         }
 
         if ($validated['status'] === 'rejected' && $previousStatus !== 'rejected') {
             CustomerEmailSender::sendApplicationRejected($application);
+
+            system_log(
+                'Application Rejected',
+                'Application ' . $application->reference_no . ' was rejected by ' . auth()->user()->name . '.'
+            );
         }
 
         return redirect()
@@ -235,6 +245,16 @@ class AdminApplicationController extends Controller
             'user_id' => auth()->id(),
             'notes' => 'Installation scheduled for ' . $installation->installation_date?->format('F d, Y') . ' at ' . Carbon::parse($installation->installation_time)->format('g:i A') . '.',
         ]);
+
+        system_log(
+            'Assigned Technician',
+            'Assigned technician ' . $technician->name . ' to Application ' . $application->reference_no . '.'
+        );
+
+        system_log(
+            'Installation Scheduled',
+            'Scheduled installation for Application ' . $application->reference_no . ' on ' . $installation->installation_date?->format('M d, Y') . ' at ' . Carbon::parse($installation->installation_time)->format('h:i A') . '.'
+        );
 
         AppNotificationSender::send(
             $technician,
@@ -308,6 +328,11 @@ class AdminApplicationController extends Controller
                 );
             }
 
+            system_log(
+                'Application Cancelled',
+                'Application ' . $application->reference_no . ' cancellation request was approved by ' . auth()->user()->name . '.'
+            );
+
             return back()->with('success', 'Cancellation request approved.');
         }
 
@@ -336,6 +361,147 @@ class AdminApplicationController extends Controller
         }
 
         return back()->with('success', 'Cancellation request rejected. Installation remains scheduled.');
+    }
+
+    public function rescheduleDecision(Request $request, Application $application)
+    {
+        $isApprove = $request->input('decision') === 'approve';
+        $isReject = $request->input('decision') === 'reject';
+
+        $validated = $request->validate([
+            'decision' => ['required', Rule::in(['approve', 'reject'])],
+            'technician_id' => [Rule::requiredIf($isApprove), 'nullable', 'exists:users,id'],
+            'installation_date' => [Rule::requiredIf($isApprove), 'nullable', 'date'],
+            'installation_time' => [Rule::requiredIf($isApprove), 'nullable', Rule::in(Installation::AVAILABLE_TIME_SLOTS)],
+            'reschedule_rejection_reason' => [
+                Rule::requiredIf($isReject),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+        ], [
+            'reschedule_rejection_reason.required' => 'Please provide a reason before rejecting the reschedule request.',
+        ]);
+
+        $application->loadMissing(['installation.technician', 'user']);
+        $installation = $application->installation;
+
+        if (! $installation || ! $installation->hasPendingCustomerRescheduleRequest()) {
+            return back()->withErrors([
+                'reschedule' => 'This application is not waiting for customer reschedule review.',
+            ]);
+        }
+
+        if ($validated['decision'] === 'reject') {
+            $reason = trim((string) $validated['reschedule_rejection_reason']);
+
+            if ($reason === '') {
+                return back()
+                    ->withErrors(['reschedule_rejection_reason' => 'Please provide a reason before rejecting the reschedule request.'])
+                    ->withInput();
+            }
+
+            $installation->update([
+                'reschedule_reviewed_at' => now(),
+                'reschedule_rejection_reason' => $reason,
+            ]);
+
+            InstallationLog::create([
+                'installation_id' => $installation->id,
+                'user_id' => auth()->id(),
+                'notes' => 'Customer reschedule request rejected by admin. Reason: ' . $reason,
+            ]);
+
+            if ($application->user) {
+                AppNotificationSender::send(
+                    $application->user,
+                    'Reschedule request rejected',
+                    'Your installation schedule remains active. Reason: ' . $reason,
+                    route('customer.application.show'),
+                    'installation_reschedule_rejected',
+                    ['application_id' => $application->id, 'installation_id' => $installation->id],
+                    auth()->id()
+                );
+            }
+
+            system_log(
+                'Installation Reschedule Rejected',
+                'Rejected customer reschedule request for Application ' . $application->reference_no . '.'
+            );
+
+            return back()->with('success', 'Reschedule request rejected. The original schedule remains active.');
+        }
+
+        $technician = User::find($validated['technician_id']);
+        if (! $technician || ! $technician->isTechnician()) {
+            return back()
+                ->withErrors(['technician_id' => 'Selected user is not a technician.'])
+                ->withInput();
+        }
+
+        if ($this->technicianHasScheduleConflict(
+            technicianId: (int) $technician->id,
+            installationDate: $validated['installation_date'],
+            installationTime: $validated['installation_time'],
+            ignoreInstallationId: $installation->id,
+        )) {
+            return back()
+                ->withErrors(['installation_time' => 'This technician already has an installation scheduled during that time slot.'])
+                ->withInput();
+        }
+
+        $technicianChanged = (int) $installation->technician_id !== (int) $technician->id;
+
+        $installation->update([
+            'technician_id' => $technician->id,
+            'assigned_at' => $technicianChanged || ! $installation->assigned_at ? now() : $installation->assigned_at,
+            'installation_date' => $validated['installation_date'],
+            'installation_time' => $validated['installation_time'],
+            'status' => Installation::STATUS_SCHEDULED,
+            'reschedule_reviewed_at' => now(),
+            'reschedule_rejection_reason' => null,
+        ]);
+
+        $application->update(['status' => Application::STATUS_SCHEDULED]);
+
+        $scheduleLabel = $installation->fresh()->installation_date?->format('F d, Y')
+            . ' at '
+            . Carbon::parse($validated['installation_time'])->format('g:i A');
+
+        InstallationLog::create([
+            'installation_id' => $installation->id,
+            'user_id' => auth()->id(),
+            'notes' => 'Customer reschedule request approved by admin. New schedule: ' . $scheduleLabel . '.',
+        ]);
+
+        system_log(
+            'Installation Reschedule Approved',
+            'Approved customer reschedule request for Application ' . $application->reference_no . ' to ' . $scheduleLabel . '.'
+        );
+
+        AppNotificationSender::send(
+            $technician,
+            'Installation rescheduled',
+            'Installation ' . $installation->displayJobReference() . ' has a new schedule.',
+            route('technician.installations.show', $installation),
+            'installation_rescheduled',
+            ['installation_id' => $installation->id, 'application_id' => $application->id],
+            auth()->id()
+        );
+
+        if ($application->user) {
+            AppNotificationSender::send(
+                $application->user,
+                'Reschedule request approved',
+                'Your installation has been rescheduled to ' . $scheduleLabel . '.',
+                route('customer.application.show'),
+                'installation_reschedule_approved',
+                ['application_id' => $application->id, 'installation_id' => $installation->id],
+                auth()->id()
+            );
+        }
+
+        return back()->with('success', 'Reschedule request approved and installation schedule updated.');
     }
 
     private function supportsAssessmentFields(): bool

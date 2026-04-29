@@ -118,6 +118,16 @@
 @endpush
 
 @section('content')
+@php
+    $emptyMessage = match ($status) {
+        'in_progress' => 'No in-progress installation jobs yet.',
+        'activated' => 'No activated installation jobs yet.',
+        'completed' => 'No installed installation jobs yet.',
+        default => $selectedGroup === 'completed'
+            ? 'No installed installation jobs yet.'
+            : 'No scheduled or pending installation jobs yet.',
+    };
+@endphp
 <div class="page-stack">
     <section class="card section-title-card">
         <div>
@@ -127,13 +137,21 @@
     </section>
 
     <section class="admin-install-kpis">
-        <a href="{{ route('admin.installations.index', array_filter(['group' => 'scheduled', 'search' => $search])) }}" class="admin-install-kpi card {{ !request()->filled('status') && $selectedGroup === 'scheduled' ? 'active' : '' }}">
+        <a href="{{ route('admin.installations.index', array_filter(['group' => 'scheduled', 'search' => $search])) }}" class="admin-install-kpi card {{ ! $status && $selectedGroup === 'scheduled' ? 'active' : '' }}">
             <span class="record-muted admin-install-kpi-label">Scheduled</span>
             <strong>{{ $scheduledCount }}</strong>
         </a>
-        <a href="{{ route('admin.installations.index', array_filter(['group' => 'completed', 'search' => $search])) }}" class="admin-install-kpi card {{ !request()->filled('status') && $selectedGroup === 'completed' ? 'active' : '' }}">
-            <span class="record-muted admin-install-kpi-label">Installed / Activated</span>
+        <a href="{{ route('admin.installations.index', array_filter(['status' => 'in_progress', 'search' => $search])) }}" class="admin-install-kpi card {{ $status === 'in_progress' ? 'active' : '' }}">
+            <span class="record-muted admin-install-kpi-label">In Progress</span>
+            <strong>{{ $inProgressCount }}</strong>
+        </a>
+        <a href="{{ route('admin.installations.index', array_filter(['group' => 'completed', 'search' => $search])) }}" class="admin-install-kpi card {{ ! $status && $selectedGroup === 'completed' ? 'active' : '' }}">
+            <span class="record-muted admin-install-kpi-label">Installed</span>
             <strong>{{ $completedCount }}</strong>
+        </a>
+        <a href="{{ route('admin.installations.index', array_filter(['status' => 'activated', 'search' => $search])) }}" class="admin-install-kpi card {{ $status === 'activated' ? 'active' : '' }}">
+            <span class="record-muted admin-install-kpi-label">Activated</span>
+            <strong>{{ $activatedCount }}</strong>
         </a>
     </section>
 
@@ -224,13 +242,7 @@
                     @empty
                         <tr>
                             <td colspan="9">
-                                <div class="empty-state compact">
-                                    @if($selectedGroup === 'completed')
-                                        No completed or activated installation jobs yet.
-                                    @else
-                                        No scheduled or pending installation jobs yet.
-                                    @endif
-                                </div>
+                                <div class="empty-state compact">{{ $emptyMessage }}</div>
                             </td>
                         </tr>
                     @endforelse

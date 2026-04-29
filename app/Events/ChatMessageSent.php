@@ -53,6 +53,7 @@ class ChatMessageSent implements ShouldBroadcast
                 'attachment_original_name' => $this->message->attachmentOriginalName(),
                 'attachment_is_image' => $this->message->hasImageAttachment(),
                 'attachment_missing' => $this->message->attachmentPath() && ! $this->message->attachmentExists(),
+                'attachments' => $this->message->attachmentItems(),
                 'created_at' => $this->message->created_at->toDateTimeString(),
             ]
         ];

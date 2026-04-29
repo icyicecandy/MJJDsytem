@@ -3,7 +3,8 @@
     $ticketModalActive = request()->query('create_ticket') === '1'
         || $errors->has('subject')
         || $errors->has('description')
-        || $errors->has('ticket_photo');
+        || $errors->has('ticket_photo')
+        || $errors->has('ticket_photos');
 @endphp
 
 <div class="customer-ticket-modal{{ $ticketModalActive ? ' is-open' : '' }}" id="customerTicketModal" aria-hidden="{{ $ticketModalActive ? 'false' : 'true' }}">
@@ -52,10 +53,16 @@
                 </div>
 
                 <div class="customer-ticket-modal__field">
-                    <label for="customer_ticket_photo">Photo <span class="field-badge optional">Optional</span></label>
-                    <input id="customer_ticket_photo" type="file" name="ticket_photo" accept=".jpg,.jpeg,.png,.webp">
-                    <p class="customer-ticket-modal__helper">Attach one image if it helps show the issue more clearly.</p>
+                    <label for="customer_ticket_photo">Photos <span class="field-badge optional">Optional</span></label>
+                    <input id="customer_ticket_photo" type="file" name="ticket_photos[]" accept=".jpg,.jpeg,.png,.webp" multiple>
+                    <p class="customer-ticket-modal__helper">Attach one or more images if they help show the issue more clearly.</p>
                     @error('ticket_photo')
+                        <p class="customer-ticket-modal__error">{{ $message }}</p>
+                    @enderror
+                    @error('ticket_photos')
+                        <p class="customer-ticket-modal__error">{{ $message }}</p>
+                    @enderror
+                    @error('ticket_photos.*')
                         <p class="customer-ticket-modal__error">{{ $message }}</p>
                     @enderror
                 </div>

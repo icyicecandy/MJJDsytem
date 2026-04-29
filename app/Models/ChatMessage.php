@@ -60,7 +60,7 @@ class ChatMessage extends Model
 
     public function attachmentPath(): ?string
     {
-        return PublicUpload::normalizePath($this->metadata['attachment_path'] ?? null);
+        return $this->attachmentItems()[0]['path'] ?? null;
     }
 
     public function attachmentUrl(): ?string
@@ -75,11 +75,50 @@ class ChatMessage extends Model
 
     public function attachmentOriginalName(): ?string
     {
-        return $this->metadata['attachment_original_name'] ?? null;
+        return $this->attachmentItems()[0]['original_name'] ?? null;
     }
 
     public function hasImageAttachment(): bool
     {
         return $this->attachmentExists() && PublicUpload::isImage($this->attachmentPath());
+    }
+
+    public function attachmentItems(): array
+    {
+        $metadata = $this->metadata ?? [];
+        $attachments = $metadata['attachments'] ?? null;
+
+        if (! is_array($attachments) || empty($attachments)) {
+            $attachments = filled($metadata['attachment_path'] ?? null)
+                ? [[
+                    'path' => $metadata['attachment_path'],
+                    'original_name' => $metadata['attachment_original_name'] ?? null,
+                    'mime' => $metadata['attachment_mime'] ?? null,
+                ]]
+                : [];
+        }
+
+        return collect($attachments)
+            ->map(function (array $item) {
+                $path = PublicUpload::normalizePath($item['path'] ?? $item['attachment_path'] ?? null);
+
+                if (! $path) {
+                    return null;
+                }
+
+                $url = PublicUpload::urlIfExists($path);
+
+                return [
+                    'path' => $path,
+                    'url' => $url,
+                    'original_name' => $item['original_name'] ?? $item['attachment_original_name'] ?? basename($path),
+                    'mime' => $item['mime'] ?? $item['attachment_mime'] ?? null,
+                    'is_image' => PublicUpload::isImage($path),
+                    'missing' => ! $url,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 }

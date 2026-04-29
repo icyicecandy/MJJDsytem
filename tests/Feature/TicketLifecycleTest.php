@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Ticket;
+use App\Models\SystemLog;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -57,16 +58,22 @@ test('ticket reply attachment is stored on the public disk and visible in detail
         ->actingAs($customer)
         ->post(route('customer.tickets.reply', $ticket, false), [
             'message' => 'Here is the issue photo.',
-            'ticket_attachment' => UploadedFile::fake()->image('reply.png'),
+            'ticket_attachments' => [
+                UploadedFile::fake()->image('reply-a.png'),
+                UploadedFile::fake()->image('reply-b.png'),
+            ],
         ])
         ->assertRedirect();
 
     $message = $ticket->messages()->latest('id')->firstOrFail();
 
     expect($message->attachment_path)->toStartWith('ticket-attachments/')
-        ->and($message->attachmentUrl())->toContain('/storage/ticket-attachments/');
+        ->and($message->attachmentUrl())->toContain('/storage/ticket-attachments/')
+        ->and($message->attachmentPaths())->toHaveCount(2);
 
-    Storage::disk('public')->assertExists($message->attachment_path);
+    foreach ($message->attachmentPaths() as $path) {
+        Storage::disk('public')->assertExists($path);
+    }
 
     $this->actingAs($customer)
         ->get(route('customer.tickets.show', $ticket, false))
@@ -245,6 +252,134 @@ test('customer cannot close ticket before it is resolved', function () {
     expect($ticket->refresh()->status)->toBe(Ticket::STATUS_OPEN);
 });
 
+test('customer cancels open ticket and history is recorded', function () {
+    $customer = makeTicketUser('customer');
+    $ticket = makeTicket(['customer' => $customer]);
+
+    $this
+        ->actingAs($customer)
+        ->patch(route('customer.tickets.cancel', $ticket, false))
+        ->assertRedirect();
+
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CANCELLED)
+        ->and($ticket->messages()->where('message', 'Customer cancelled this ticket.')->exists())->toBeTrue()
+        ->and(SystemLog::where('action', 'Ticket Cancelled')->where('description', 'like', '%' . $ticket->publicReference() . '%')->exists())->toBeTrue();
+});
+
+test('customer cannot cancel another customers ticket', function () {
+    $owner = makeTicketUser('customer');
+    $otherCustomer = makeTicketUser('customer');
+    $ticket = makeTicket(['customer' => $owner]);
+
+    $this
+        ->actingAs($otherCustomer)
+        ->patch(route('customer.tickets.cancel', $ticket, false))
+        ->assertStatus(403);
+
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_OPEN);
+});
+
+test('cancelled ticket cannot receive new replies', function () {
+    $customer = makeTicketUser('customer');
+    $ticket = makeTicket([
+        'customer' => $customer,
+        'status' => Ticket::STATUS_CANCELLED,
+    ]);
+
+    $this
+        ->actingAs($customer)
+        ->post(route('customer.tickets.reply', $ticket, false), [
+            'message' => 'Can anyone still see this?',
+        ])
+        ->assertStatus(422);
+
+    expect($ticket->messages()->count())->toBe(0);
+});
+
+test('customer requests cancellation for in progress ticket', function () {
+    $customer = makeTicketUser('customer');
+    $technician = makeTicketUser('technician');
+    $ticket = makeTicket([
+        'customer' => $customer,
+        'technician_id' => $technician->id,
+        'status' => Ticket::STATUS_IN_PROGRESS,
+    ]);
+
+    $this
+        ->actingAs($customer)
+        ->patch(route('customer.tickets.cancellation.request', $ticket, false))
+        ->assertRedirect();
+
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CANCELLATION_REQUESTED)
+        ->and($ticket->messages()->where('message', 'Customer requested ticket cancellation.')->exists())->toBeTrue()
+        ->and(SystemLog::where('action', 'Ticket Cancellation Requested')->where('description', 'like', '%' . $ticket->publicReference() . '%')->exists())->toBeTrue();
+});
+
+test('technician cannot resolve while cancellation is pending', function () {
+    $technician = makeTicketUser('technician');
+    $ticket = makeTicket([
+        'technician_id' => $technician->id,
+        'status' => Ticket::STATUS_CANCELLATION_REQUESTED,
+    ]);
+
+    $this
+        ->actingAs($technician)
+        ->patch(route('technician.tickets.resolve', $ticket, false), [
+            'resolution_notes' => 'Work completed.',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('error', 'Customer requested cancellation. Waiting for admin decision.');
+
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CANCELLATION_REQUESTED);
+});
+
+test('admin approves ticket cancellation request', function () {
+    $admin = makeTicketUser('admin');
+    $ticket = makeTicket([
+        'status' => Ticket::STATUS_CANCELLATION_REQUESTED,
+    ]);
+
+    $this
+        ->actingAs($admin)
+        ->patch(route('admin.tickets.cancellation.approve', $ticket, false))
+        ->assertRedirect();
+
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CANCELLED)
+        ->and($ticket->messages()->where('message', 'Admin approved ticket cancellation.')->exists())->toBeTrue()
+        ->and(SystemLog::where('action', 'Ticket Cancellation Approved')->where('description', 'like', '%' . $ticket->publicReference() . '%')->exists())->toBeTrue();
+});
+
+test('admin rejects ticket cancellation request', function () {
+    $admin = makeTicketUser('admin');
+    $ticket = makeTicket([
+        'status' => Ticket::STATUS_CANCELLATION_REQUESTED,
+    ]);
+
+    $this
+        ->actingAs($admin)
+        ->patch(route('admin.tickets.cancellation.reject', $ticket, false))
+        ->assertRedirect();
+
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_IN_PROGRESS)
+        ->and($ticket->messages()->where('message', 'Admin rejected cancellation request. Ticket remains In Progress.')->exists())->toBeTrue()
+        ->and(SystemLog::where('action', 'Ticket Cancellation Rejected')->where('description', 'like', '%' . $ticket->publicReference() . '%')->exists())->toBeTrue();
+});
+
+test('technician cannot approve or reject cancellation requests', function () {
+    $technician = makeTicketUser('technician');
+    $ticket = makeTicket([
+        'technician_id' => $technician->id,
+        'status' => Ticket::STATUS_CANCELLATION_REQUESTED,
+    ]);
+
+    $this
+        ->actingAs($technician)
+        ->patch(route('admin.tickets.cancellation.approve', $ticket, false))
+        ->assertStatus(403);
+
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CANCELLATION_REQUESTED);
+});
+
 test('customer closes resolved ticket', function () {
     $customer = makeTicketUser('customer');
     $ticket = makeTicket([
@@ -261,10 +396,12 @@ test('customer closes resolved ticket', function () {
         ->and($ticket->messages()->where('message', 'Ticket closed by customer.')->exists())->toBeTrue();
 });
 
-test('customer cannot request reopen before ticket is closed', function () {
+test('customer reopens resolved ticket with a reason', function () {
     $customer = makeTicketUser('customer');
+    $technician = makeTicketUser('technician');
     $ticket = makeTicket([
         'customer' => $customer,
+        'technician_id' => $technician->id,
         'status' => Ticket::STATUS_RESOLVED,
     ]);
 
@@ -273,13 +410,13 @@ test('customer cannot request reopen before ticket is closed', function () {
         ->patch(route('customer.tickets.reopen', $ticket, false), [
             'reason' => 'The connection dropped again.',
         ])
-        ->assertStatus(422);
+        ->assertRedirect();
 
-    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_RESOLVED)
-        ->and($ticket->reopen_requested_at)->toBeNull();
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_IN_PROGRESS)
+        ->and($ticket->messages()->where('message', 'like', 'Ticket reopened by customer.%')->exists())->toBeTrue();
 });
 
-test('customer requests closed ticket reopen with a reason', function () {
+test('customer cannot reopen closed ticket', function () {
     $customer = makeTicketUser('customer');
     $ticket = makeTicket([
         'customer' => $customer,
@@ -291,12 +428,10 @@ test('customer requests closed ticket reopen with a reason', function () {
         ->patch(route('customer.tickets.reopen', $ticket, false), [
             'reason' => 'The connection dropped again.',
         ])
-        ->assertRedirect();
+        ->assertStatus(422);
 
     expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CLOSED)
-        ->and($ticket->hasPendingReopenRequest())->toBeTrue()
-        ->and($ticket->reopen_reason)->toBe('The connection dropped again.')
-        ->and($ticket->messages()->where('message', 'like', 'Ticket reopen requested by customer.%')->exists())->toBeTrue();
+        ->and($ticket->hasPendingReopenRequest())->toBeFalse();
 });
 
 test('admin approves closed ticket reopen request', function () {
@@ -337,6 +472,41 @@ test('closed ticket cannot receive new replies', function () {
         ->assertStatus(422);
 
     expect($ticket->messages()->count())->toBe(0);
+});
+
+test('resolved ticket does not show cancellation actions', function () {
+    $customer = makeTicketUser('customer');
+    $ticket = makeTicket([
+        'customer' => $customer,
+        'status' => Ticket::STATUS_RESOLVED,
+    ]);
+
+    $this
+        ->actingAs($customer)
+        ->get(route('customer.tickets.show', $ticket, false))
+        ->assertOk()
+        ->assertSee('Close Ticket')
+        ->assertSee('Reopen Ticket')
+        ->assertDontSee('Cancel Ticket')
+        ->assertDontSee('Request Cancellation');
+});
+
+test('closed ticket detail is read only', function () {
+    $customer = makeTicketUser('customer');
+    $ticket = makeTicket([
+        'customer' => $customer,
+        'status' => Ticket::STATUS_CLOSED,
+    ]);
+
+    $this
+        ->actingAs($customer)
+        ->get(route('customer.tickets.show', $ticket, false))
+        ->assertOk()
+        ->assertSee('This ticket is read-only.')
+        ->assertDontSee('Cancel Ticket')
+        ->assertDontSee('Request Cancellation')
+        ->assertDontSee('Reopen Ticket')
+        ->assertDontSee('Send Reply</button>', false);
 });
 
 test('technician cannot modify tickets not assigned to them', function () {

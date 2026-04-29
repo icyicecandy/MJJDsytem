@@ -29,9 +29,9 @@
                 <label>Description</label>
                 <textarea name="description" rows="5" required>{{ old('description') }}</textarea>
 
-                <label for="ticket_photo">Photo <span class="field-badge optional">Optional</span></label>
-                <input id="ticket_photo" type="file" name="ticket_photo" accept=".jpg,.jpeg,.png,.webp">
-                <p class="text-muted mt-1">Attach one image if it helps show the issue more clearly.</p>
+                <label for="ticket_photo">Photos <span class="field-badge optional">Optional</span></label>
+                <input id="ticket_photo" type="file" name="ticket_photos[]" accept=".jpg,.jpeg,.png,.webp" multiple>
+                <p class="text-muted mt-1">Attach one or more images if they help show the issue more clearly.</p>
 
                 <button type="submit" class="btn">Create Ticket</button>
             </form>

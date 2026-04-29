@@ -52,6 +52,11 @@
                     <strong class="ticket-queue-metric__value">{{ $queueSummary['closed'] }}</strong>
                     <span class="ticket-queue-metric__meta">Finished tickets kept for record history</span>
                 </a>
+                <a href="{{ route('technician.tickets.index', array_filter(['status' => 'cancelled', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'cancelled' ? 'is-active' : '' }}">
+                    <span class="ticket-queue-metric__label">Cancelled</span>
+                    <strong class="ticket-queue-metric__value">{{ $queueSummary['cancelled'] }}</strong>
+                    <span class="ticket-queue-metric__meta">Cancelled tickets kept for history</span>
+                </a>
             </div>
         </section>
 
@@ -146,7 +151,7 @@
                         <button type="submit" class="btn" data-tech-ticket-work-button>Start Work</button>
                     </form>
                     <a href="#" class="btn secondary" data-tech-ticket-detail-link>Open Full Ticket</a>
-                    <span class="record-muted" data-tech-ticket-no-action hidden>This ticket is resolved or closed.</span>
+                    <span class="record-muted" data-tech-ticket-no-action hidden>This ticket has no available technician action.</span>
                 </div>
             </div>
         </div>
@@ -198,6 +203,7 @@
                 const status = button.dataset.ticketStatusValue;
                 const canStart = status === 'open' || status === 'queued';
                 const canResolve = status === 'in_progress';
+                const isCancellationRequested = status === 'cancellation_requested';
                 if (workForm) {
                     workForm.hidden = !canStart && !canResolve;
                     workForm.action = canStart
@@ -206,6 +212,9 @@
                 }
                 if (noAction) {
                     noAction.hidden = canStart || canResolve;
+                    noAction.textContent = isCancellationRequested
+                        ? 'Customer requested cancellation. Waiting for admin decision.'
+                        : 'This ticket has no available technician action.';
                 }
                 if (workButton) {
                     workButton.disabled = !canStart && !canResolve;

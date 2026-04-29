@@ -17,21 +17,25 @@ class TicketMessageController extends Controller
             || $ticket->technician_id === $user->id;
 
         abort_unless($isAllowed, 403);
-        abort_unless($ticket->canReceiveReplies(), 422, 'Closed tickets cannot receive new replies.');
+        abort_unless($ticket->canReceiveReplies(), 422, 'Closed or cancelled tickets cannot receive new replies.');
 
         $validated = $request->validate([
-            'message' => ['nullable', 'required_without:ticket_attachment', 'string'],
+            'message' => ['nullable', 'required_without_all:ticket_attachment,ticket_attachments', 'string'],
             'ticket_attachment' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'ticket_attachments' => ['nullable', 'array', 'max:5'],
+            'ticket_attachments.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
-        $attachmentPath = $request->hasFile('ticket_attachment')
-            ? PublicUpload::normalizePath($request->file('ticket_attachment')->store('ticket-attachments', 'public'))
-            : null;
+        $attachmentPaths = PublicUpload::storeFiles(
+            PublicUpload::flattenFiles($request->file('ticket_attachments', []), $request->file('ticket_attachment')),
+            'ticket-attachments'
+        );
 
         $ticket->messages()->create([
             'user_id' => $user->id,
             'message' => trim((string) ($validated['message'] ?? '')) ?: 'Attachment uploaded.',
-            'attachment_path' => $attachmentPath,
+            'attachment_path' => $attachmentPaths[0] ?? null,
+            'attachment_paths' => $attachmentPaths,
         ]);
 
         $ticket->touch();

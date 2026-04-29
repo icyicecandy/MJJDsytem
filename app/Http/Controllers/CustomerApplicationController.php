@@ -5,14 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Application;
 use App\Models\Installation;
 use App\Models\InstallationLog;
+use App\Models\User;
 use App\Support\AppNotificationSender;
 use App\Support\PublicUpload;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class CustomerApplicationController extends Controller
 {
+    private const RESCHEDULE_AVAILABILITY_DAYS = 30;
+
     private const SERVICE_BOUNDS = [
         'south' => 15.45,
         'west' => 119.55,
@@ -49,19 +53,26 @@ class CustomerApplicationController extends Controller
                 ->with('error', 'You already have an active application.');
         }
 
+        $request->merge([
+            'email' => $this->normalizeEmailInput($request->input('email')),
+            'mobile_number' => $this->normalizeContactNumberInput($request->input('mobile_number')),
+        ]);
+
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z][A-Za-z\s\'-]*$/'],
             'last_name' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z][A-Za-z\s\'-]*$/'],
             'email' => [
                 'required',
+                'string',
                 'email',
-                'max:150',
+                'max:255',
                 Rule::unique('applications', 'email')->ignore($existingId),
             ],
             'mobile_number' => [
                 'required',
                 'string',
-                'max:30',
+                'max:16',
+                'regex:/^\+?[0-9]{10,15}$/',
                 Rule::unique('applications', 'mobile_number')->ignore($existingId),
             ],
             'region' => ['required', 'string', 'max:100'],
@@ -73,12 +84,15 @@ class CustomerApplicationController extends Controller
             'lng' => ['required', 'numeric'],
             'plan_code' => ['required', 'in:S2S_50,S2S_100'],
             'id_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'id_selfie_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [
             'first_name.regex' => 'First name may only contain letters, spaces, hyphens, and apostrophes.',
             'last_name.regex' => 'Last name may only contain letters, spaces, hyphens, and apostrophes.',
             'email.unique' => 'This email address is already used in another application.',
+            'mobile_number.regex' => 'Enter a valid contact number with 10 to 15 digits.',
             'mobile_number.unique' => 'This mobile number is already used in another application.',
-            'id_image.required' => 'Please upload a valid ID image before submitting your application.',
+            'id_image.required' => 'Please upload the valid ID photo on paper with 3 signatures.',
+            'id_selfie_image.required' => 'Please upload the photo of the customer holding the valid ID.',
         ]);
 
         if (! $this->addressSelectionIsValid($validated['region'], $validated['province'], $validated['municipality'], $validated['barangay'])) {
@@ -106,6 +120,7 @@ class CustomerApplicationController extends Controller
         }
 
         $idPath = PublicUpload::normalizePath($request->file('id_image')->store('application-ids', 'public'));
+        $idSelfiePath = PublicUpload::normalizePath($request->file('id_selfie_image')->store('application-ids', 'public'));
         $consentedAt = $user->consented_at ?? now();
 
         $payload = [
@@ -123,6 +138,7 @@ class CustomerApplicationController extends Controller
             'lng' => $lng,
             'plan_code' => $validated['plan_code'],
             'id_image_path' => $idPath,
+            'id_selfie_image_path' => $idSelfiePath,
             'agreed_to_terms' => (bool) $user->agreed_to_terms,
             'agreed_to_privacy' => (bool) $user->agreed_to_privacy,
             'consented_at' => $consentedAt,
@@ -156,6 +172,11 @@ class CustomerApplicationController extends Controller
             Auth::id()
         );
 
+        system_log(
+            'Application Submitted',
+            'Application ' . $application->reference_no . ' was submitted by ' . $user->name . '.'
+        );
+
         return redirect()->route('customer.apply.done', ['reference' => $application->reference_no]);
     }
 
@@ -164,9 +185,16 @@ class CustomerApplicationController extends Controller
         $user = Auth::user();
         $existingId = $user->application?->id;
 
+        $request->merge([
+            'email' => $this->normalizeEmailInput($request->input('email')),
+            'mobile_number' => $this->normalizeContactNumberInput($request->input('mobile_number')),
+        ]);
+
         $validated = $request->validate([
-            'email' => ['nullable', 'email', 'max:150'],
-            'mobile_number' => ['nullable', 'string', 'max:30'],
+            'email' => ['nullable', 'string', 'email', 'max:255'],
+            'mobile_number' => ['nullable', 'string', 'max:16', 'regex:/^\+?[0-9]{10,15}$/'],
+        ], [
+            'mobile_number.regex' => 'Enter a valid contact number with 10 to 15 digits.',
         ]);
 
         $email = trim((string) ($validated['email'] ?? ''));
@@ -204,8 +232,119 @@ class CustomerApplicationController extends Controller
     public function show()
     {
         $application = Auth::user()->application()->with('installation.logs.user')->first();
+        $rescheduleAvailability = $application?->installation
+            ? $this->customerRescheduleAvailability($application->installation)
+            : [];
 
-        return view('customer.application', compact('application'));
+        return view('customer.application', compact('application', 'rescheduleAvailability'));
+    }
+
+    public function requestReschedule(Request $request)
+    {
+        $validated = $request->validate([
+            'reschedule_preferred_date' => ['required', 'date', 'after:today'],
+            'reschedule_preferred_time' => ['required', Rule::in(Installation::AVAILABLE_TIME_SLOTS)],
+            'reschedule_reason' => ['required', 'string', 'max:1000'],
+        ], [
+            'reschedule_preferred_date.required' => 'Please choose your preferred installation date.',
+            'reschedule_preferred_time.required' => 'Please choose your preferred installation time.',
+            'reschedule_reason.required' => 'Please provide a reason for the reschedule request.',
+        ]);
+
+        $application = Auth::user()->application()->with('installation')->first();
+
+        if (! $application || ! $application->installation) {
+            return back()
+                ->withErrors(['reschedule' => 'No scheduled installation is available for reschedule request.'])
+                ->withInput();
+        }
+
+        $installation = $application->installation;
+
+        if ($application->status !== Application::STATUS_SCHEDULED || $installation->status !== Installation::STATUS_SCHEDULED) {
+            return back()
+                ->withErrors(['reschedule' => 'Only scheduled installations can be requested for reschedule.'])
+                ->withInput();
+        }
+
+        if ($installation->hasPendingCustomerRescheduleRequest()) {
+            return back()
+                ->withErrors(['reschedule' => 'Your previous reschedule request is still waiting for admin review.'])
+                ->withInput();
+        }
+
+        $scheduledStart = $installation->scheduledStartAt();
+
+        if (! $scheduledStart) {
+            return back()
+                ->withErrors(['reschedule' => 'The current installation schedule is incomplete. Please contact support.'])
+                ->withInput();
+        }
+
+        if ($scheduledStart->lte(now()->addDay())) {
+            return back()
+                ->withErrors(['reschedule' => 'Reschedule requests must be made more than 24 hours before the installation visit.'])
+                ->withInput();
+        }
+
+        $currentTime = $installation->installation_time
+            ? \Carbon\Carbon::parse($installation->installation_time)->format('H:i')
+            : null;
+
+        if ($installation->installation_date?->format('Y-m-d') === $validated['reschedule_preferred_date']
+            && $currentTime === $validated['reschedule_preferred_time']) {
+            return back()
+                ->withErrors(['reschedule' => 'Please choose a different preferred date or time from your current schedule.'])
+                ->withInput();
+        }
+
+        if (! $this->customerRescheduleSlotIsAvailable(
+            $validated['reschedule_preferred_date'],
+            $validated['reschedule_preferred_time'],
+            $installation,
+        )) {
+            return back()
+                ->withErrors(['reschedule_preferred_time' => 'That date and time is no longer available. Please choose another available slot.'])
+                ->withInput();
+        }
+
+        $reason = trim($validated['reschedule_reason']);
+
+        $installation->update([
+            'reschedule_requested_at' => now(),
+            'reschedule_preferred_date' => $validated['reschedule_preferred_date'],
+            'reschedule_preferred_time' => $validated['reschedule_preferred_time'],
+            'reschedule_request_reason' => $reason,
+            'reschedule_reviewed_at' => null,
+            'reschedule_rejection_reason' => null,
+        ]);
+
+        $preferredSchedule = \Carbon\Carbon::parse($validated['reschedule_preferred_date'])->format('F d, Y')
+            . ' at '
+            . \Carbon\Carbon::parse($validated['reschedule_preferred_time'])->format('g:i A');
+
+        InstallationLog::create([
+            'installation_id' => $installation->id,
+            'user_id' => Auth::id(),
+            'notes' => 'Customer requested reschedule. Preferred schedule: ' . $preferredSchedule . '. Reason: ' . $reason,
+        ]);
+
+        AppNotificationSender::sendToRole(
+            'admin',
+            'Customer requested installation reschedule',
+            $application->reference_no . ' requested ' . $preferredSchedule . '.',
+            route('admin.applications.show', $application),
+            'installation_reschedule_requested',
+            ['application_id' => $application->id, 'installation_id' => $installation->id],
+            Auth::id()
+        );
+
+        system_log(
+            'Installation Reschedule Requested',
+            'Customer requested reschedule for Application ' . $application->reference_no . ' to ' . $preferredSchedule . '.'
+        );
+
+        return back()->with('success', 'Your reschedule request was sent for admin review.');
     }
 
     public function requestCancellation(Request $request)
@@ -237,6 +376,11 @@ class CustomerApplicationController extends Controller
                 'application_cancelled_by_customer',
                 ['application_id' => $application->id],
                 Auth::id()
+            );
+
+            system_log(
+                'Application Cancelled',
+                'Application ' . $application->reference_no . ' was cancelled by ' . Auth::user()->name . '.'
             );
 
             return back()->with('success', 'Your application has been cancelled.');
@@ -283,10 +427,119 @@ class CustomerApplicationController extends Controller
         return $application !== null && ! $application->isTerminalForNewApplication();
     }
 
+    private function normalizeEmailInput(mixed $value): string
+    {
+        $value = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', (string) $value) ?? '';
+
+        return trim(preg_replace('/\s+/', '', $value) ?? $value);
+    }
+
+    private function normalizeContactNumberInput(mixed $value): string
+    {
+        $value = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', (string) $value) ?? '';
+
+        return trim(preg_replace('/\s+/', '', $value) ?? $value);
+    }
+
     private function hasScheduledInstallation(Application $application): bool
     {
         return $application->installation
             && $application->installation->status === Installation::STATUS_SCHEDULED;
+    }
+
+    private function customerRescheduleSlotIsAvailable(string $date, string $time, Installation $currentInstallation): bool
+    {
+        $availability = $this->customerRescheduleAvailability($currentInstallation);
+
+        return collect($availability[$date]['slots'] ?? [])
+            ->contains(fn (array $slot) => ($slot['value'] ?? null) === $time);
+    }
+
+    private function customerRescheduleAvailability(Installation $currentInstallation): array
+    {
+        $technicianIds = User::query()
+            ->where('role', 'technician')
+            ->whereNull('disabled_at')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        if ($technicianIds->isEmpty()) {
+            return [];
+        }
+
+        $startDate = now()->addDay()->startOfDay();
+        $endDate = $startDate->copy()->addDays(self::RESCHEDULE_AVAILABILITY_DAYS - 1);
+
+        $activeSchedules = Installation::query()
+            ->whereIn('status', Installation::activeSchedulingStatuses())
+            ->whereIn('technician_id', $technicianIds)
+            ->whereNotNull('installation_date')
+            ->whereNotNull('installation_time')
+            ->whereBetween('installation_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->whereKeyNot($currentInstallation->id)
+            ->get(['id', 'technician_id', 'installation_date', 'installation_time']);
+        $currentDateKey = $currentInstallation->installation_date?->format('Y-m-d');
+        $currentTime = $currentInstallation->installation_time
+            ? Carbon::parse($currentInstallation->installation_time)->format('H:i')
+            : null;
+
+        $availability = [];
+
+        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
+            $dateKey = $date->toDateString();
+            $daySchedules = $activeSchedules
+                ->filter(fn (Installation $schedule) => $schedule->installation_date?->format('Y-m-d') === $dateKey);
+
+            $slots = collect(Installation::AVAILABLE_TIME_SLOTS)
+                ->map(function (string $slot) use ($dateKey, $daySchedules, $technicianIds, $currentDateKey, $currentTime) {
+                    if ($dateKey === $currentDateKey && $slot === $currentTime) {
+                        return null;
+                    }
+
+                    $slotStart = Carbon::parse($dateKey . ' ' . $slot);
+                    $slotEnd = $slotStart->copy()->addMinutes(Installation::SLOT_DURATION_MINUTES);
+
+                    $takenTechnicians = $daySchedules
+                        ->filter(function (Installation $schedule) use ($slotStart, $slotEnd) {
+                            $existingStart = $schedule->scheduledStartAt();
+                            $existingEnd = $schedule->scheduledEndAt();
+
+                            if (! $existingStart || ! $existingEnd) {
+                                return false;
+                            }
+
+                            return $slotStart->lt($existingEnd) && $slotEnd->gt($existingStart);
+                        })
+                        ->pluck('technician_id')
+                        ->unique()
+                        ->count();
+
+                    $availableCount = $technicianIds->count() - $takenTechnicians;
+
+                    if ($availableCount <= 0) {
+                        return null;
+                    }
+
+                    return [
+                        'value' => $slot,
+                        'label' => Carbon::createFromFormat('H:i', $slot)->format('g:i A'),
+                        'available_count' => $availableCount,
+                    ];
+                })
+                ->filter()
+                ->values()
+                ->all();
+
+            if ($slots !== []) {
+                $availability[$dateKey] = [
+                    'label' => $date->format('F j, Y'),
+                    'slots' => $slots,
+                ];
+            }
+        }
+
+        return $availability;
     }
 
     private function coordinatesAreWithinServiceArea(float $lat, float $lng): bool

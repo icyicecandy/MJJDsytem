@@ -13,8 +13,10 @@ class Ticket extends Model
     public const STATUS_OPEN = 'open';
     public const STATUS_QUEUED = 'queued';
     public const STATUS_IN_PROGRESS = 'in_progress';
+    public const STATUS_CANCELLATION_REQUESTED = 'cancellation_requested';
     public const STATUS_RESOLVED = 'resolved';
     public const STATUS_CLOSED = 'closed';
+    public const STATUS_CANCELLED = 'cancelled';
     public const URGENCY_LOW = 'low';
     public const URGENCY_MEDIUM = 'medium';
     public const URGENCY_HIGH = 'high';
@@ -72,6 +74,7 @@ class Ticket extends Model
         'status',
         'urgency',
         'photo_path',
+        'photo_paths',
         'reopen_requested_at',
         'reopen_reason',
         'reopen_reviewed_at',
@@ -83,6 +86,7 @@ class Ticket extends Model
         return [
             'reopen_requested_at' => 'datetime',
             'reopen_reviewed_at' => 'datetime',
+            'photo_paths' => 'array',
         ];
     }
 
@@ -174,7 +178,25 @@ class Ticket extends Model
 
     public function canReceiveReplies(): bool
     {
-        return $this->status !== self::STATUS_CLOSED;
+        return ! $this->isReadOnly();
+    }
+
+    public function isCancellationRequested(): bool
+    {
+        return $this->status === self::STATUS_CANCELLATION_REQUESTED;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === self::STATUS_CANCELLED;
+    }
+
+    public function isReadOnly(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_CLOSED,
+            self::STATUS_CANCELLED,
+        ], true);
     }
 
     public function hasPendingReopenRequest(): bool
@@ -233,6 +255,24 @@ class Ticket extends Model
     public function photoUrl(): ?string
     {
         return PublicUpload::urlIfExists($this->photo_path);
+    }
+
+    public function photoPaths(): array
+    {
+        $paths = PublicUpload::normalizePaths($this->photo_paths);
+
+        if (empty($paths) && filled($this->photo_path)) {
+            $paths[] = $this->photo_path;
+        }
+
+        return $paths;
+    }
+
+    public function photoGalleryItems(): array
+    {
+        return collect($this->photoPaths())
+            ->mapWithKeys(fn ($path, $index) => ['Ticket photo ' . ($index + 1) => $path])
+            ->all();
     }
 
     public function syncAssignmentStatus(?int $technicianId = null, ?string $status = null): array

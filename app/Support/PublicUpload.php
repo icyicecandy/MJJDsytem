@@ -81,6 +81,84 @@ class PublicUpload
         return in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp'], true);
     }
 
+    public static function normalizePaths(mixed $paths): array
+    {
+        if (is_string($paths)) {
+            $trimmed = trim($paths);
+            $decoded = str_starts_with($trimmed, '[') ? json_decode($trimmed, true) : null;
+            $paths = is_array($decoded) ? $decoded : [$paths];
+        }
+
+        if (! is_array($paths)) {
+            return [];
+        }
+
+        return collect($paths)
+            ->map(fn ($path) => self::normalizePath(is_array($path) ? ($path['path'] ?? $path['attachment_path'] ?? null) : $path))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    public static function storeFiles(iterable $files, string $directory): array
+    {
+        return collect($files)
+            ->filter(fn ($file) => $file instanceof UploadedFile)
+            ->map(fn (UploadedFile $file) => self::normalizePath($file->store($directory, 'public')))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    public static function flattenFiles(mixed ...$inputs): array
+    {
+        return collect($inputs)
+            ->flatMap(function ($input) {
+                if ($input instanceof UploadedFile) {
+                    return [$input];
+                }
+
+                if (is_array($input)) {
+                    return $input;
+                }
+
+                return [];
+            })
+            ->filter(fn ($file) => $file instanceof UploadedFile)
+            ->values()
+            ->all();
+    }
+
+    public static function attachmentMetadataMany(iterable $files, string $directory): ?array
+    {
+        $attachments = collect($files)
+            ->filter(fn ($file) => $file instanceof UploadedFile)
+            ->map(function (UploadedFile $file) use ($directory) {
+                $metadata = self::attachmentMetadata($file, $file->store($directory, 'public'));
+
+                return [
+                    'path' => $metadata['attachment_path'],
+                    'original_name' => $metadata['attachment_original_name'],
+                    'mime' => $metadata['attachment_mime'],
+                ];
+            })
+            ->filter(fn (array $item) => filled($item['path']))
+            ->values();
+
+        if ($attachments->isEmpty()) {
+            return null;
+        }
+
+        $first = $attachments->first();
+
+        return [
+            'attachment_path' => $first['path'],
+            'attachment_original_name' => $first['original_name'],
+            'attachment_mime' => $first['mime'],
+            'attachments' => $attachments->all(),
+        ];
+    }
+
     public static function attachmentMetadata(UploadedFile $file, string $path): array
     {
         return [

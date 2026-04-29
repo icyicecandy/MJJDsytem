@@ -15,7 +15,7 @@ class AdminTicketController extends Controller
     {
         $selectedStatus = $request->query('status', 'all');
         $search = trim((string) $request->query('search', ''));
-        if (! in_array($selectedStatus, ['all', 'unassigned', 'open', 'queued', 'in_progress', 'resolved', 'closed'], true)) {
+        if (! in_array($selectedStatus, ['all', 'unassigned', 'open', 'queued', 'in_progress', 'resolved', 'closed', 'cancelled'], true)) {
             $selectedStatus = 'all';
         }
 
@@ -46,6 +46,8 @@ class AdminTicketController extends Controller
             $ticketsQuery->where('status', Ticket::STATUS_RESOLVED);
         } elseif ($selectedStatus === 'closed') {
             $ticketsQuery->where('status', Ticket::STATUS_CLOSED);
+        } elseif ($selectedStatus === 'cancelled') {
+            $ticketsQuery->where('status', Ticket::STATUS_CANCELLED);
         }
 
         $tickets = $ticketsQuery->get();
@@ -74,6 +76,7 @@ class AdminTicketController extends Controller
                 ->count(),
             'resolved' => Ticket::where('status', Ticket::STATUS_RESOLVED)->count(),
             'closed' => Ticket::where('status', Ticket::STATUS_CLOSED)->count(),
+            'cancelled' => Ticket::where('status', Ticket::STATUS_CANCELLED)->count(),
         ];
 
         return view('admin.tickets.index', compact('tickets', 'technicians', 'queueSummary', 'selectedStatus', 'search'));
@@ -93,6 +96,8 @@ class AdminTicketController extends Controller
         $technician = null;
         $adminAction = $validated['admin_action'] ?? 'save';
 
+        abort_if($ticket->status === Ticket::STATUS_CANCELLED, 422, 'Cancelled tickets cannot be updated.');
+        abort_if($ticket->status === Ticket::STATUS_CANCELLATION_REQUESTED, 422, 'Review the cancellation request before updating this ticket.');
         abort_if($ticket->status === Ticket::STATUS_CLOSED && $adminAction !== 'close', 422, 'Closed tickets cannot be updated.');
 
         if ($technicianId) {
@@ -139,6 +144,18 @@ class AdminTicketController extends Controller
                 ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference()],
                 auth()->id()
             );
+
+            system_log(
+                $previousTechnicianId ? 'Ticket Reassigned' : 'Ticket Assigned',
+                ($previousTechnicianId ? 'Reassigned' : 'Assigned') . ' technician ' . $technician->name . ' to ticket ' . $ticket->publicReference() . '.'
+            );
+        }
+
+        if ($ticket->status !== $previousStatus) {
+            system_log(
+                $ticket->status === Ticket::STATUS_CLOSED ? 'Ticket Closed' : 'Ticket Status Changed',
+                'Ticket ' . $ticket->publicReference() . ' status changed from ' . ucfirst(str_replace('_', ' ', $previousStatus)) . ' to ' . ucfirst(str_replace('_', ' ', $ticket->status)) . '.'
+            );
         }
 
         if ($ticket->user && $ticket->status === Ticket::STATUS_CLOSED && $ticket->status !== $previousStatus) {
@@ -178,6 +195,72 @@ class AdminTicketController extends Controller
         return view('admin.tickets.show', compact('ticket', 'technicians'));
     }
 
+    public function approveCancellation(Ticket $ticket)
+    {
+        abort_unless($ticket->status === Ticket::STATUS_CANCELLATION_REQUESTED, 422, 'This ticket is not waiting for cancellation review.');
+
+        $ticket->update([
+            'status' => Ticket::STATUS_CANCELLED,
+        ]);
+
+        $ticket->messages()->create([
+            'user_id' => auth()->id(),
+            'message' => 'Admin approved ticket cancellation.',
+        ]);
+
+        system_log(
+            'Ticket Cancellation Approved',
+            'Ticket ' . $ticket->publicReference() . ' cancellation was approved by ' . auth()->user()->name . '.'
+        );
+
+        if ($ticket->user) {
+            AppNotificationSender::send(
+                $ticket->user,
+                'Ticket cancellation approved',
+                'Your cancellation request for ticket "' . $ticket->subject . '" was approved.',
+                route('customer.tickets.show', $ticket),
+                'ticket_cancellation_approved',
+                ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
+                auth()->id()
+            );
+        }
+
+        return back()->with('success', 'Ticket cancellation approved.');
+    }
+
+    public function rejectCancellation(Ticket $ticket)
+    {
+        abort_unless($ticket->status === Ticket::STATUS_CANCELLATION_REQUESTED, 422, 'This ticket is not waiting for cancellation review.');
+
+        $ticket->update([
+            'status' => Ticket::STATUS_IN_PROGRESS,
+        ]);
+
+        $ticket->messages()->create([
+            'user_id' => auth()->id(),
+            'message' => 'Admin rejected cancellation request. Ticket remains In Progress.',
+        ]);
+
+        system_log(
+            'Ticket Cancellation Rejected',
+            'Ticket ' . $ticket->publicReference() . ' cancellation was rejected by ' . auth()->user()->name . '.'
+        );
+
+        if ($ticket->user) {
+            AppNotificationSender::send(
+                $ticket->user,
+                'Ticket cancellation rejected',
+                'Your cancellation request for ticket "' . $ticket->subject . '" was rejected. The ticket remains in progress.',
+                route('customer.tickets.show', $ticket),
+                'ticket_cancellation_rejected',
+                ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
+                auth()->id()
+            );
+        }
+
+        return back()->with('success', 'Ticket cancellation rejected. Ticket remains in progress.');
+    }
+
     public function approveReopenRequest(Ticket $ticket)
     {
         abort_unless($ticket->status === Ticket::STATUS_CLOSED, 422, 'Only closed tickets can have reopen requests approved.');
@@ -197,6 +280,11 @@ class AdminTicketController extends Controller
             'message' => 'Ticket reopen request approved by admin.',
         ]);
 
+        system_log(
+            'Ticket Status Changed',
+            'Ticket ' . $ticket->publicReference() . ' reopen request was approved and status changed to ' . ucfirst(str_replace('_', ' ', $ticket->status)) . '.'
+        );
+
         if ($ticket->user) {
             AppNotificationSender::send(
                 $ticket->user,
@@ -214,21 +302,25 @@ class AdminTicketController extends Controller
 
     public function reply(Request $request, Ticket $ticket)
     {
-        abort_unless($ticket->canReceiveReplies(), 422, 'Closed tickets cannot receive new replies.');
+        abort_unless($ticket->canReceiveReplies(), 422, 'Closed or cancelled tickets cannot receive new replies.');
 
         $request->validate([
-            'message' => ['nullable', 'required_without:ticket_attachment', 'string'],
+            'message' => ['nullable', 'required_without_all:ticket_attachment,ticket_attachments', 'string'],
             'ticket_attachment' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'ticket_attachments' => ['nullable', 'array', 'max:5'],
+            'ticket_attachments.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
-        $attachmentPath = $request->hasFile('ticket_attachment')
-            ? PublicUpload::normalizePath($request->file('ticket_attachment')->store('ticket-attachments', 'public'))
-            : null;
+        $attachmentPaths = PublicUpload::storeFiles(
+            PublicUpload::flattenFiles($request->file('ticket_attachments', []), $request->file('ticket_attachment')),
+            'ticket-attachments'
+        );
 
         $ticket->messages()->create([
             'user_id' => auth()->id(),
             'message' => trim((string) $request->input('message', '')) ?: 'Attachment uploaded.',
-            'attachment_path' => $attachmentPath,
+            'attachment_path' => $attachmentPaths[0] ?? null,
+            'attachment_paths' => $attachmentPaths,
         ]);
 
         return back();

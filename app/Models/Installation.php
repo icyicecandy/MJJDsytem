@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PublicUpload;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
@@ -54,11 +55,18 @@ class Installation extends Model
         'activation_status',
         'technician_remarks',
         'reassignment_reason',
+        'reschedule_requested_at',
+        'reschedule_preferred_date',
+        'reschedule_preferred_time',
+        'reschedule_request_reason',
+        'reschedule_reviewed_at',
+        'reschedule_rejection_reason',
         'nap_code',
         'port_number',
         'equipment_serial_number',
         'cable_length',
         'installation_photo_path',
+        'installation_photo_paths',
         'speedtest_photo_path',
         'nap_photo_path',
         'router_photo_path',
@@ -72,8 +80,12 @@ class Installation extends Model
         return [
             'assigned_at' => 'datetime',
             'installation_date' => 'date',
+            'reschedule_requested_at' => 'datetime',
+            'reschedule_preferred_date' => 'date',
+            'reschedule_reviewed_at' => 'datetime',
             'completed_at' => 'datetime',
             'activation_date' => 'date',
+            'installation_photo_paths' => 'array',
         ];
     }
 
@@ -129,6 +141,11 @@ class Installation extends Model
     public function isRescheduleRequired(): bool
     {
         return $this->status === self::STATUS_RESCHEDULE_REQUIRED;
+    }
+
+    public function hasPendingCustomerRescheduleRequest(): bool
+    {
+        return filled($this->reschedule_requested_at) && blank($this->reschedule_reviewed_at);
     }
 
     public function canTransitionTo(string $status): bool
@@ -192,8 +209,13 @@ class Installation extends Model
 
     public function proofPhotos(): array
     {
-        return [
-            'Installation Photo' => $this->installation_photo_path,
+        $installationPhotos = collect(PublicUpload::normalizePaths($this->installation_photo_paths))
+            ->when(empty(PublicUpload::normalizePaths($this->installation_photo_paths)) && filled($this->installation_photo_path), fn ($photos) => $photos->push($this->installation_photo_path))
+            ->values()
+            ->mapWithKeys(fn ($path, $index) => ['Installation Photo ' . ($index + 1) => $path])
+            ->all();
+
+        return $installationPhotos + [
             'Speed Test Photo' => $this->speedtest_photo_path,
             'NAP Photo' => $this->nap_photo_path,
             'Router Photo' => $this->router_photo_path,

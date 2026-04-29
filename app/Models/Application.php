@@ -36,6 +36,7 @@ class Application extends Model
         'lng',
         'plan_code',
         'id_image_path',
+        'id_selfie_image_path',
         'agreed_to_terms',
         'agreed_to_privacy',
         'consented_at',
@@ -97,5 +98,10 @@ class Application extends Model
     public function idImageUrl(): ?string
     {
         return PublicUpload::urlIfExists($this->id_image_path);
+    }
+
+    public function idSelfieImageUrl(): ?string
+    {
+        return PublicUpload::urlIfExists($this->id_selfie_image_path);
     }
 }

@@ -63,10 +63,7 @@
                         $avatarLabel = $msg->sender_type === 'ai'
                             ? 'AI'
                             : Str::upper(Str::substr($msg->senderLabel(), 0, 1));
-                        $attachmentPath = $msg->attachmentPath();
-                        $attachmentUrl = $msg->attachmentUrl();
-                        $attachmentMissing = $attachmentPath && ! $msg->attachmentExists();
-                        $attachmentLabel = $msg->attachmentOriginalName() ?: 'View image';
+                        $attachmentItems = $msg->attachmentItems();
                     @endphp
 
                     <article class="chat-ui__message-row {{ $bubbleClass }}">
@@ -82,18 +79,20 @@
                                     <span>{{ $msg->created_at->displayTime() }}</span>
                                 </div>
                                 <div class="chat-ui__message-text">{{ $msg->message }}</div>
-                                @if($attachmentUrl)
-                                    <a href="{{ $attachmentUrl }}" target="_blank" rel="noopener noreferrer" class="chat-ui__message-attachment">
-                                        @if($msg->hasImageAttachment())
-                                            <img src="{{ $attachmentUrl }}" alt="{{ $attachmentLabel }}">
-                                        @endif
-                                        <span>{{ $attachmentLabel }}</span>
-                                    </a>
-                                @elseif($attachmentMissing)
-                                    <div class="chat-ui__message-attachment is-missing">
-                                        <span>Uploaded file not found.</span>
-                                    </div>
-                                @endif
+                                @foreach($attachmentItems as $attachment)
+                                    @if(! empty($attachment['url']))
+                                        <a href="{{ $attachment['url'] }}" target="_blank" rel="noopener noreferrer" class="chat-ui__message-attachment">
+                                            @if(! empty($attachment['is_image']))
+                                                <img src="{{ $attachment['url'] }}" alt="{{ $attachment['original_name'] }}">
+                                            @endif
+                                            <span>{{ $attachment['original_name'] }}</span>
+                                        </a>
+                                    @elseif(! empty($attachment['missing']))
+                                        <div class="chat-ui__message-attachment is-missing">
+                                            <span>Uploaded file not found.</span>
+                                        </div>
+                                    @endif
+                                @endforeach
                             </div>
                         @endif
                     </article>
@@ -115,8 +114,8 @@
                         <textarea name="message" rows="2" placeholder="{{ $isCustomer ? 'Write your message' : 'Reply to the customer' }}"></textarea>
                         <div class="chat-ui__attachment-control">
                             <label for="chat_attachment" class="chat-ui__attachment-button">Attach image</label>
-                            <input id="chat_attachment" type="file" name="chat_attachment" accept=".jpg,.jpeg,.png,.webp">
-                            <span data-chat-attachment-name>No image selected</span>
+                            <input id="chat_attachment" type="file" name="chat_attachments[]" accept=".jpg,.jpeg,.png,.webp" multiple>
+                            <span data-chat-attachment-name>No images selected</span>
                         </div>
                     </div>
                     <button type="submit" class="chat-ui__button chat-ui__button--primary">Send</button>

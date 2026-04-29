@@ -61,6 +61,11 @@
                 <strong class="ticket-queue-metric__value">{{ $queueSummary['closed'] }}</strong>
                 <span class="ticket-queue-metric__meta">Finished tickets kept for record history</span>
             </a>
+            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'cancelled', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'cancelled' ? 'is-active' : '' }}">
+                <span class="ticket-queue-metric__label">Cancelled</span>
+                <strong class="ticket-queue-metric__value">{{ $queueSummary['cancelled'] }}</strong>
+                <span class="ticket-queue-metric__meta">Cancelled tickets kept for history</span>
+            </a>
         </div>
     </section>
 
@@ -224,11 +229,12 @@
 
             assignSubmit.textContent = button.dataset.ticketTechnicianId ? 'Save Reassignment' : 'Assign Technician';
 
-            const isClosed = button.dataset.ticketStatusValue === 'closed';
+            const isReadOnly = button.dataset.ticketStatusValue === 'closed' || button.dataset.ticketStatusValue === 'cancelled';
+            const isCancellationRequested = button.dataset.ticketStatusValue === 'cancellation_requested';
             const isResolved = button.dataset.ticketStatusValue === 'resolved';
 
-            technicianSelect.disabled = isClosed;
-            assignSubmit.hidden = isClosed;
+            technicianSelect.disabled = isReadOnly || isCancellationRequested;
+            assignSubmit.hidden = isReadOnly || isCancellationRequested;
 
             if (isResolved) {
                 closeForm.hidden = false;
