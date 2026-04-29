@@ -281,6 +281,14 @@
         }
 
         function attachmentHtml(message) {
+            if (message.attachment_missing || (message.attachment_path && !message.attachment_url)) {
+                return `
+                    <div class="chat-ui__message-attachment is-missing">
+                        <span>Uploaded file not found.</span>
+                    </div>
+                `;
+            }
+
             if (!message.attachment_url) {
                 return '';
             }

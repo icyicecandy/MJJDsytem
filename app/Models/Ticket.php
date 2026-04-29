@@ -204,7 +204,7 @@ class Ticket extends Model
 
     public function photoUrl(): ?string
     {
-        return PublicUpload::url($this->photo_path);
+        return PublicUpload::urlIfExists($this->photo_path);
     }
 
     public function syncAssignmentStatus(?int $technicianId = null, ?string $status = null): array

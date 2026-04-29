@@ -653,6 +653,14 @@ textarea { min-height: 120px; resize: vertical; }
     font-size: 0.88rem;
 }
 .inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.admin-disable-account-form {
+    display: grid;
+    width: min(100%, 640px);
+    gap: 0.85rem;
+}
+.admin-disable-account-form .btn {
+    width: fit-content;
+}
 .btn, button.btn, a.btn {
     display: inline-flex;
     align-items: center;

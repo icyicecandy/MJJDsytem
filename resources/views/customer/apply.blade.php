@@ -4,22 +4,25 @@
 
 <x-app-layout>
     @php
+        $regions = $addressCatalog ?? [];
         $currentLat = old('lat', $application->lat ?? null);
         $currentLng = old('lng', $application->lng ?? null);
-        $selectedRegion = old('region', $application->region ?? '');
-        $selectedProvince = old('province', $application->province ?? '');
-        $selectedMunicipality = old('municipality', $application->municipality ?? '');
-        $selectedBarangay = old('barangay', $application->barangay ?? '');
-        $luzonBounds = $mapBounds ?? ['south' => 11.8, 'west' => 118.8, 'north' => 19.9, 'east' => 123.9, 'center' => [16.2, 121.0], 'zoom' => 7];
-        $initialStep = 1;
-        $regions = $addressCatalog ?? [];
+        $selectedRegion = old('region', $application->region ?? ($regions[0]['name'] ?? ''));
         $selectedRegionItem = collect($regions)->firstWhere('name', $selectedRegion);
+        $selectedRegion = $selectedRegionItem['name'] ?? $selectedRegion;
         $provinceItems = $selectedRegionItem['provinces'] ?? [];
+        $selectedProvince = old('province', $application->province ?? ($provinceItems[0]['name'] ?? ''));
         $selectedProvinceItem = collect($provinceItems)->firstWhere('name', $selectedProvince);
+        $selectedProvince = $selectedProvinceItem['name'] ?? $selectedProvince;
         $municipalityItems = $selectedProvinceItem['municipalities'] ?? [];
+        $selectedMunicipality = old('municipality', $application->municipality ?? '');
         $selectedMunicipalityItem = collect($municipalityItems)->firstWhere('name', $selectedMunicipality);
+        $selectedMunicipality = $selectedMunicipalityItem['name'] ?? $selectedMunicipality;
+        $selectedBarangay = old('barangay', $application->barangay ?? '');
         $barangayItems = $selectedMunicipalityItem['barangays'] ?? [];
         $hasConfiguredBarangays = !empty($barangayItems);
+        $serviceBounds = $mapBounds ?? ['south' => 15.45, 'west' => 119.55, 'north' => 16.55, 'east' => 121.05, 'center' => [15.96, 120.34], 'zoom' => 9];
+        $initialStep = 1;
     @endphp
 
     <div class="apply-wizard-shell">
@@ -97,7 +100,7 @@
                 <div class="apply-step-head">
                     <div>
                         <h1>Service Location</h1>
-                        <p>Select the service address from the Luzon service areas, then pin the exact location on the map.</p>
+                        <p>Select the service address in Pangasinan, then pin the exact location on the map.</p>
                     </div>
                 </div>
 
@@ -105,13 +108,13 @@
                     <div class="apply-field">
                         <label for="region">Region</label>
                         <select id="region" name="region" required>
-                            <option value="">Select Region</option>
                             @foreach($regions as $region)
                                 <option value="{{ $region['name'] }}" @selected($selectedRegion === ($region['name'] ?? ''))>
                                     {{ $region['name'] }}
                                 </option>
                             @endforeach
                         </select>
+                        <p class="text-muted mt-1">MJJD currently operates in Pangasinan only.</p>
                         @error('region')
                             <span class="error">{{ $message }}</span>
                         @enderror
@@ -120,7 +123,6 @@
                     <div class="apply-field">
                         <label for="province">Province</label>
                         <select id="province" name="province" required @disabled(empty($provinceItems))>
-                            <option value="">Select Province</option>
                             @foreach($provinceItems as $province)
                                 <option value="{{ $province['name'] }}" @selected($selectedProvince === ($province['name'] ?? ''))>
                                     {{ $province['name'] }}
@@ -166,10 +168,10 @@
                             type="text"
                             value="{{ $selectedBarangay }}"
                             placeholder="Enter Barangay / Zone"
-                            @if($hasConfiguredBarangays) hidden @endif
+                            @if($hasConfiguredBarangays || ! $selectedMunicipality) hidden @endif
                         >
                         <p class="text-muted mt-1" id="barangayHelper">
-                            {{ $hasConfiguredBarangays ? 'Choose your Barangay / Zone from the list.' : 'Type the Barangay / Zone manually for this municipality.' }}
+                            {{ $hasConfiguredBarangays ? 'Choose your Barangay / Zone from the list.' : ($selectedMunicipality ? 'Type the Barangay / Zone manually for this municipality.' : 'Select Municipality / City first.') }}
                         </p>
                         @error('barangay')
                             <span class="error">{{ $message }}</span>
@@ -195,7 +197,7 @@
                     <div class="tracking-meta full-width"><strong>Address Summary</strong><span id="applyAddressSummary">Complete the dropdowns to build the service address.</span></div>
                     <div class="tracking-meta full-width"><strong>Map Preview</strong><span id="applyLocationPreview">Click the map to load the nearest location details.</span></div>
                 </div>
-                <p class="apply-map-status" id="applyMapStatus">Pinning is limited to Luzon operational coverage.</p>
+                <p class="apply-map-status" id="applyMapStatus">Pinning is limited to MJJD service coverage in Pangasinan.</p>
                 @error('lat')
                     <span class="error">{{ $message }}</span>
                 @enderror
@@ -224,7 +226,7 @@
                             <strong>Superfiber 50 Mbps</strong>
                             <span>Good for daily browsing, messaging, streaming, and home use.</span>
                         </div>
-                        <div class="apply-plan-price">PHP 700</div>
+                        <div class="apply-plan-price">PHP 999 installation fee</div>
                     </label>
 
                     <label class="apply-plan-option {{ old('plan_code', $application->plan_code ?? '') === 'S2S_100' ? 'selected' : '' }}">
@@ -233,7 +235,7 @@
                             <strong>Extraboost 100 Mbps</strong>
                             <span>Higher-speed access for multiple users, devices, and heavier streaming.</span>
                         </div>
-                        <div class="apply-plan-price">PHP 999</div>
+                        <div class="apply-plan-price">PHP 1,699 installation fee</div>
                     </label>
                 </div>
                 @error('plan_code')
@@ -333,7 +335,7 @@
             municipality: @json($selectedMunicipality),
             barangay: @json($selectedBarangay),
         };
-        const luzonBounds = @json($luzonBounds);
+        const serviceBounds = @json($serviceBounds);
 
         if (!form || !panels.length || !steps.length) {
             return;
@@ -346,6 +348,7 @@
         let reverseLookupTimer = null;
         let contactCheckTimer = null;
         let latestContactRequest = 0;
+        let latestGeocodeRequest = 0;
         let contactCheckPromise = null;
         const namePattern = /^[A-Za-z][A-Za-z\s'-]*$/;
 
@@ -637,9 +640,9 @@
             }
         }
 
-        function placeMarker(latlng, message) {
+        function placeMarker(latlng, message, options = {}) {
             if (!allowedBounds || !allowedBounds.contains(latlng)) {
-                setStatus('Selected point is outside the allowed Luzon service area. Please choose a location within Luzon.', true);
+                setStatus('Selected point is outside MJJD service coverage in Pangasinan. Please choose a Pangasinan location.', true);
                 return false;
             }
             setStatus(message || 'Pinned inside MJJD coverage.', false);
@@ -650,18 +653,26 @@
                 marker.setLatLng(latlng);
             }
             updateCoordinateDisplay(latlng);
-            reverseGeocode(latlng);
+            if (options.skipReverseLookup) {
+                if (preview && options.previewMessage) {
+                    preview.textContent = options.previewMessage;
+                }
+            } else {
+                reverseGeocode(latlng);
+            }
             return true;
         }
 
-        function setOptions(select, options, placeholder, selectedValue) {
+        function setOptions(select, options, placeholder, selectedValue, config = {}) {
             if (!select) return;
             select.innerHTML = '';
 
-            const placeholderOption = document.createElement('option');
-            placeholderOption.value = '';
-            placeholderOption.textContent = placeholder;
-            select.appendChild(placeholderOption);
+            if (config.placeholder !== false && placeholder) {
+                const placeholderOption = document.createElement('option');
+                placeholderOption.value = '';
+                placeholderOption.textContent = placeholder;
+                select.appendChild(placeholderOption);
+            }
 
             options.forEach(option => {
                 const optionLabel = typeof option === 'string' ? option : option.name;
@@ -675,8 +686,13 @@
             });
 
             const optionValues = options.map(option => typeof option === 'string' ? option : option.name);
-            select.disabled = options.length === 0;
-            if (!selectedValue || !optionValues.includes(selectedValue)) {
+            const fallbackValue = config.selectFirst && optionValues.length === 1 ? optionValues[0] : '';
+            const nextValue = optionValues.includes(selectedValue) ? selectedValue : fallbackValue;
+            select.disabled = options.length === 0 || Boolean(config.disabled);
+
+            if (nextValue) {
+                select.value = nextValue;
+            } else if (!selectedValue || !optionValues.includes(selectedValue)) {
                 select.value = '';
             }
         }
@@ -716,35 +732,125 @@
             return nextValue;
         }
 
+        function getPlaceName(item) {
+            return typeof item === 'string' ? item : (item && item.name ? item.name : '');
+        }
+
+        function hasCoordinatePair(target) {
+            if (!target) {
+                return false;
+            }
+
+            const lat = parseFloat(target.lat);
+            const lng = parseFloat(target.lng);
+            return !Number.isNaN(lat) && !Number.isNaN(lng);
+        }
+
+        function keepTargetInsideBounds(target, fallbackTarget) {
+            if (!target || !allowedBounds || typeof window.L === 'undefined') {
+                return target;
+            }
+
+            const targetLatLng = L.latLng(target.lat, target.lng);
+            if (allowedBounds.contains(targetLatLng)) {
+                return target;
+            }
+
+            if (!hasCoordinatePair(fallbackTarget)) {
+                return null;
+            }
+
+            const fallbackLat = parseFloat(fallbackTarget.lat);
+            const fallbackLng = parseFloat(fallbackTarget.lng);
+            for (const scale of [0.75, 0.5, 0.25, 0]) {
+                const candidate = {
+                    ...target,
+                    lat: fallbackLat + ((target.lat - fallbackLat) * scale),
+                    lng: fallbackLng + ((target.lng - fallbackLng) * scale),
+                };
+
+                if (allowedBounds.contains(L.latLng(candidate.lat, candidate.lng))) {
+                    return candidate;
+                }
+            }
+
+            return {
+                ...target,
+                lat: fallbackLat,
+                lng: fallbackLng,
+            };
+        }
+
+        function buildBarangayStarterTarget(municipality, barangayName) {
+            if (!hasCoordinatePair(municipality) || !barangayName) {
+                return null;
+            }
+
+            const barangayNames = (municipality.barangays || []).map(getPlaceName).filter(Boolean);
+            const index = Math.max(0, barangayNames.indexOf(barangayName));
+            const lat = parseFloat(municipality.lat);
+            const lng = parseFloat(municipality.lng);
+            const angle = (index * 2.399963229728653) % (Math.PI * 2);
+            const ring = Math.floor(index / 8);
+            const radius = 0.006 + ((ring % 5) * 0.005);
+            const lngScale = Math.max(Math.cos(lat * Math.PI / 180), 0.35);
+            const target = {
+                lat: lat + (Math.sin(angle) * radius),
+                lng: lng + ((Math.cos(angle) * radius) / lngScale),
+                zoom: 15,
+                estimated: true,
+            };
+
+            return keepTargetInsideBounds(target, municipality);
+        }
+
         function focusMapTarget(target, options = {}) {
             if (!map || !target) {
-                return;
+                return false;
             }
 
             const lat = parseFloat(target.lat);
             const lng = parseFloat(target.lng);
             const zoom = parseInt(target.zoom || options.zoom || 14, 10);
             if (Number.isNaN(lat) || Number.isNaN(lng)) {
-                return;
+                return false;
             }
 
-            map.flyTo([lat, lng], zoom, { duration: 0.75 });
+            const latlng = L.latLng(lat, lng);
+            if (allowedBounds && !allowedBounds.contains(latlng)) {
+                return false;
+            }
+
+            map.flyTo(latlng, zoom, { duration: 0.75 });
 
             if (options.placePin) {
-                placeMarker(L.latLng(lat, lng), options.message || 'Starter pin placed. Drag the marker or click the map to set the exact service point.');
+                placeMarker(latlng, options.message || 'Starter pin placed. Drag the marker or click the map to set the exact service point.', {
+                    previewMessage: options.previewMessage,
+                    skipReverseLookup: options.skipReverseLookup,
+                });
             } else if (preview && options.previewMessage) {
                 preview.textContent = options.previewMessage;
             }
+
+            return true;
         }
 
         function populateRegions() {
-            setOptions(regionSelect, addressCatalog.map(region => region.name), 'Select Region', selectedValues.region);
+            setOptions(regionSelect, addressCatalog.map(region => region.name), 'Select Region', selectedValues.region, {
+                placeholder: false,
+                selectFirst: true,
+            });
+            selectedValues.region = regionSelect ? regionSelect.value : selectedValues.region;
         }
 
         function populateProvinces(selectedProvinceValue) {
             const region = getRegionItem(regionSelect.value);
             const provinces = region ? (region.provinces || []).map(province => province.name) : [];
-            setOptions(provinceSelect, provinces, 'Select Province', selectedProvinceValue || '');
+            setOptions(provinceSelect, provinces, 'Select Province', selectedProvinceValue || selectedValues.province, {
+                placeholder: false,
+                selectFirst: true,
+            });
+            selectedValues.province = provinceSelect ? provinceSelect.value : selectedValues.province;
         }
 
         function populateMunicipalities(selectedMunicipalityValue) {
@@ -765,6 +871,7 @@
                 setOptions(barangaySelect, barangays, 'Select Barangay / Zone', selectedBarangayValue || '');
                 barangaySelect.hidden = false;
                 barangaySelect.disabled = false;
+                barangaySelect.required = true;
                 barangayManualInput.hidden = true;
                 barangayManualInput.value = '';
                 barangayManualInput.required = false;
@@ -776,8 +883,8 @@
                 barangaySelect.hidden = true;
                 barangaySelect.disabled = true;
                 barangaySelect.required = false;
-                barangayManualInput.hidden = false;
-                barangayManualInput.value = selectedBarangayValue || '';
+                barangayManualInput.hidden = !municipalitySelect.value;
+                barangayManualInput.value = municipalitySelect.value ? (selectedBarangayValue || '') : '';
                 barangayManualInput.required = Boolean(municipalitySelect.value);
                 if (barangayHelper) {
                     barangayHelper.textContent = municipalitySelect.value
@@ -795,11 +902,12 @@
             selectedValues.municipality = '';
             selectedValues.barangay = '';
             populateProvinces('');
+            selectedValues.province = provinceSelect.value;
             populateMunicipalities('');
             populateBarangays('');
             clearPin('Select a municipality to place a starter pin on the map.');
             focusMapTarget(getRegionItem(regionSelect.value), {
-                previewMessage: regionSelect.value ? `Map focused on ${regionSelect.value}. Continue with Province and Municipality.` : 'Select a municipality to focus the map.',
+                previewMessage: regionSelect.value ? `Map focused on ${regionSelect.value}. Continue with Municipality / City.` : 'Select a municipality to focus the map.',
                 zoom: 8,
             });
             updateReview();
@@ -819,10 +927,17 @@
             updateReview();
         }
 
-        function handleMunicipalityChange() {
+        function handleMunicipalityChange(resetBarangay = true) {
+            if (typeof resetBarangay !== 'boolean') {
+                resetBarangay = true;
+            }
+
+            latestGeocodeRequest += 1;
             selectedValues.municipality = municipalitySelect.value;
-            selectedValues.barangay = '';
-            populateBarangays('');
+            if (resetBarangay) {
+                selectedValues.barangay = '';
+            }
+            populateBarangays(resetBarangay ? '' : selectedValues.barangay);
             const municipality = getMunicipalityItem(regionSelect.value, provinceSelect.value, municipalitySelect.value);
             focusMapTarget(municipality, {
                 placePin: Boolean(municipality),
@@ -833,22 +948,168 @@
             updateReview();
         }
 
+        function normalizeSearchText(value) {
+            return String(value || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim();
+        }
+
+        function normalizeGeocodeQueries(queryInputs) {
+            if (!Array.isArray(queryInputs)) {
+                return [];
+            }
+
+            const queries = queryInputs.every(item => typeof item === 'string')
+                ? [queryInputs.filter(Boolean).join(', ')]
+                : queryInputs.map(item => Array.isArray(item) ? item.filter(Boolean).join(', ') : String(item || ''));
+
+            return [...new Set(queries.map(query => query.trim()).filter(Boolean))];
+        }
+
+        function bestGeocodeTarget(results, expected = {}) {
+            if (!Array.isArray(results)) {
+                return null;
+            }
+
+            const expectedMunicipality = normalizeSearchText(expected.municipality);
+            const expectedBarangay = normalizeSearchText(expected.barangay);
+            const candidates = [];
+
+            for (const result of results) {
+                const lat = parseFloat(result.lat);
+                const lng = parseFloat(result.lon);
+                if (Number.isNaN(lat) || Number.isNaN(lng)) {
+                    continue;
+                }
+
+                const latlng = L.latLng(lat, lng);
+                if (!allowedBounds.contains(latlng)) {
+                    continue;
+                }
+
+                const displayName = normalizeSearchText(result.display_name || result.name || '');
+                const score = (expectedMunicipality && displayName.includes(expectedMunicipality) ? 2 : 0)
+                    + (expectedBarangay && displayName.includes(expectedBarangay) ? 1 : 0);
+
+                candidates.push({ score, target: { lat, lng, zoom: 16 } });
+            }
+
+            if (!candidates.length) {
+                return null;
+            }
+
+            candidates.sort((a, b) => b.score - a.score);
+            if (expectedMunicipality && candidates[0].score < 2) {
+                return null;
+            }
+
+            return candidates[0].target;
+        }
+
+        async function geocodeServiceAddress(queryInputs, expected = {}) {
+            if (!allowedBounds || typeof window.L === 'undefined') {
+                return null;
+            }
+
+            const queries = normalizeGeocodeQueries(queryInputs);
+            for (const query of queries) {
+                const params = new URLSearchParams({
+                    format: 'jsonv2',
+                    limit: '5',
+                    countrycodes: 'ph',
+                    q: query,
+                });
+
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    if (!response.ok) {
+                        continue;
+                    }
+
+                    const target = bestGeocodeTarget(await response.json(), expected);
+                    if (target) {
+                        return target;
+                    }
+                } catch (error) {
+                    continue;
+                }
+            }
+
+            return null;
+        }
+
+        async function focusGeocodedBarangay(municipality, barangayName) {
+            const requestId = ++latestGeocodeRequest;
+            const cleanBarangayName = barangayName.replace(/^barangay\s+/i, '').trim();
+
+            if (preview) {
+                preview.textContent = `Searching the map for ${barangayName}...`;
+            }
+
+            const target = await geocodeServiceAddress([
+                [`Barangay ${cleanBarangayName}`, municipality.name, 'Pangasinan', 'Philippines'],
+                [cleanBarangayName, municipality.name, 'Pangasinan', 'Philippines'],
+                [`Brgy ${cleanBarangayName}`, municipality.name, 'Pangasinan', 'Philippines'],
+                [`Barangay ${cleanBarangayName}`, 'Pangasinan', 'Philippines'],
+            ], {
+                barangay: cleanBarangayName,
+                municipality: municipality.name,
+            });
+
+            if (
+                requestId !== latestGeocodeRequest
+                || selectedValues.barangay !== barangayName
+                || selectedValues.municipality !== municipality.name
+            ) {
+                return;
+            }
+
+            if (target) {
+                focusMapTarget(target, {
+                    placePin: true,
+                    message: `Starter pin moved to ${barangayName}. Drag the marker or click the map for the exact service point.`,
+                    previewMessage: `Map focused on ${barangayName}.`,
+                    zoom: target.zoom,
+                });
+                return;
+            }
+
+            setStatus(`Starter pin is near ${barangayName}. Drag it or click the map for the exact service point.`, false);
+            if (preview) {
+                preview.textContent = `Could not automatically find an exact map point for ${barangayName}. The starter pin is near the selected barangay.`;
+            }
+        }
+
         function handleBarangayChange() {
+            latestGeocodeRequest += 1;
             selectedValues.barangay = syncBarangayValue();
             const municipality = getMunicipalityItem(regionSelect.value, provinceSelect.value, municipalitySelect.value);
             const barangay = getBarangayItem(regionSelect.value, provinceSelect.value, municipalitySelect.value, selectedValues.barangay);
-            const target = barangay && typeof barangay === 'object' && barangay.lat && barangay.lng
-                ? barangay
-                : municipality
-                    ? { lat: municipality.lat, lng: municipality.lng, zoom: (municipality.zoom || 13) + 1 }
-                    : null;
+            const hasBarangayCoordinates = hasCoordinatePair(barangay);
+            const target = selectedValues.barangay
+                ? (hasBarangayCoordinates ? barangay : buildBarangayStarterTarget(municipality, selectedValues.barangay))
+                : (municipality ? { lat: municipality.lat, lng: municipality.lng, zoom: (municipality.zoom || 13) + 1 } : null);
+            const targetIsEstimated = Boolean(target && target.estimated);
 
             focusMapTarget(target, {
                 placePin: Boolean(target),
-                message: selectedValues.barangay ? `Starter pin aligned to ${selectedValues.barangay}. Adjust it for the exact house or installation point.` : '',
-                previewMessage: selectedValues.barangay ? `Map focused on ${selectedValues.barangay}.` : 'Select a barangay to refine the map.',
+                message: targetIsEstimated
+                    ? `Starter pin moved near ${selectedValues.barangay}. Searching for an exact barangay map point...`
+                    : (selectedValues.barangay ? `Starter pin moved to ${selectedValues.barangay}. Drag the marker or click the map for the exact service point.` : ''),
+                previewMessage: selectedValues.barangay
+                    ? (targetIsEstimated ? `Map focused near ${selectedValues.barangay}.` : `Map focused on ${selectedValues.barangay}.`)
+                    : 'Select a barangay to refine the map.',
                 zoom: target && target.zoom ? target.zoom : 14,
+                skipReverseLookup: targetIsEstimated,
             });
+
+            if (selectedValues.barangay && municipality && !hasBarangayCoordinates) {
+                focusGeocodedBarangay(municipality, selectedValues.barangay);
+            }
+
             updateReview();
         }
 
@@ -903,15 +1164,15 @@
         try {
             if (typeof window.L !== 'undefined' && mapElement) {
                 allowedBounds = L.latLngBounds([
-                    luzonBounds.south, luzonBounds.west
+                    serviceBounds.south, serviceBounds.west
                 ], [
-                    luzonBounds.north, luzonBounds.east
+                    serviceBounds.north, serviceBounds.east
                 ]);
 
                 map = L.map(mapElement, {
-                    center: luzonBounds.center,
-                    zoom: luzonBounds.zoom,
-                    minZoom: 6,
+                    center: serviceBounds.center,
+                    zoom: serviceBounds.zoom,
+                    minZoom: 8,
                     maxZoom: 18,
                     maxBounds: allowedBounds,
                     maxBoundsViscosity: 1.0,
@@ -935,7 +1196,7 @@
                         map.setView(existingLatLng, 16);
                     }
                 } else if (selectedValues.municipality) {
-                    handleMunicipalityChange();
+                    handleMunicipalityChange(false);
                     if (selectedValues.barangay) {
                         handleBarangayChange();
                     }

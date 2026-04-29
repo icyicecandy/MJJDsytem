@@ -23,6 +23,23 @@ function firstServiceArea(): array
     ];
 }
 
+test('pangasinan service catalog has barangays and municipality pin centers', function () {
+    $region = config('luzon_service_areas.regions')[0];
+    $province = $region['provinces'][0];
+    $municipalities = collect($province['municipalities']);
+    $binalonan = $municipalities->firstWhere('name', 'Binalonan');
+
+    expect($region['name'])->toBe('Ilocos Region')
+        ->and($province['name'])->toBe('Pangasinan')
+        ->and($municipalities)->toHaveCount(48)
+        ->and($municipalities->filter(fn (array $item) => empty($item['barangays'])))->toHaveCount(0)
+        ->and($municipalities->sum(fn (array $item) => count($item['barangays'])))->toBe(1364)
+        ->and($binalonan)->not->toBeNull()
+        ->and(round($binalonan['lat'], 3))->toBe(16.044)
+        ->and(round($binalonan['lng'], 3))->toBe(120.592)
+        ->and($binalonan['barangays'])->toContain('Sto. Niño');
+});
+
 test('customer application stores consent metadata', function () {
     Storage::fake('public');
 

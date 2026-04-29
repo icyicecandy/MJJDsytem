@@ -25,6 +25,21 @@ test('high visibility pages load without obvious failures', function () {
 
     $admin = User::factory()->create(['role' => 'admin']);
     $technician = User::factory()->create(['role' => 'technician']);
+    $newCustomer = User::factory()->create(['role' => 'customer']);
+
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('&#8369;999', false)
+        ->assertSee('&#8369;1,699', false)
+        ->assertDontSee('&#8369;1,000', false);
+
+    $this->actingAs($newCustomer)
+        ->get('/customer/apply')
+        ->assertOk()
+        ->assertSee('PHP 999 installation fee')
+        ->assertSee('PHP 1,699 installation fee')
+        ->assertDontSee('PHP 1,000 installation fee');
+    $this->post('/logout');
 
     $this->actingAs($customer)->get('/customer/dashboard')->assertOk();
     $this->actingAs($customer)->get('/customer/application')->assertOk();

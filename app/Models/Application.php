@@ -96,6 +96,6 @@ class Application extends Model
 
     public function idImageUrl(): ?string
     {
-        return PublicUpload::url($this->id_image_path);
+        return PublicUpload::urlIfExists($this->id_image_path);
     }
 }

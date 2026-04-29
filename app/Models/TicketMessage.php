@@ -26,11 +26,16 @@ class TicketMessage extends Model
 
     public function attachmentUrl(): ?string
     {
-        return PublicUpload::url($this->attachment_path);
+        return PublicUpload::urlIfExists($this->attachment_path);
+    }
+
+    public function attachmentExists(): bool
+    {
+        return PublicUpload::exists($this->attachment_path);
     }
 
     public function hasImageAttachment(): bool
     {
-        return PublicUpload::isImage($this->attachment_path);
+        return $this->attachmentExists() && PublicUpload::isImage($this->attachment_path);
     }
 }

@@ -3,10 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\TechnicianAccountCreatedMail;
 use App\Models\Installation;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
+use Throwable;
 
 class TechnicianController extends Controller
 {
@@ -14,6 +19,9 @@ class TechnicianController extends Controller
     {
         $search = trim((string) $request->query('search', ''));
         $status = trim((string) $request->query('status', ''));
+        $employmentTypeOptions = User::technicianEmploymentTypeOptions();
+        $workDayOptions = User::technicianWorkDayOptions();
+        $temporaryPassword = old('temporary_password') ?: $this->generateTemporaryPassword();
 
         $technicians = User::query()
             ->technicians()
@@ -57,7 +65,14 @@ class TechnicianController extends Controller
             ->paginate(12)
             ->withQueryString();
 
-        return view('admin.technicians.index', compact('technicians', 'search', 'status'));
+        return view('admin.technicians.index', compact(
+            'technicians',
+            'search',
+            'status',
+            'employmentTypeOptions',
+            'workDayOptions',
+            'temporaryPassword'
+        ));
     }
 
     public function show(User $technician)
@@ -90,13 +105,84 @@ class TechnicianController extends Controller
         return view('admin.technicians.show', compact('technician', 'upcomingInstallation'));
     }
 
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:100', "regex:/^[A-Za-z][A-Za-z\\s'\\-]*$/"],
+            'last_name' => ['required', 'string', 'max:100', "regex:/^[A-Za-z][A-Za-z\\s'\\-]*$/"],
+            'email' => ['required', 'email', 'max:150', 'unique:users,email'],
+            'phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
+            'address' => ['required', 'string', 'max:255'],
+            'technician_employment_type' => ['required', Rule::in(array_keys(User::technicianEmploymentTypeOptions()))],
+            'part_time_days' => ['required_if:technician_employment_type,part_time', 'array', 'min:1', 'max:3'],
+            'part_time_days.*' => ['string', 'distinct', Rule::in(array_keys(User::technicianWorkDayOptions()))],
+            'temporary_password' => ['required', 'string', 'min:12', 'max:64'],
+        ], [
+            'first_name.regex' => 'First name may only contain letters, spaces, hyphens, and apostrophes.',
+            'last_name.regex' => 'Last name may only contain letters, spaces, hyphens, and apostrophes.',
+            'phone.regex' => 'Enter a valid contact number with 10 to 15 digits.',
+            'part_time_days.required_if' => 'Select at least one part-time work day.',
+            'part_time_days.min' => 'Select at least one part-time work day.',
+            'part_time_days.max' => 'Select up to three part-time work days.',
+        ]);
+
+        $technicianShift = $validated['technician_employment_type'] === 'part_time'
+            ? User::formatPartTimeShift($validated['part_time_days'])
+            : User::TECHNICIAN_STANDARD_SHIFT;
+
+        $technician = User::create([
+            'name' => trim($validated['first_name'] . ' ' . $validated['last_name']),
+            'email' => $validated['email'],
+            'phone' => $validated['phone'],
+            'address' => $validated['address'],
+            'technician_shift' => $technicianShift,
+            'technician_employment_type' => $validated['technician_employment_type'],
+            'technician_status' => 'available',
+            'role' => 'technician',
+            'password' => $validated['temporary_password'],
+            'password_set_at' => now(),
+            'email_verified_at' => now(),
+            'is_online' => false,
+            'chat_available' => false,
+        ]);
+
+        $keyEmailSent = true;
+
+        try {
+            Mail::to($technician->email)->send(
+                new TechnicianAccountCreatedMail($technician, $validated['temporary_password'])
+            );
+        } catch (Throwable $exception) {
+            $keyEmailSent = false;
+
+            Log::warning('Technician account key email failed to send.', [
+                'technician_id' => $technician->id,
+                'email' => $technician->email,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+
+        return redirect()
+            ->route('admin.technicians.show', $technician)
+            ->with('success', 'Technician account created. Temporary key: ' . $validated['temporary_password'] . ($keyEmailSent
+                ? ' Account key email sent to ' . $technician->email . '.'
+                : ' Account key email could not be sent. Share this key manually.'));
+    }
+
     public function disableAccount(Request $request, User $technician): RedirectResponse
     {
         abort_unless($technician->isTechnician(), 404);
 
+        $validated = $request->validate([
+            'disabled_reason' => ['required', 'string', 'max:1000'],
+        ], [
+            'disabled_reason.required' => 'Please record why this technician account is being disabled.',
+        ]);
+
         $technician->forceFill([
             'disabled_at' => $technician->disabled_at ?: now(),
             'disabled_by' => $request->user()->id,
+            'disabled_reason' => trim($validated['disabled_reason']),
             'is_online' => false,
             'chat_available' => false,
             'last_seen' => null,
@@ -115,11 +201,34 @@ class TechnicianController extends Controller
         $technician->forceFill([
             'disabled_at' => null,
             'disabled_by' => null,
+            'disabled_reason' => null,
             'technician_status' => 'available',
         ])->save();
 
         return redirect()
             ->route('admin.technicians.show', $technician)
             ->with('status', 'technician-enabled');
+    }
+
+    private function generateTemporaryPassword(): string
+    {
+        $sets = [
+            'ABCDEFGHJKLMNPQRSTUVWXYZ',
+            'abcdefghijkmnopqrstuvwxyz',
+            '23456789',
+            '!@#$%&*',
+        ];
+
+        $password = '';
+        foreach ($sets as $set) {
+            $password .= $set[random_int(0, strlen($set) - 1)];
+        }
+
+        $pool = implode('', $sets);
+        while (strlen($password) < 14) {
+            $password .= $pool[random_int(0, strlen($pool) - 1)];
+        }
+
+        return str_shuffle($password);
     }
 }

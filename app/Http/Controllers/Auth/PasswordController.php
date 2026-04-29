@@ -12,12 +12,17 @@ class PasswordController extends Controller
 {
     public function update(Request $request): RedirectResponse
     {
+        $user = $request->user();
+        $canSetInitialPassword = $user->canSetInitialPassword();
+
         $validated = $request->validateWithBag('updatePassword', [
-            'current_password' => ['required', 'current_password'],
+            'current_password' => $canSetInitialPassword
+                ? ['nullable', 'current_password']
+                : ['required', 'current_password'],
             'password' => [
                 'required',
                 'confirmed',
-                Password::min(12)
+                Password::min(8)
                     ->mixedCase()
                     ->numbers()
                     ->symbols()
@@ -28,10 +33,11 @@ class PasswordController extends Controller
             'password.confirmed' => 'The password confirmation does not match.',
         ]);
 
-        $request->user()->update([
+        $user->forceFill([
             'password' => Hash::make($validated['password']),
-        ]);
+            'password_set_at' => now(),
+        ])->save();
 
-        return back()->with('status', 'password-updated');
+        return back()->with('status', $canSetInitialPassword ? 'password-set' : 'password-updated');
     }
 }

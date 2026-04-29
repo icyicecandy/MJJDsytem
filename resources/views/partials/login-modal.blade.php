@@ -80,7 +80,7 @@
 
                 <div class="form-group checkbox-group login-modal-options-row">
                     <label>
-                        <input type="checkbox" name="remember" {{ $loginModalActive && old('remember') ? 'checked' : '' }} /> Keep me signed in
+                        <input type="checkbox" name="remember" value="1" {{ $loginModalActive && old('remember') ? 'checked' : '' }} /> Keep me signed in
                     </label>
                 </div>
 

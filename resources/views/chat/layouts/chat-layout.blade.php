@@ -540,6 +540,11 @@
                 color: #eff6ff;
             }
 
+            .chat-ui__message-attachment.is-missing span {
+                color: #b91c1c;
+                text-decoration: none;
+            }
+
             .chat-ui__composer-notice {
                 margin-top: 0.75rem;
                 padding: 0.85rem 1rem;

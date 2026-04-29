@@ -53,7 +53,21 @@ class PublicUpload
     {
         $path = self::normalizePath($path);
 
-        return $path ? Storage::disk('public')->url($path) : null;
+        return $path ? Storage::url($path) : null;
+    }
+
+    public static function exists(?string $path): bool
+    {
+        $path = self::normalizePath($path);
+
+        return $path ? Storage::disk('public')->exists($path) : false;
+    }
+
+    public static function urlIfExists(?string $path): ?string
+    {
+        $path = self::normalizePath($path);
+
+        return self::exists($path) ? self::url($path) : null;
     }
 
     public static function isImage(?string $path): bool

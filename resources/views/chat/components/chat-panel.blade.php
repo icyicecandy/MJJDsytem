@@ -63,7 +63,9 @@
                         $avatarLabel = $msg->sender_type === 'ai'
                             ? 'AI'
                             : Str::upper(Str::substr($msg->senderLabel(), 0, 1));
+                        $attachmentPath = $msg->attachmentPath();
                         $attachmentUrl = $msg->attachmentUrl();
+                        $attachmentMissing = $attachmentPath && ! $msg->attachmentExists();
                         $attachmentLabel = $msg->attachmentOriginalName() ?: 'View image';
                     @endphp
 
@@ -87,6 +89,10 @@
                                         @endif
                                         <span>{{ $attachmentLabel }}</span>
                                     </a>
+                                @elseif($attachmentMissing)
+                                    <div class="chat-ui__message-attachment is-missing">
+                                        <span>Uploaded file not found.</span>
+                                    </div>
                                 @endif
                             </div>
                         @endif

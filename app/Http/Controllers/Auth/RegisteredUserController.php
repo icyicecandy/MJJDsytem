@@ -72,6 +72,7 @@ class RegisteredUserController extends Controller
             'name' => $fullName,
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
+            'password_set_at' => now(),
             'role' => 'customer',
             'agreed_to_terms' => true,
             'agreed_to_privacy' => true,

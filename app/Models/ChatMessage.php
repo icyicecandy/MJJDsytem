@@ -65,7 +65,12 @@ class ChatMessage extends Model
 
     public function attachmentUrl(): ?string
     {
-        return PublicUpload::url($this->attachmentPath());
+        return PublicUpload::urlIfExists($this->attachmentPath());
+    }
+
+    public function attachmentExists(): bool
+    {
+        return PublicUpload::exists($this->attachmentPath());
     }
 
     public function attachmentOriginalName(): ?string
@@ -75,6 +80,6 @@ class ChatMessage extends Model
 
     public function hasImageAttachment(): bool
     {
-        return PublicUpload::isImage($this->attachmentPath());
+        return $this->attachmentExists() && PublicUpload::isImage($this->attachmentPath());
     }
 }

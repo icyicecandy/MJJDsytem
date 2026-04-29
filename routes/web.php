@@ -120,6 +120,7 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin
     Route::get('/admin/customers', [CustomerController::class, 'index'])->name('admin.customers.index');
     Route::get('/admin/customers/{customer}', [CustomerController::class, 'show'])->name('admin.customers.show');
     Route::get('/admin/technicians', [TechnicianController::class, 'index'])->name('admin.technicians.index');
+    Route::post('/admin/technicians', [TechnicianController::class, 'store'])->name('admin.technicians.store');
     Route::patch('/admin/technicians/{technician}/disable', [TechnicianController::class, 'disableAccount'])->name('admin.technicians.disable');
     Route::patch('/admin/technicians/{technician}/enable', [TechnicianController::class, 'enableAccount'])->name('admin.technicians.enable');
     Route::get('/admin/technicians/{technician}', [TechnicianController::class, 'show'])->name('admin.technicians.show');

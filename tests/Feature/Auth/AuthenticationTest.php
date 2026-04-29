@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Contracts\Provider;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
@@ -24,6 +25,23 @@ test('users can authenticate using the login screen', function () {
 
     $followUp = $this->actingAs($user)->get(route('dashboard', absolute: false));
     $followUp->assertRedirect(route('customer.apply', absolute: false));
+});
+
+test('remember me creates a persistent login cookie', function () {
+    $user = User::factory()->create(['role' => 'customer']);
+
+    $response = $this->post('/login', [
+        'email' => $user->email,
+        'password' => 'password',
+        'remember' => '1',
+    ]);
+
+    $this->assertAuthenticatedAs($user);
+    $response
+        ->assertRedirect(route('customer.dashboard', absolute: false))
+        ->assertCookie(Auth::guard()->getRecallerName());
+
+    expect($user->refresh()->remember_token)->not->toBeNull();
 });
 
 test('users can not authenticate with invalid password', function () {

@@ -14,6 +14,7 @@
     $statusLabel = $statusLabels[$statusValue] ?? ucfirst(str_replace('_', ' ', $statusValue));
     $chatStatusLabel = $technician->chatAvailabilityLabel();
     $accountStatusLabel = $technician->isDisabled() ? 'Disabled' : 'Active';
+    $employmentTypeLabel = $technician->displayTechnicianEmploymentType();
 @endphp
 
 @section('content')
@@ -24,6 +25,7 @@
         <div class="telecom-chip-row">
             <span class="telecom-chip">Technician ID: {{ $technician->displayTechnicianRecordId() }}</span>
             <span class="telecom-chip">Shift: {{ $technician->displayTechnicianShift() }}</span>
+            <span class="telecom-chip">Type: {{ $employmentTypeLabel }}</span>
             <span class="telecom-chip">Status: {{ $statusLabel }}</span>
             <span class="telecom-chip">Account: {{ $accountStatusLabel }}</span>
             <span class="telecom-chip">Chat: {{ $chatStatusLabel }}</span>
@@ -92,12 +94,14 @@
                     <div class="tracking-meta"><strong>Contact Number</strong><span>{{ $technician->phone ?: 'No contact number on file' }}</span></div>
                     <div class="tracking-meta"><strong>Address</strong><span>{{ $technician->address ?: 'No address on file' }}</span></div>
                     <div class="tracking-meta"><strong>Shift</strong><span>{{ $technician->displayTechnicianShift() }}</span></div>
+                    <div class="tracking-meta"><strong>Employment Type</strong><span>{{ $employmentTypeLabel }}</span></div>
                     <div class="tracking-meta"><strong>Status</strong><span>{{ $statusLabel }}</span></div>
                     <div class="tracking-meta"><strong>Account Status</strong><span>{{ $accountStatusLabel }}</span></div>
                     <div class="tracking-meta"><strong>Online Presence</strong><span>{{ $technician->hasRecentChatActivity() ? 'Online' : 'Offline' }}</span></div>
                     <div class="tracking-meta"><strong>Live Chat Availability</strong><span>{{ $chatStatusLabel }}</span></div>
                     <div class="tracking-meta"><strong>Disabled At</strong><span>{{ $technician->disabled_at?->format('M d, Y h:i A') ?? 'Not disabled' }}</span></div>
                     <div class="tracking-meta"><strong>Disabled By</strong><span>{{ $technician->disabledBy?->name ?? 'N/A' }}</span></div>
+                    <div class="tracking-meta full-width"><strong>Disable Reason</strong><span>{{ $technician->disabled_reason ?: 'No disable reason recorded' }}</span></div>
                 </div>
             </div>
         </div>
@@ -118,52 +122,6 @@
                     <div class="quick-link"><strong>{{ $technician->scheduled_installations_count }}</strong><span>Upcoming jobs still waiting for completion.</span></div>
                     <div class="quick-link"><strong>{{ $technician->open_tickets_count }}</strong><span>Open ticket workload currently assigned.</span></div>
                     <div class="quick-link"><strong>{{ $upcomingInstallation ? $upcomingInstallation->installation_date->format('M d, Y') : 'Open schedule' }}</strong><span>{{ $upcomingInstallation ? 'Next scheduled installation date.' : 'No upcoming assignment blocks the schedule.' }}</span></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel-card">
-            <div class="panel-header">
-                <div class="panel-title-wrap">
-                    <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z"></path><path d="M9.5 11.5 11 13l3.5-3.5"></path></svg></span>
-                    <div>
-                        <div class="panel-title">Account Access</div>
-                        <div class="panel-subtitle">Admin-only access controls for this technician account</div>
-                    </div>
-                </div>
-            </div>
-            <div class="panel-body">
-                @if(session('status') === 'technician-disabled')
-                    <div class="empty-state compact">Technician account has been disabled.</div>
-                @elseif(session('status') === 'technician-enabled')
-                    <div class="empty-state compact">Technician account has been enabled.</div>
-                @endif
-
-                <div class="quick-link-grid">
-                    <div class="quick-link">
-                        <strong>{{ $accountStatusLabel }}</strong>
-                        <span>{{ $technician->isDisabled() ? 'This technician cannot sign in or access assigned work.' : 'This technician can sign in and use technician tools.' }}</span>
-                    </div>
-                    <div class="quick-link">
-                        <strong>{{ $technician->disabled_at?->format('M d, Y h:i A') ?? 'No disable record' }}</strong>
-                        <span>{{ $technician->disabledBy ? 'Disabled by ' . $technician->disabledBy->name : 'No admin disable action is recorded.' }}</span>
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    @if($technician->isDisabled())
-                        <form method="POST" action="{{ route('admin.technicians.enable', $technician) }}">
-                            @csrf
-                            @method('PATCH')
-                            <button type="submit" class="btn">Enable Account</button>
-                        </form>
-                    @else
-                        <form method="POST" action="{{ route('admin.technicians.disable', $technician) }}">
-                            @csrf
-                            @method('PATCH')
-                            <button type="submit" class="btn danger">Disable Account</button>
-                        </form>
-                    @endif
                 </div>
             </div>
         </div>
@@ -288,6 +246,63 @@
             @else
                 <div class="empty-state">No support tickets are currently assigned to this technician.</div>
             @endif
+        </div>
+    </section>
+
+    <section class="panel-card">
+        <div class="panel-header">
+            <div class="panel-title-wrap">
+                <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z"></path><path d="M9.5 11.5 11 13l3.5-3.5"></path></svg></span>
+                <div>
+                    <div class="panel-title">Account Access</div>
+                    <div class="panel-subtitle">Admin-only access controls for this technician account</div>
+                </div>
+            </div>
+        </div>
+        <div class="panel-body">
+            @if(session('status') === 'technician-disabled')
+                <div class="empty-state compact">Technician account has been disabled.</div>
+            @elseif(session('status') === 'technician-enabled')
+                <div class="empty-state compact">Technician account has been enabled.</div>
+            @endif
+
+            <div class="quick-link-grid">
+                <div class="quick-link">
+                    <strong>{{ $accountStatusLabel }}</strong>
+                    <span>{{ $technician->isDisabled() ? 'This technician cannot sign in or access assigned work.' : 'This technician can sign in and use technician tools.' }}</span>
+                </div>
+                <div class="quick-link">
+                    <strong>{{ $technician->disabled_at?->format('M d, Y h:i A') ?? 'No disable record' }}</strong>
+                    <span>{{ $technician->disabledBy ? 'Disabled by ' . $technician->disabledBy->name : 'No admin disable action is recorded.' }}</span>
+                </div>
+                <div class="quick-link">
+                    <strong>Disable Reason</strong>
+                    <span>{{ $technician->disabled_reason ?: 'No disable reason recorded.' }}</span>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                @if($technician->isDisabled())
+                    <form method="POST" action="{{ route('admin.technicians.enable', $technician) }}">
+                        @csrf
+                        @method('PATCH')
+                        <button type="submit" class="btn">Enable Account</button>
+                    </form>
+                @else
+                    <form method="POST" action="{{ route('admin.technicians.disable', $technician) }}" class="admin-disable-account-form">
+                        @csrf
+                        @method('PATCH')
+                        <div class="apply-field full-span">
+                            <label for="disabled_reason">Disable reason</label>
+                            <textarea id="disabled_reason" name="disabled_reason" rows="3" required maxlength="1000" placeholder="State clearly why this account will be disabled.">{{ old('disabled_reason') }}</textarea>
+                            @error('disabled_reason')
+                                <span class="error">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <button type="submit" class="btn danger">Disable Account</button>
+                    </form>
+                @endif
+            </div>
         </div>
     </section>
 

@@ -919,7 +919,7 @@
                         <div class="public-plan-speed">50 Mbps</div>
                     </div>
                 </div>
-                <div class="public-plan-price">&#8369;700<small>/month</small></div>
+                <div class="public-plan-price">&#8369;999<small> installation fee</small></div>
                 <ul class="public-plan-list">
                     <li>Ideal for browsing and streaming</li>
                     <li>Up to 6 devices</li>
@@ -936,7 +936,7 @@
                     </div>
                     <span class="public-plan-badge">Most Popular</span>
                 </div>
-                <div class="public-plan-price">&#8369;999<small>/month</small></div>
+                <div class="public-plan-price">&#8369;1,699<small> installation fee</small></div>
                 <ul class="public-plan-list">
                     <li>Perfect for gaming and HD streaming</li>
                     <li>Up to 10 devices</li>
@@ -1205,9 +1205,6 @@
     });
 </script>
 @endpush
-
-
-
 
 
 

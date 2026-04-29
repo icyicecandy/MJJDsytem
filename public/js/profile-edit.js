@@ -14,7 +14,7 @@
     function getPasswordStrength(value) {
         let score = 0;
 
-        if (value.length >= 12) score++;
+        if (value.length >= 8) score++;
         if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score++;
         if (/\d/.test(value)) score++;
         if (/[^A-Za-z0-9]/.test(value)) score++;

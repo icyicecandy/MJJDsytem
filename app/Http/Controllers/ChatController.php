@@ -341,6 +341,7 @@ class ChatController extends Controller
             'attachment_path' => $msg->attachmentPath(),
             'attachment_original_name' => $msg->attachmentOriginalName(),
             'attachment_is_image' => $msg->hasImageAttachment(),
+            'attachment_missing' => $msg->attachmentPath() && ! $msg->attachmentExists(),
             'from_user_id' => $msg->from_user_id,
             'created_at' => $msg->created_at->displayTime(),
         ])->values();

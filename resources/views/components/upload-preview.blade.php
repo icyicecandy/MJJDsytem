@@ -9,8 +9,9 @@
 
 @php
     $uploadPath = \App\Support\PublicUpload::normalizePath($path);
-    $uploadUrl = \App\Support\PublicUpload::url($uploadPath);
-    $isImage = \App\Support\PublicUpload::isImage($uploadPath);
+    $uploadExists = \App\Support\PublicUpload::exists($uploadPath);
+    $uploadUrl = $uploadExists ? \App\Support\PublicUpload::url($uploadPath) : null;
+    $isImage = $uploadExists && \App\Support\PublicUpload::isImage($uploadPath);
 @endphp
 
 @once
@@ -91,6 +92,8 @@
             <a href="{{ $uploadUrl }}" target="_blank" rel="noopener noreferrer" class="btn secondary">{{ $buttonText }}</a>
         </div>
     </div>
+@elseif($uploadPath)
+    <div {{ $attributes->merge(['class' => 'uploaded-file-empty']) }}>Uploaded file not found.</div>
 @elseif($showEmpty)
     <div {{ $attributes->merge(['class' => 'uploaded-file-empty']) }}>{{ $empty }}</div>
 @endif

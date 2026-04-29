@@ -9,7 +9,7 @@
     $items = collect($photos)
         ->map(function ($path, $label) {
             $normalized = \App\Support\PublicUpload::normalizePath($path);
-            $url = \App\Support\PublicUpload::url($normalized);
+            $url = \App\Support\PublicUpload::urlIfExists($normalized);
 
             if (! $url) {
                 return null;
@@ -20,6 +20,18 @@
                 'path' => $normalized,
                 'url' => $url,
             ];
+        })
+        ->filter()
+        ->values();
+    $missingItems = collect($photos)
+        ->map(function ($path, $label) {
+            $normalized = \App\Support\PublicUpload::normalizePath($path);
+
+            if (! $normalized || \App\Support\PublicUpload::exists($normalized)) {
+                return null;
+            }
+
+            return is_string($label) ? $label : 'Photo';
         })
         ->filter()
         ->values();
@@ -376,6 +388,10 @@
             </div>
         </div>
     </div>
-@else
+@endif
+
+@if($missingItems->isNotEmpty())
+    <div {{ $attributes->merge(['class' => 'uploaded-file-empty']) }}>Uploaded file not found.</div>
+@elseif($items->isEmpty())
     <div {{ $attributes->merge(['class' => 'uploaded-file-empty']) }}>{{ $empty }}</div>
 @endif

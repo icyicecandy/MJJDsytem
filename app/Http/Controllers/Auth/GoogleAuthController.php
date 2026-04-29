@@ -124,6 +124,7 @@ class GoogleAuthController extends Controller
                     'name' => $name !== '' ? $name : 'Google User',
                     'email' => $email,
                     'password' => Str::random(40),
+                    'password_set_at' => null,
                     'role' => 'customer',
                     'google_id' => $googleUser->getId(),
                     'email_verified_at' => now(),

@@ -13,13 +13,13 @@ use Illuminate\Validation\Rule;
 
 class CustomerApplicationController extends Controller
 {
-    private const LUZON_BOUNDS = [
-        'south' => 11.8,
-        'west' => 118.8,
-        'north' => 19.9,
-        'east' => 123.9,
-        'center' => [16.2, 121.0],
-        'zoom' => 7,
+    private const SERVICE_BOUNDS = [
+        'south' => 15.45,
+        'west' => 119.55,
+        'north' => 16.55,
+        'east' => 121.05,
+        'center' => [15.96, 120.34],
+        'zoom' => 9,
     ];
 
     public function create()
@@ -32,7 +32,7 @@ class CustomerApplicationController extends Controller
                 ->with('error', 'You already have an active application (status: ' . $application->status . ').');
         }
 
-        $mapBounds = self::LUZON_BOUNDS;
+        $mapBounds = self::SERVICE_BOUNDS;
         $addressCatalog = config('luzon_service_areas.regions', []);
 
         return view('customer.apply', compact('application', 'mapBounds', 'addressCatalog'));
@@ -83,16 +83,16 @@ class CustomerApplicationController extends Controller
 
         if (! $this->addressSelectionIsValid($validated['region'], $validated['province'], $validated['municipality'], $validated['barangay'])) {
             return back()
-                ->withErrors(['region' => 'Please choose a valid Luzon service address from the provided dropdowns.'])
+                ->withErrors(['region' => 'Please choose a valid Pangasinan service address from the provided dropdowns.'])
                 ->withInput();
         }
 
         $lat = (float) $validated['lat'];
         $lng = (float) $validated['lng'];
 
-        if (! $this->coordinatesAreWithinLuzon($lat, $lng)) {
+        if (! $this->coordinatesAreWithinServiceArea($lat, $lng)) {
             return back()
-                ->withErrors(['lat' => 'Please pin a valid service location within Luzon.'])
+                ->withErrors(['lat' => 'Please pin a valid service location within Pangasinan.'])
                 ->withInput();
         }
 
@@ -289,12 +289,12 @@ class CustomerApplicationController extends Controller
             && $application->installation->status === Installation::STATUS_SCHEDULED;
     }
 
-    private function coordinatesAreWithinLuzon(float $lat, float $lng): bool
+    private function coordinatesAreWithinServiceArea(float $lat, float $lng): bool
     {
-        return $lat >= self::LUZON_BOUNDS['south']
-            && $lat <= self::LUZON_BOUNDS['north']
-            && $lng >= self::LUZON_BOUNDS['west']
-            && $lng <= self::LUZON_BOUNDS['east'];
+        return $lat >= self::SERVICE_BOUNDS['south']
+            && $lat <= self::SERVICE_BOUNDS['north']
+            && $lng >= self::SERVICE_BOUNDS['west']
+            && $lng <= self::SERVICE_BOUNDS['east'];
     }
 
     private function addressSelectionIsValid(string $region, string $province, string $municipality, string $barangay): bool

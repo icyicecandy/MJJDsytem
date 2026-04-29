@@ -16,6 +16,24 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     public const TECHNICIAN_STANDARD_SHIFT = '8:00 AM - 5:00 PM, Mon - Fri';
+    public const TECHNICIAN_WORKING_HOURS = '8:00 AM - 5:00 PM';
+    public const TECHNICIAN_SHIFT_OPTIONS = [
+        '8:00 AM - 5:00 PM, Mon - Fri' => '8:00 AM - 5:00 PM, Mon - Fri',
+        '9:00 AM - 6:00 PM, Mon - Fri' => '9:00 AM - 6:00 PM, Mon - Fri',
+        '10:00 AM - 7:00 PM, Mon - Fri' => '10:00 AM - 7:00 PM, Mon - Fri',
+        'Rotating / On-call' => 'Rotating / On-call',
+    ];
+    public const TECHNICIAN_WORK_DAYS = [
+        'mon' => 'Mon',
+        'tue' => 'Tue',
+        'wed' => 'Wed',
+        'thu' => 'Thu',
+        'fri' => 'Fri',
+    ];
+    public const TECHNICIAN_EMPLOYMENT_TYPES = [
+        'full_time' => 'Full Time',
+        'part_time' => 'Part Time',
+    ];
     public const DISABLED_ACCOUNT_MESSAGE = 'This account has been disabled. Please contact an administrator.';
     public const CUSTOMER_ID_PREFIX = 'CUS';
     public const TECHNICIAN_ID_PREFIX = 'TECH';
@@ -32,6 +50,7 @@ class User extends Authenticatable
         'phone_verified_at',
         'address',
         'technician_shift',
+        'technician_employment_type',
         'technician_status',
         'date_of_birth',
         'gender',
@@ -47,7 +66,9 @@ class User extends Authenticatable
         'deletion_requested_at',
         'disabled_at',
         'disabled_by',
+        'disabled_reason',
         'password',
+        'password_set_at',
         'role',
         'agreed_to_terms',
         'agreed_to_privacy',
@@ -112,6 +133,7 @@ class User extends Authenticatable
             'data_sharing_enabled' => 'boolean',
             'deletion_requested_at' => 'datetime',
             'disabled_at' => 'datetime',
+            'password_set_at' => 'datetime',
         ];
     }
 
@@ -180,6 +202,11 @@ class User extends Authenticatable
         return $this->disabled_at !== null;
     }
 
+    public function canSetInitialPassword(): bool
+    {
+        return filled($this->google_id) && $this->password_set_at === null;
+    }
+
     public static function formatCustomerId(int $id): string
     {
         return sprintf('%s-%06d', self::CUSTOMER_ID_PREFIX, $id);
@@ -216,7 +243,38 @@ class User extends Authenticatable
 
     public function displayTechnicianShift(): string
     {
-        return self::TECHNICIAN_STANDARD_SHIFT;
+        return $this->technician_shift ?: self::TECHNICIAN_STANDARD_SHIFT;
+    }
+
+    public function displayTechnicianEmploymentType(): string
+    {
+        return self::TECHNICIAN_EMPLOYMENT_TYPES[$this->technician_employment_type] ?? 'Not set';
+    }
+
+    public static function technicianShiftOptions(): array
+    {
+        return self::TECHNICIAN_SHIFT_OPTIONS;
+    }
+
+    public static function technicianEmploymentTypeOptions(): array
+    {
+        return self::TECHNICIAN_EMPLOYMENT_TYPES;
+    }
+
+    public static function technicianWorkDayOptions(): array
+    {
+        return self::TECHNICIAN_WORK_DAYS;
+    }
+
+    public static function formatPartTimeShift(array $days): string
+    {
+        $labels = collect($days)
+            ->map(fn (string $day) => self::TECHNICIAN_WORK_DAYS[$day] ?? null)
+            ->filter()
+            ->values()
+            ->implode(' / ');
+
+        return self::TECHNICIAN_WORKING_HOURS . ', ' . $labels;
     }
 
     public function ticketMessages()

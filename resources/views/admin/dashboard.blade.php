@@ -52,7 +52,7 @@
         <article class="metric-card">
             <div class="metric-head">
                 <div>
-                    <div class="metric-label">Installed / Activated Applications</div>
+                    <div class="metric-label">Installed Applications</div>
                     <div class="metric-value">{{ $installedApplications }}</div>
                     <div class="metric-meta">Completed installations</div>
                 </div>

@@ -7,6 +7,20 @@
         'active' => 'Active',
         'disabled' => 'Disabled',
     ];
+    $employmentTypeOptions = $employmentTypeOptions ?? \App\Models\User::technicianEmploymentTypeOptions();
+    $workDayOptions = $workDayOptions ?? \App\Models\User::technicianWorkDayOptions();
+    $temporaryPassword = $temporaryPassword ?? old('temporary_password');
+    $createFieldNames = [
+        'first_name',
+        'last_name',
+        'email',
+        'phone',
+        'address',
+        'technician_employment_type',
+        'part_time_days',
+        'temporary_password',
+    ];
+    $showCreateModal = collect($createFieldNames)->contains(fn ($field) => $errors->has($field));
 @endphp
 
 @push('styles')
@@ -62,6 +76,192 @@
     .admin-technicians-table .next-schedule {
         white-space: nowrap;
     }
+    .admin-technicians-header-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex: 0 0 auto;
+    }
+    @media (max-width: 720px) {
+        .admin-technicians-header-actions,
+        .admin-technicians-header-actions .btn {
+            width: 100%;
+        }
+    }
+    .technician-account-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 1600;
+        display: none;
+        place-items: center;
+        padding: 1rem;
+    }
+    .technician-account-modal.is-open {
+        display: grid;
+    }
+    .technician-account-modal__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.58);
+        backdrop-filter: blur(3px);
+    }
+    .technician-account-modal__dialog {
+        position: relative;
+        z-index: 1;
+        width: min(780px, 100%);
+        max-height: min(860px, calc(100vh - 2rem));
+        overflow: auto;
+        border: 1px solid rgba(226, 232, 240, 0.95);
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
+    }
+    .technician-account-modal__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.15rem 1.25rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .technician-account-modal__head h2 {
+        margin: 0;
+        color: #0b1f3a;
+        font-size: 1.18rem;
+    }
+    .technician-account-modal__head p {
+        margin: 0.25rem 0 0;
+        color: #64748b;
+    }
+    .technician-account-modal__close {
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 999px;
+        padding: 0;
+        border: 1px solid #dbe2ea;
+        background: #fff;
+        color: #0b1f3a;
+        font-size: 1.4rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+    .technician-create-form {
+        display: grid;
+        gap: 1rem;
+        padding: 1.25rem;
+    }
+    .technician-create-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .technician-create-field {
+        display: grid;
+        gap: 0.4rem;
+        min-width: 0;
+    }
+    .technician-create-field.full {
+        grid-column: 1 / -1;
+    }
+    .technician-create-field label {
+        color: #6b7280;
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+    .technician-create-field textarea {
+        min-height: 96px;
+    }
+    .technician-create-field .field-error {
+        color: #b91c1c;
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+    .technician-schedule-card {
+        display: grid;
+        gap: 0.85rem;
+        padding: 0.9rem;
+        border: 1px solid #dbe2ea;
+        border-radius: 12px;
+        background: #f8fafc;
+    }
+    .technician-schedule-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+        color: #64748b;
+        font-size: 0.9rem;
+    }
+    .technician-schedule-line strong {
+        color: #0b1f3a;
+    }
+    .technician-day-picker {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+    .technician-day-chip {
+        position: relative;
+    }
+    .technician-day-chip input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+    .technician-day-chip span {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 2.35rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 999px;
+        background: #fff;
+        color: #0b1f3a;
+        font-size: 0.84rem;
+        font-weight: 800;
+    }
+    .technician-day-chip input:checked + span {
+        border-color: #2563eb;
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+    .technician-day-chip input:focus-visible + span {
+        outline: 3px solid rgba(37, 99, 235, 0.22);
+        outline-offset: 2px;
+    }
+    .technician-part-time-days[hidden] {
+        display: none;
+    }
+    .technician-key-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.75rem;
+        align-items: end;
+    }
+    .technician-create-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.65rem;
+        padding-top: 0.25rem;
+    }
+    body.technician-account-modal-open {
+        overflow: hidden;
+    }
+    @media (max-width: 760px) {
+        .technician-create-grid,
+        .technician-key-row {
+            grid-template-columns: 1fr;
+        }
+        .technician-create-actions .btn,
+        .technician-key-row .btn {
+            width: 100%;
+        }
+        .technician-day-picker {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
 </style>
 @endpush
 
@@ -71,6 +271,9 @@
         <div>
             <h1>Technicians</h1>
             <p>Review technician records, core contact details, account state, and direct access to the full technician profile from one admin operations list.</p>
+        </div>
+        <div class="admin-technicians-header-actions">
+            <button type="button" class="btn" data-open-technician-create>Add New</button>
         </div>
     </section>
 
@@ -127,6 +330,7 @@
                             $shiftParts = array_map('trim', explode(',', $technician->displayTechnicianShift(), 2));
                             $shiftTime = $shiftParts[0] ?? $technician->displayTechnicianShift();
                             $shiftDays = $shiftParts[1] ?? '';
+                            $employmentType = $technician->displayTechnicianEmploymentType();
                         @endphp
                         <tr>
                             <td>
@@ -157,6 +361,7 @@
                                     @if($shiftDays !== '')
                                         <span class="record-muted">{{ $shiftDays }}</span>
                                     @endif
+                                    <span class="record-muted">{{ $employmentType }}</span>
                                     @if($nextInstallation && $nextInstallation->installation_date)
                                         <span class="record-muted next-schedule">
                                             Next: {{ $nextInstallation->installation_date->format('M d, Y') }}
@@ -187,5 +392,229 @@
     <section class="card toolbar-card">
         {{ $technicians->links() }}
     </section>
+
+    <div class="technician-account-modal {{ $showCreateModal ? 'is-open' : '' }}" data-technician-create-modal aria-hidden="{{ $showCreateModal ? 'false' : 'true' }}">
+        <div class="technician-account-modal__backdrop" data-close-technician-create></div>
+        <div class="technician-account-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="technicianCreateTitle">
+            <div class="technician-account-modal__head">
+                <div>
+                    <h2 id="technicianCreateTitle">Add Technician</h2>
+                    <p>Create technician login credentials and work schedule details.</p>
+                </div>
+                <button type="button" class="technician-account-modal__close" data-close-technician-create aria-label="Close add technician">&times;</button>
+            </div>
+
+            <form method="POST" action="{{ route('admin.technicians.store') }}" class="technician-create-form">
+                @csrf
+                <input type="hidden" name="_technician_create" value="1">
+
+                <div class="technician-create-grid">
+                    <div class="technician-create-field">
+                        <label for="first_name">First Name</label>
+                        <input id="first_name" name="first_name" type="text" value="{{ old('first_name') }}" required maxlength="100" autocomplete="given-name">
+                        @error('first_name')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="technician-create-field">
+                        <label for="last_name">Last Name</label>
+                        <input id="last_name" name="last_name" type="text" value="{{ old('last_name') }}" required maxlength="100" autocomplete="family-name">
+                        @error('last_name')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="technician-create-field">
+                        <label for="email">Email</label>
+                        <input id="email" name="email" type="email" value="{{ old('email') }}" required maxlength="150" autocomplete="email">
+                        @error('email')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="technician-create-field">
+                        <label for="phone">Contact No.</label>
+                        <input id="phone" name="phone" type="tel" value="{{ old('phone') }}" required maxlength="30" inputmode="tel" autocomplete="tel">
+                        @error('phone')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="technician-create-field full">
+                        <label for="address">Address</label>
+                        <textarea id="address" name="address" rows="3" required maxlength="255" autocomplete="street-address">{{ old('address') }}</textarea>
+                        @error('address')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="technician-create-field">
+                        <label for="technician_employment_type">Employment Type</label>
+                        <select id="technician_employment_type" name="technician_employment_type" required data-employment-type>
+                            @foreach($employmentTypeOptions as $value => $label)
+                                <option value="{{ $value }}" {{ old('technician_employment_type', 'full_time') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('technician_employment_type')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="technician-create-field full">
+                        <label>Schedule</label>
+                        <div class="technician-schedule-card">
+                            <div class="technician-schedule-line">
+                                <span>Hours:</span>
+                                <strong>{{ \App\Models\User::TECHNICIAN_WORKING_HOURS }}</strong>
+                            </div>
+                            <div class="technician-schedule-line" data-schedule-summary>
+                                <span>Days:</span>
+                                <strong>{{ old('technician_employment_type', 'full_time') === 'part_time' ? 'Select 1 to 3 days' : 'Mon - Fri' }}</strong>
+                            </div>
+
+                            <div class="technician-part-time-days" data-part-time-days {{ old('technician_employment_type', 'full_time') === 'part_time' ? '' : 'hidden' }}>
+                                <div class="technician-day-picker">
+                                    @foreach($workDayOptions as $value => $label)
+                                        <label class="technician-day-chip">
+                                            <input type="checkbox" name="part_time_days[]" value="{{ $value }}" {{ in_array($value, old('part_time_days', []), true) ? 'checked' : '' }} data-work-day>
+                                            <span>{{ $label }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        @error('part_time_days')<span class="field-error">{{ $message }}</span>@enderror
+                        @error('part_time_days.*')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="technician-create-field full">
+                        <label for="temporary_password">Generated Key</label>
+                        <div class="technician-key-row">
+                            <input id="temporary_password" name="temporary_password" type="text" value="{{ old('temporary_password', $temporaryPassword) }}" required readonly data-technician-key>
+                            <button type="button" class="btn secondary" data-generate-technician-key>Generate Key</button>
+                        </div>
+                        @error('temporary_password')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+                </div>
+
+                <div class="technician-create-actions">
+                    <button type="button" class="btn secondary" data-close-technician-create>Cancel</button>
+                    <button type="submit" class="btn">Create Technician</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const modal = document.querySelector('[data-technician-create-modal]');
+        const openers = document.querySelectorAll('[data-open-technician-create]');
+        const closers = document.querySelectorAll('[data-close-technician-create]');
+        const keyField = document.querySelector('[data-technician-key]');
+        const generateButton = document.querySelector('[data-generate-technician-key]');
+        const employmentType = document.querySelector('[data-employment-type]');
+        const partTimeDays = document.querySelector('[data-part-time-days]');
+        const workDayFields = Array.from(document.querySelectorAll('[data-work-day]'));
+        const scheduleSummary = document.querySelector('[data-schedule-summary] strong');
+        const groups = [
+            'ABCDEFGHJKLMNPQRSTUVWXYZ',
+            'abcdefghijkmnopqrstuvwxyz',
+            '23456789',
+            '!@#$%&*'
+        ];
+
+        function openModal() {
+            if (!modal) return;
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('technician-account-modal-open');
+        }
+
+        function closeModal() {
+            if (!modal) return;
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('technician-account-modal-open');
+        }
+
+        function randomChar(source) {
+            if (window.crypto && window.crypto.getRandomValues) {
+                const values = new Uint32Array(1);
+                window.crypto.getRandomValues(values);
+                return source[values[0] % source.length];
+            }
+
+            return source[Math.floor(Math.random() * source.length)];
+        }
+
+        function shuffle(value) {
+            const chars = value.split('');
+            for (let index = chars.length - 1; index > 0; index -= 1) {
+                const target = Math.floor(Math.random() * (index + 1));
+                const current = chars[index];
+                chars[index] = chars[target];
+                chars[target] = current;
+            }
+            return chars.join('');
+        }
+
+        function generateKey() {
+            if (!keyField) return;
+            const pool = groups.join('');
+            let key = groups.map(randomChar).join('');
+            while (key.length < 14) {
+                key += randomChar(pool);
+            }
+            keyField.value = shuffle(key);
+        }
+
+        function updateScheduleControls() {
+            const isPartTime = employmentType && employmentType.value === 'part_time';
+            const selectedDays = workDayFields.filter((field) => field.checked);
+
+            if (partTimeDays) {
+                partTimeDays.hidden = !isPartTime;
+            }
+
+            workDayFields.forEach(function (field) {
+                field.disabled = !isPartTime || (!field.checked && selectedDays.length >= 3);
+            });
+
+            if (scheduleSummary) {
+                if (!isPartTime) {
+                    scheduleSummary.textContent = 'Mon - Fri';
+                    return;
+                }
+
+                scheduleSummary.textContent = selectedDays.length
+                    ? selectedDays.map((field) => field.nextElementSibling ? field.nextElementSibling.textContent.trim() : field.value).join(' / ')
+                    : 'Select 1 to 3 days';
+            }
+        }
+
+        openers.forEach(function (button) {
+            button.addEventListener('click', openModal);
+        });
+
+        closers.forEach(function (button) {
+            button.addEventListener('click', closeModal);
+        });
+
+        if (generateButton) {
+            generateButton.addEventListener('click', generateKey);
+        }
+
+        if (employmentType) {
+            employmentType.addEventListener('change', updateScheduleControls);
+        }
+
+        workDayFields.forEach(function (field) {
+            field.addEventListener('change', updateScheduleControls);
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && modal && modal.classList.contains('is-open')) {
+                closeModal();
+            }
+        });
+
+        if (modal && modal.classList.contains('is-open')) {
+            document.body.classList.add('technician-account-modal-open');
+        }
+
+        updateScheduleControls();
+    });
+</script>
+@endpush
