@@ -43,6 +43,7 @@ class Application extends Model
         'terms_version',
         'privacy_version',
         'rejection_reason',
+        'cancellation_reason',
         'serviceability_status',
         'slot_availability_status',
         'assessment_notes',

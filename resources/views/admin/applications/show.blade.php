@@ -787,6 +787,7 @@
         $slotAvailabilityStatus = old('slot_availability_status', $application->slot_availability_status ?? 'pending');
         $assessmentNotes = old('assessment_notes', $application->assessment_notes ?? '');
         $rejectionReason = old('rejection_reason', $application->rejection_reason ?? '');
+        $cancellationReason = $application->cancellation_reason ?? '';
         $selectedInstallationTime = old('installation_time', optional($installation)->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('H:i') : '');
         $selectedTechnicianId = old('technician_id', optional($installation)->technician_id);
         $selectedInstallationDate = old('installation_date', optional($installation)->installation_date ? optional($installation->installation_date)->format('Y-m-d') : '');
@@ -826,7 +827,7 @@
         $isRescheduleRequiredState = $installation?->status === \App\Models\Installation::STATUS_RESCHEDULE_REQUIRED;
         $hasPendingCustomerRescheduleRequest = $installation?->hasPendingCustomerRescheduleRequest() ?? false;
         $showReviewSummary = $application->assessed_at || filled($application->assessment_notes) || filled($application->serviceability_status) || filled($application->slot_availability_status) || filled($application->rejection_reason);
-        $showAdminActionCard = $showReviewSummary || $isReviewState || $isApprovedState || $isRejectedState || $isInstallationScheduled || $isRescheduleRequiredState || $isCancellationRequestedState || $hasPendingCustomerRescheduleRequest;
+        $showAdminActionCard = $showReviewSummary || $isReviewState || $isApprovedState || $isRejectedState || $isInstallationScheduled || $isRescheduleRequiredState || $isCancellationRequestedState || $isCancelledState || $hasPendingCustomerRescheduleRequest;
         $submittedSummary = match ($statusKey) {
             'submitted' => 'This application is ready for manual review and decision.',
             'under_review' => 'Assessment is in progress. Review details can still be updated.',
@@ -1075,6 +1076,13 @@
                                 <span class="admin-app-label">Latest reschedule rejection</span>
                                 <strong>{{ $installation->reschedule_reviewed_at->displayDateTime('F d, Y h:i A') }}</strong>
                                 <span class="admin-app-summary-note">{{ $installation->reschedule_rejection_reason }}</span>
+                            </div>
+                        @endif
+
+                        @if($isCancellationRequestedState || $isCancelledState || filled($cancellationReason))
+                            <div class="admin-app-mini-card admin-app-mini-card--full">
+                                <span class="admin-app-label">Customer cancellation reason</span>
+                                <div class="admin-app-value">{{ $cancellationReason ?: 'No reason recorded.' }}</div>
                             </div>
                         @endif
 
@@ -1358,6 +1366,13 @@
                                 @csrf
                                 @method('PATCH')
 
+                                <div class="admin-app-summary-box">
+                                    <div class="admin-app-detail">
+                                        <span class="admin-app-label">Customer cancellation reason</span>
+                                        <div class="admin-app-value">{{ $cancellationReason ?: 'No reason recorded.' }}</div>
+                                    </div>
+                                </div>
+
                                 <div class="admin-app-field">
                                     <label for="cancellation_notes">Admin notes</label>
                                     <textarea id="cancellation_notes" name="cancellation_notes" rows="3" placeholder="Optional notes for the cancellation decision.">{{ old('cancellation_notes') }}</textarea>
@@ -1476,6 +1491,10 @@
                             <div class="admin-app-empty">
                                 <span class="admin-app-inline-label">Application cancelled</span>
                                 <p class="admin-app-helper">This application was cancelled. The saved record remains available for review.</p>
+                                <div class="admin-app-detail">
+                                    <span class="admin-app-label">Customer cancellation reason</span>
+                                    <div class="admin-app-value">{{ $cancellationReason ?: 'No reason recorded.' }}</div>
+                                </div>
                             </div>
                         @endif
                     </section>

@@ -146,6 +146,7 @@ class CustomerApplicationController extends Controller
             'privacy_version' => $user->privacy_version ?? config('legal.privacy_version'),
             'status' => 'submitted',
             'rejection_reason' => null,
+            'cancellation_reason' => null,
             'serviceability_status' => null,
             'slot_availability_status' => null,
             'assessment_notes' => null,
@@ -350,7 +351,9 @@ class CustomerApplicationController extends Controller
     public function requestCancellation(Request $request)
     {
         $request->validate([
-            'cancellation_reason' => ['nullable', 'string', 'max:1000'],
+            'cancellation_reason' => ['required', 'string', 'max:1000'],
+        ], [
+            'cancellation_reason.required' => 'Please provide a reason before requesting cancellation.',
         ]);
 
         $application = Auth::user()->application()->with('installation')->first();
@@ -366,7 +369,10 @@ class CustomerApplicationController extends Controller
 
         if (in_array($application->status, [Application::STATUS_SUBMITTED, Application::STATUS_UNDER_REVIEW], true)
             || ($application->status === Application::STATUS_APPROVED && ! $this->hasScheduledInstallation($application))) {
-            $application->update(['status' => Application::STATUS_CANCELLED]);
+            $application->update([
+                'status' => Application::STATUS_CANCELLED,
+                'cancellation_reason' => $reason,
+            ]);
 
             AppNotificationSender::sendToRole(
                 'admin',
@@ -380,7 +386,7 @@ class CustomerApplicationController extends Controller
 
             system_log(
                 'Application Cancelled',
-                'Application ' . $application->reference_no . ' was cancelled by ' . Auth::user()->name . '.'
+                'Application ' . $application->reference_no . ' was cancelled by ' . Auth::user()->name . '.' . $reasonSuffix
             );
 
             return back()->with('success', 'Your application has been cancelled.');
@@ -396,7 +402,10 @@ class CustomerApplicationController extends Controller
                 ]);
             }
 
-            $application->update(['status' => Application::STATUS_CANCELLATION_REQUESTED]);
+            $application->update([
+                'status' => Application::STATUS_CANCELLATION_REQUESTED,
+                'cancellation_reason' => $reason,
+            ]);
 
             InstallationLog::create([
                 'installation_id' => $installation->id,

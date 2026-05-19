@@ -277,7 +277,7 @@
 
                             <strong>Request Cancellation</strong>
                             <p>Scheduled installation cancellations are sent to admin for review.</p>
-                            <textarea name="cancellation_reason" rows="3" placeholder="Optional reason for cancellation">{{ old('cancellation_reason') }}</textarea>
+                            <textarea name="cancellation_reason" rows="3" placeholder="Reason for cancellation" required>{{ old('cancellation_reason') }}</textarea>
                             @error('cancellation_reason')
                                 <span class="error">{{ $message }}</span>
                             @enderror

@@ -159,8 +159,17 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:techn
         $pendingInstallations = Installation::where('technician_id', $technicianId)->where('status', 'scheduled')->count();
         $completedInstallations = Installation::where('technician_id', $technicianId)->whereIn('status', Installation::completedStatuses())->count();
         $assignedTickets = $tickets->count();
+        $todayWorkloadDate = now(config('app.timezone', 'Asia/Manila'));
+        $todayInstallations = Installation::with('application')
+            ->where('technician_id', $technicianId)
+            ->whereDate('installation_date', $todayWorkloadDate->toDateString())
+            ->where('status', '!=', Installation::STATUS_CANCELLED)
+            ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 WHEN status = 'scheduled' THEN 1 WHEN status = 'reschedule_required' THEN 2 WHEN status = 'completed' THEN 3 WHEN status = 'activated' THEN 4 ELSE 5 END")
+            ->orderBy('installation_time')
+            ->orderBy('id')
+            ->get();
 
-        return view('technician.dashboard', compact('totalInstallations', 'pendingInstallations', 'completedInstallations', 'assignedTickets', 'tickets'));
+        return view('technician.dashboard', compact('totalInstallations', 'pendingInstallations', 'completedInstallations', 'assignedTickets', 'tickets', 'todayInstallations', 'todayWorkloadDate'));
     })->name('technician.dashboard');
 
     Route::get('/technician/installations', [TechnicianDashboardController::class, 'installations'])->name('technician.installations.index');

@@ -1056,7 +1056,14 @@ test('scheduled customer cancellation requires admin approval', function () {
         ->assertSessionHasNoErrors();
 
     expect($application->refresh()->status)->toBe('cancellation_requested')
+        ->and($application->cancellation_reason)->toBe('Schedule conflict.')
         ->and($installation->refresh()->status)->toBe('scheduled');
+
+    $this->actingAs($admin)
+        ->get(route('admin.applications.show', $application, false))
+        ->assertOk()
+        ->assertSee('Customer cancellation reason')
+        ->assertSee('Schedule conflict.');
 
     $this->actingAs($admin)
         ->from(route('admin.applications.show', $application, false))
@@ -1068,8 +1075,15 @@ test('scheduled customer cancellation requires admin approval', function () {
         ->assertSessionHasNoErrors();
 
     expect($application->refresh()->status)->toBe('cancelled')
+        ->and($application->cancellation_reason)->toBe('Schedule conflict.')
         ->and($installation->refresh()->status)->toBe('cancelled')
         ->and(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%Cancellation request approved by admin.%')->exists())->toBeTrue();
+
+    $this->actingAs($admin)
+        ->get(route('admin.applications.show', $application, false))
+        ->assertOk()
+        ->assertSee('Customer cancellation reason')
+        ->assertSee('Schedule conflict.');
 });
 
 test('technician can mark reschedule required and admin can reschedule', function () {

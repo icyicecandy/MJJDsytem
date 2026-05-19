@@ -160,10 +160,13 @@ test('cancelled customer application can be submitted again with the same detail
 
     $this
         ->actingAs($user)
-        ->patch(route('customer.application.cancel', absolute: false))
+        ->patch(route('customer.application.cancel', absolute: false), [
+            'cancellation_reason' => 'I need to correct my application details.',
+        ])
         ->assertRedirect();
 
-    expect($application->refresh()->status)->toBe(Application::STATUS_CANCELLED);
+    expect($application->refresh()->status)->toBe(Application::STATUS_CANCELLED)
+        ->and($application->cancellation_reason)->toBe('I need to correct my application details.');
 
     $this
         ->actingAs($user)
@@ -178,8 +181,85 @@ test('cancelled customer application can be submitted again with the same detail
     expect(Application::where('user_id', $user->id)->count())->toBe(1)
         ->and($application->id)->toBe($originalId)
         ->and($application->status)->toBe(Application::STATUS_SUBMITTED)
+        ->and($application->cancellation_reason)->toBeNull()
         ->and($application->email)->toBe('jane@example.com')
         ->and($application->mobile_number)->toBe('09154123872');
+});
+
+test('admin can see customer cancellation reason on a cancelled application', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $customer = User::factory()->create(['role' => 'customer']);
+    $area = firstServiceArea();
+
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-2026-CANCEL-VIEW',
+        'first_name' => 'Maria',
+        'last_name' => 'Santos',
+        'email' => 'maria.cancel@example.com',
+        'mobile_number' => '09170007001',
+        'region' => $area['region'],
+        'province' => $area['province'],
+        'municipality' => $area['municipality'],
+        'barangay' => $area['barangay'],
+        'street_landmark' => 'Near market',
+        'lat' => 16.2,
+        'lng' => 121.0,
+        'plan_code' => 'S2S_50',
+        'status' => Application::STATUS_SUBMITTED,
+    ]);
+
+    $this
+        ->actingAs($customer)
+        ->from(route('customer.application.show', absolute: false))
+        ->patch(route('customer.application.cancel', absolute: false), [
+            'cancellation_reason' => 'Moving to another address.',
+        ])
+        ->assertRedirect(route('customer.application.show', absolute: false))
+        ->assertSessionHasNoErrors();
+
+    $this
+        ->actingAs($admin)
+        ->get(route('admin.applications.show', $application, false))
+        ->assertOk()
+        ->assertSee('Customer cancellation reason')
+        ->assertSee('Moving to another address.');
+});
+
+test('customer must provide a reason before cancelling an application', function () {
+    $user = User::factory()->create(['role' => 'customer']);
+    $area = firstServiceArea();
+
+    $application = Application::create([
+        'user_id' => $user->id,
+        'reference_no' => 'APP-2026-REQ-CANCEL',
+        'first_name' => 'Jane',
+        'last_name' => 'Soriano',
+        'email' => 'jane.cancel@example.com',
+        'mobile_number' => '09154123872',
+        'region' => $area['region'],
+        'province' => $area['province'],
+        'municipality' => $area['municipality'],
+        'barangay' => $area['barangay'],
+        'street_landmark' => null,
+        'lat' => 16.2,
+        'lng' => 121.0,
+        'plan_code' => 'S2S_50',
+        'status' => Application::STATUS_SUBMITTED,
+    ]);
+
+    $this
+        ->actingAs($user)
+        ->from(route('customer.application.show', absolute: false))
+        ->patch(route('customer.application.cancel', absolute: false), [
+            'cancellation_reason' => '',
+        ])
+        ->assertRedirect(route('customer.application.show', absolute: false))
+        ->assertSessionHasErrors([
+            'cancellation_reason' => 'Please provide a reason before requesting cancellation.',
+        ]);
+
+    expect($application->refresh()->status)->toBe(Application::STATUS_SUBMITTED);
 });
 
 test('rejected applications cannot be scheduled', function () {
