@@ -1,0 +1,21 @@
+/* Scoped to the customer application upload step. */
+.id-photo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
+.id-photo-actions input[type=file] { flex: 1 1 16rem; min-width: 0; }
+.id-photo-actions .btn { flex: 0 0 auto; }
+.id-photo-status { margin: 0.6rem 0; font-size: 0.9rem; overflow-wrap: anywhere; }
+.id-photo-status:empty { display: none; }
+.id-photo-preview { display: block; width: min(100%, 24rem); max-height: 18rem; margin-top: 0.75rem; object-fit: contain; border: 1px solid #dbe2ea; border-radius: 0.75rem; }
+.id-camera { box-sizing: border-box; width: min(42rem, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); max-height: calc(100dvh - 2rem); padding: 1.25rem; border: 1px solid #dbe2ea; border-radius: 1rem; background: #fff; color: #0f172a; overflow-y: auto; }
+.id-camera::backdrop { background: rgba(15, 23, 42, 0.72); }
+.id-camera-heading, .id-camera-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+.id-camera-heading h2 { margin: 0; font-size: 1.2rem; }
+.id-camera > p { line-height: 1.45; }
+.id-camera-stage { background: #0f172a; border-radius: 0.75rem; overflow: hidden; }
+.id-camera-stage video, .id-camera-stage img { display: block; width: 100%; max-height: 48dvh; object-fit: contain; }
+.id-camera-actions { justify-content: flex-end; margin-top: 1rem; }
+.id-camera [hidden], .id-photo-preview[hidden] { display: none; }
+@media (max-width: 480px) {
+    .id-photo-actions .btn { width: 100%; }
+    .id-camera { padding: 1rem; }
+    .id-camera-actions .btn { flex: 1 1 auto; }
+}

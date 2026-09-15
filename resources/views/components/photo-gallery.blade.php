@@ -1,5 +1,6 @@
 @props([
     'photos' => [],
+    'photoUrls' => [],
     'title' => 'Photos',
     'empty' => 'No photo uploaded.',
     'buttonText' => 'View photo',
@@ -22,6 +23,11 @@
             ];
         })
         ->filter()
+        ->concat(collect($photoUrls)->filter()->map(fn ($url, $label) => [
+            'label' => is_string($label) ? $label : 'Photo',
+            'path' => $url,
+            'url' => $url,
+        ]))
         ->values();
     $missingItems = collect($photos)
         ->map(function ($path, $label) {
@@ -89,7 +95,7 @@
             .photo-gallery-modal {
                 position: fixed;
                 inset: 0;
-                z-index: 140;
+                z-index: 1400;
                 display: none;
                 align-items: center;
                 justify-content: center;
@@ -113,7 +119,8 @@
                 display: grid;
                 gap: 0.9rem;
                 width: min(960px, calc(100vw - 2rem));
-                max-height: calc(100vh - 2rem);
+                max-height: calc(100dvh - 2rem);
+                overflow-y: auto;
                 padding: 1rem;
                 border: 1px solid rgba(226, 232, 240, 0.9);
                 border-radius: 14px;

@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Support\PublicUpload;
+use App\Support\ApplicationIdUpload;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -98,11 +98,11 @@ class Application extends Model
 
     public function idImageUrl(): ?string
     {
-        return PublicUpload::urlIfExists($this->id_image_path);
+        return ApplicationIdUpload::exists($this->id_image_path) ? route('applications.id-photo', [$this, 'id']) : null;
     }
 
     public function idSelfieImageUrl(): ?string
     {
-        return PublicUpload::urlIfExists($this->id_selfie_image_path);
+        return ApplicationIdUpload::exists($this->id_selfie_image_path) ? route('applications.id-photo', [$this, 'selfie']) : null;
     }
 }

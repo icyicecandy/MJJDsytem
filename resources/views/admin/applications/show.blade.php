@@ -975,9 +975,9 @@
                     </div>
 
                     <x-photo-gallery
-                        :photos="[
-                            'Valid ID with 3 signatures' => $application->id_image_path,
-                            'Valid ID held by customer' => $application->id_selfie_image_path,
+                        :photo-urls="[
+                            'Previously uploaded ID' => $application->idImageUrl(),
+                            'Customer holding valid ID' => $application->idSelfieImageUrl(),
                         ]"
                         title="Valid ID"
                         empty="No valid ID uploaded."

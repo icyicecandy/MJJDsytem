@@ -41,7 +41,7 @@ class SupportAiService
             ],
             [
                 'keywords' => ['how to apply', 'application requirements', 'requirements', 'valid id', 'service application'],
-                'answer' => 'To apply, submit your contact information, service address, selected plan, and two valid ID photos: one photo of the ID placed on paper with three signatures, and one photo of the customer holding the same ID. The admin will review serviceability before scheduling installation.',
+                'answer' => 'To apply, submit your contact information, service address, selected plan, and one clear photo of yourself holding your valid ID beside your face (JPG, PNG, or WebP, up to 5 MB). The admin will review serviceability before scheduling installation.',
             ],
             [
                 'keywords' => ['installation', 'schedule', 'technician', 'appointment', 'when will install'],

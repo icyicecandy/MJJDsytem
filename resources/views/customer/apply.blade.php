@@ -1,5 +1,9 @@
 @push('styles')
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="{{ asset('css/application-camera.css') }}?v={{ filemtime(public_path('css/application-camera.css')) }}">
+@endpush
+@push('scripts')
+    <script defer src="{{ asset('js/application-camera.js') }}?v={{ filemtime(public_path('js/application-camera.js')) }}"></script>
 @endpush
 
 <x-app-layout>
@@ -252,22 +256,19 @@
                 <div class="apply-step-head">
                     <div>
                         <h1>Upload Valid ID</h1>
-                        <p>Upload both required ID verification photos before submitting your application.</p>
+                        <p>Upload one clear photo of yourself holding your valid ID before submitting your application.</p>
                     </div>
                 </div>
 
                 <div class="upload-field apply-upload-field">
-                    <label for="id_image">Valid ID with 3 signatures</label>
-                    <p class="text-muted mt-1">Place the valid ID on a sheet of paper with three signatures beside it, then upload one clear photo.</p>
-                    <input id="id_image" type="file" name="id_image" accept=".jpg,.jpeg,.png,.webp" required>
-                    @error('id_image')
-                        <span class="error">{{ $message }}</span>
-                    @enderror
-                </div>
-                <div class="upload-field apply-upload-field">
                     <label for="id_selfie_image">Customer holding valid ID</label>
-                    <p class="text-muted mt-1">Upload one clear photo of the customer holding the same valid ID beside their face.</p>
+                    <p class="text-muted mt-1">Hold your valid ID beside your face so both are clearly visible. JPG, PNG, or WebP, up to 5 MB.</p>
+                    <div class="id-photo-actions">
                     <input id="id_selfie_image" type="file" name="id_selfie_image" accept=".jpg,.jpeg,.png,.webp" required>
+                        <button type="button" class="btn secondary" id="idCameraOpen" aria-haspopup="dialog" aria-controls="idCameraDialog">Take photo</button>
+                    </div>
+                    <p id="idPhotoStatus" class="id-photo-status" role="status" aria-live="polite"></p>
+                    <img id="idPhotoPreview" class="id-photo-preview" alt="Selected photo of you holding your ID" hidden>
                     @error('id_selfie_image')
                         <span class="error">{{ $message }}</span>
                     @enderror
@@ -293,7 +294,6 @@
                     <div class="tracking-meta"><strong>Address</strong><span id="reviewAddress">-</span></div>
                     <div class="tracking-meta"><strong>Location Pin</strong><span id="reviewPin">Not set</span></div>
                     <div class="tracking-meta"><strong>Plan</strong><span id="reviewPlan">-</span></div>
-                    <div class="tracking-meta"><strong>ID with signatures</strong><span id="reviewId">Required</span></div>
                     <div class="tracking-meta"><strong>ID held by customer</strong><span id="reviewIdSelfie">Required</span></div>
                 </div>
 
@@ -303,6 +303,23 @@
                 </div>
             </section>
         </form>
+        <dialog id="idCameraDialog" class="id-camera" aria-labelledby="idCameraTitle" aria-describedby="idCameraHelp">
+            <div class="id-camera-heading">
+                <h2 id="idCameraTitle">Take your ID photo</h2>
+                <button type="button" class="btn secondary" id="idCameraClose" aria-label="Close camera">Close</button>
+            </div>
+            <p id="idCameraHelp">Hold your valid ID beside your face. Keep the text readable and your face visible.</p>
+            <p id="idCameraStatus" class="id-photo-status" role="status" aria-live="polite"></p>
+            <div class="id-camera-stage">
+                <video id="idCameraVideo" autoplay muted playsinline aria-label="Live camera preview"></video>
+                <img id="idCameraSnapshot" alt="Captured photo to review" hidden>
+            </div>
+            <div class="id-camera-actions">
+                <button type="button" class="btn secondary" id="idCameraRetake" hidden>Retake</button>
+                <button type="button" class="btn" id="idCameraCapture" disabled>Capture photo</button>
+                <button type="button" class="btn" id="idCameraUse" hidden>Use this photo</button>
+            </div>
+        </dialog>
     </div>
 </x-app-layout>
 
@@ -320,7 +337,6 @@
         const addressSummary = document.getElementById('applyAddressSummary');
         const statusText = document.getElementById('applyMapStatus');
         const mapElement = document.getElementById('customerApplyMap');
-        const idSignatureInput = document.getElementById('id_image');
         const idSelfieInput = document.getElementById('id_selfie_image');
         const firstNameInput = document.getElementById('first_name');
         const lastNameInput = document.getElementById('last_name');
@@ -581,12 +597,13 @@
             setText('reviewAddress', currentAddressParts().join(', ') || '-');
             setText('reviewPin', latInput && lngInput && latInput.value && lngInput.value ? `${latInput.value}, ${lngInput.value}` : 'Not set');
             setText('reviewPlan', checkedPlan ? checkedPlan.value.replace('_', ' ') : '-');
-            setText('reviewId', idSignatureInput && idSignatureInput.files.length ? idSignatureInput.files[0].name : 'Required');
             setText('reviewIdSelfie', idSelfieInput && idSelfieInput.files.length ? idSelfieInput.files[0].name : 'Required');
             updateAddressSummary();
         }
 
         function setStep(step) {
+            // Stop an active map animation before its wizard panel is hidden.
+            if (map) map.stop();
             currentStep = Number(step);
             panels.forEach(panel => panel.classList.toggle('is-active', Number(panel.dataset.panel) === currentStep));
             steps.forEach(item => {
@@ -596,7 +613,7 @@
             });
             updateReview();
             if (currentStep === 2 && map) {
-                setTimeout(() => map.invalidateSize(), 80);
+                map.invalidateSize({ pan: false, animate: false });
             }
             return false;
         }
@@ -688,7 +705,7 @@
         }
 
         function validateUploadStep() {
-            for (const field of [idSignatureInput, idSelfieInput]) {
+            for (const field of [idSelfieInput]) {
                 if (field && !field.checkValidity()) {
                     field.reportValidity();
                     return false;
@@ -932,6 +949,8 @@
 
             map.stop();
             if (mapElement.clientWidth > 0 && mapElement.clientHeight > 0) {
+                // Leaflet can cache a zero size while the location step is hidden.
+                map.invalidateSize({ pan: false, animate: false });
                 map.flyTo(latlng, zoom, { duration: 0.75 });
             } else {
                 // The location step starts hidden. Animating a zero-size map

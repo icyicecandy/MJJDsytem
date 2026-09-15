@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ApplicationIdPhotoController;
 use App\Http\Controllers\CustomerApplicationController;
 use App\Http\Controllers\AdminApplicationController;
 use App\Http\Controllers\TechnicianDashboardController;
@@ -55,6 +56,9 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'account.active', 'verified', 'track.staff.presence'])->name('dashboard');
 
 Route::middleware(['auth', 'account.active', 'track.staff.presence'])->group(function () {
+    Route::get('/applications/{application}/id-photo/{photo}', ApplicationIdPhotoController::class)
+        ->whereIn('photo', ['id', 'selfie'])->name('applications.id-photo');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::get('/profile/export', [ProfileController::class, 'export'])->name('profile.export');
     Route::get('/profile/username-check', [ProfileController::class, 'usernameCheck'])->name('profile.username.check');

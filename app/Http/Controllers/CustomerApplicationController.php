@@ -8,7 +8,7 @@ use App\Models\InstallationLog;
 use App\Models\User;
 use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
-use App\Support\PublicUpload;
+use App\Support\ApplicationIdUpload;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -90,7 +90,6 @@ class CustomerApplicationController extends Controller
             'lat' => ['required', 'numeric'],
             'lng' => ['required', 'numeric'],
             'plan_code' => ['required', 'in:S2S_50,S2S_100'],
-            'id_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'id_selfie_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [
             'first_name.regex' => 'First name may only contain letters, spaces, hyphens, and apostrophes.',
@@ -98,7 +97,6 @@ class CustomerApplicationController extends Controller
             'email.unique' => 'This email address is already used in another application.',
             'mobile_number.regex' => 'Enter a valid contact number with 10 to 15 digits.',
             'mobile_number.unique' => 'This mobile number is already used in another application.',
-            'id_image.required' => 'Please upload the valid ID photo on paper with 3 signatures.',
             'id_selfie_image.required' => 'Please upload the photo of the customer holding the valid ID.',
         ]);
 
@@ -126,8 +124,7 @@ class CustomerApplicationController extends Controller
             $reference = "APP-{$year}-{$random}";
         }
 
-        $idPath = PublicUpload::storeFile($request->file('id_image'), 'application-ids');
-        $idSelfiePath = PublicUpload::storeFile($request->file('id_selfie_image'), 'application-ids');
+        $idSelfiePath = ApplicationIdUpload::store($request->file('id_selfie_image'));
         $consentedAt = $user->consented_at ?? now();
 
         $payload = [
@@ -144,7 +141,7 @@ class CustomerApplicationController extends Controller
             'lat' => $lat,
             'lng' => $lng,
             'plan_code' => $validated['plan_code'],
-            'id_image_path' => $idPath,
+            'id_image_path' => null,
             'id_selfie_image_path' => $idSelfiePath,
             'agreed_to_terms' => (bool) $user->agreed_to_terms,
             'agreed_to_privacy' => (bool) $user->agreed_to_privacy,
