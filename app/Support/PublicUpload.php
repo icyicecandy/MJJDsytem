@@ -2,11 +2,23 @@
 
 namespace App\Support;
 
+use App\Services\WorkflowTransaction;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 class PublicUpload
 {
+    public static function storeFile(UploadedFile $file, string $directory): string
+    {
+        $path = $file->store($directory, 'public');
+        if (! $path) {
+            throw new \RuntimeException('The uploaded file could not be saved. Please try again.');
+        }
+        WorkflowTransaction::trackUpload($path);
+
+        return self::normalizePath($path);
+    }
+
     public static function normalizePath(?string $path): ?string
     {
         $path = trim((string) $path);
@@ -104,7 +116,7 @@ class PublicUpload
     {
         return collect($files)
             ->filter(fn ($file) => $file instanceof UploadedFile)
-            ->map(fn (UploadedFile $file) => self::normalizePath($file->store($directory, 'public')))
+            ->map(fn (UploadedFile $file) => self::storeFile($file, $directory))
             ->filter()
             ->values()
             ->all();
@@ -134,7 +146,7 @@ class PublicUpload
         $attachments = collect($files)
             ->filter(fn ($file) => $file instanceof UploadedFile)
             ->map(function (UploadedFile $file) use ($directory) {
-                $metadata = self::attachmentMetadata($file, $file->store($directory, 'public'));
+                $metadata = self::attachmentMetadata($file, self::storeFile($file, $directory));
 
                 return [
                     'path' => $metadata['attachment_path'],

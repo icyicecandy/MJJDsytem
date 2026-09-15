@@ -3,12 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Services\WorkflowTransaction;
 use App\Support\PublicUpload;
 use Illuminate\Http\Request;
 
 class TicketMessageController extends Controller
 {
     public function store(Request $request, Ticket $ticket)
+    {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) use ($request) {
+            return $this->storeWithinTransaction($request, $ticket);
+        });
+    }
+
+    private function storeWithinTransaction(Request $request, Ticket $ticket)
     {
         $user = $request->user();
 

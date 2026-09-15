@@ -11,6 +11,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AdminTicketController;
 use App\Http\Controllers\TechnicianTicketController;
 use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\SystemLogController;
 use App\Http\Controllers\Admin\TechnicianController;
 use App\Models\Application;
@@ -102,16 +103,7 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:custo
 });
 
 Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin'])->group(function () {
-    Route::get('/admin/dashboard', function () {
-        $totalApplications = Application::count();
-        $pendingApplications = Application::whereIn('status', ['submitted', 'under_review'])->count();
-        $approvedApplications = Application::where('status', 'approved')->count();
-        $scheduledInstallations = Application::where('status', 'scheduled')->count();
-        $installedApplications = Application::whereIn('status', [Application::STATUS_INSTALLED, Application::STATUS_ACTIVATED])->count();
-        $openTickets = Ticket::where('status', 'open')->count();
-
-        return view('admin.dashboard', compact('totalApplications', 'pendingApplications', 'approvedApplications', 'scheduledInstallations', 'installedApplications', 'openTickets'));
-    })->name('admin.dashboard');
+    Route::get('/admin/dashboard', DashboardController::class)->name('admin.dashboard');
 
     Route::get('/admin/applications', [AdminApplicationController::class, 'index'])->name('admin.applications.index');
     Route::get('/admin/applications/{application}', [AdminApplicationController::class, 'show'])->name('admin.applications.show');

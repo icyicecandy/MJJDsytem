@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\User;
+use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -108,10 +109,23 @@ class InstallationController extends Controller
 
     public function reassign(Request $request, Installation $installation)
     {
+        return WorkflowTransaction::installation($installation, function (Installation $installation) use ($request) {
+            return $this->reassignWithinTransaction($request, $installation);
+        }, $request->integer('technician_id') ?: null);
+    }
+
+    private function reassignWithinTransaction(Request $request, Installation $installation)
+    {
         $validated = $request->validate([
             'technician_id' => ['required', 'exists:users,id'],
             'reassignment_reason' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        if ($installation->application->status === \App\Models\Application::STATUS_CANCELLATION_REQUESTED) {
+            return back()->withErrors([
+                'reassignment' => 'Review the pending cancellation request before reassigning this installation.',
+            ]);
+        }
 
         if ($installation->status !== Installation::STATUS_SCHEDULED) {
             return back()->withErrors([
@@ -190,6 +204,13 @@ class InstallationController extends Controller
     }
 
     public function reschedule(Request $request, Installation $installation)
+    {
+        return WorkflowTransaction::installation($installation, function (Installation $installation) use ($request) {
+            return $this->rescheduleWithinTransaction($request, $installation);
+        }, $request->integer('technician_id') ?: null);
+    }
+
+    private function rescheduleWithinTransaction(Request $request, Installation $installation)
     {
         $validated = $request->validate([
             'technician_id' => ['required', 'exists:users,id'],
@@ -282,6 +303,7 @@ class InstallationController extends Controller
             ->whereIn('status', Installation::activeSchedulingStatuses())
             ->whereNotNull('installation_time')
             ->when($ignoreInstallationId, fn ($query, $installationId) => $query->where('id', '!=', $installationId))
+            ->lockForUpdate()
             ->get()
             ->contains(function (Installation $installation) use ($newStart, $newEnd) {
                 $existingStart = $installation->scheduledStartAt();

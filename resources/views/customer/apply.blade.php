@@ -930,7 +930,14 @@
                 return false;
             }
 
-            map.flyTo(latlng, zoom, { duration: 0.75 });
+            map.stop();
+            if (mapElement.clientWidth > 0 && mapElement.clientHeight > 0) {
+                map.flyTo(latlng, zoom, { duration: 0.75 });
+            } else {
+                // The location step starts hidden. Animating a zero-size map
+                // produces invalid coordinates; its size is refreshed on step 2.
+                map.setView(latlng, zoom, { animate: false });
+            }
 
             if (options.placePin) {
                 placeMarker(latlng, options.message || 'Starter pin placed. Drag the marker or click the map to set the exact service point.', {

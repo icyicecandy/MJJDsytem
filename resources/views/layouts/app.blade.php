@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/consent.css') }}" />
     @stack('styles')
+    <link rel="stylesheet" href="{{ asset('css/responsive.css') }}?v={{ filemtime(public_path('css/responsive.css')) }}" />
     <script defer src="{{ asset('js/dashboard.js') }}"></script>
     <script defer src="{{ asset('js/auth.js') }}"></script>
     <script defer src="{{ asset('js/consent.js') }}"></script>

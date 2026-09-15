@@ -139,7 +139,7 @@
         </div>
         <div class="panel-body">
             @if($technician->installations->count())
-                <div class="table-wrap">
+                <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
                     <table class="telecom-table">
                         <thead>
                             <tr>
@@ -161,7 +161,7 @@
                                 <tr>
                                     <td>
                                         <div class="record-stack">
-                                            <span class="record-strong">{{ $installation->displayJobReference() }}</span>
+                                            <span class="record-strong record-reference">{{ $installation->displayJobReference() }}</span>
                                             <span class="record-muted">{{ $application->reference_no ?? 'No application reference' }}</span>
                                         </div>
                                     </td>
@@ -214,7 +214,7 @@
         </div>
         <div class="panel-body">
             @if($technician->assignedTickets->count())
-                <div class="table-wrap">
+                <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
                     <table class="telecom-table">
                         <thead>
                             <tr>
@@ -230,7 +230,7 @@
                                 <tr>
                                     <td>
                                         <div class="record-stack">
-                                            <span class="record-strong">{{ $ticket->publicReference() }}</span>
+                                            <span class="record-strong record-reference">{{ $ticket->publicReference() }}</span>
                                             <span class="record-muted">{{ $ticket->subject }}</span>
                                         </div>
                                     </td>

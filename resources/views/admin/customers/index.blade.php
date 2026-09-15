@@ -73,7 +73,7 @@
     </section>
 
     <section class="card table-card">
-        <div class="table-wrap">
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
             <table class="telecom-table admin-customers-table">
                 <thead>
                     <tr>

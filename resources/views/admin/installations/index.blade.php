@@ -37,36 +37,10 @@
         font-size: 1.5rem;
         margin-top: 0.35rem;
     }
-    .admin-installations-table {
-        table-layout: fixed;
-    }
-    .admin-installations-table th:nth-child(1) {
-        width: 10%;
-    }
-    .admin-installations-table th:nth-child(2) {
-        width: 12%;
-    }
-    .admin-installations-table th:nth-child(3) {
-        width: 9%;
-    }
-    .admin-installations-table th:nth-child(4) {
-        width: 14%;
-    }
-    .admin-installations-table th:nth-child(5) {
-        width: 17%;
-    }
-    .admin-installations-table th:nth-child(6) {
-        width: 13%;
-    }
-    .admin-installations-table th:nth-child(7) {
-        width: 11%;
-    }
-    .admin-installations-table th:nth-child(8) {
-        width: 8%;
-    }
-    .admin-installations-table th:nth-child(9) {
-        width: 6%;
-    }
+    .admin-installations-table th:nth-child(2) { width: 14%; }
+    .admin-installations-table th:nth-child(4) { width: 15%; }
+    .admin-installations-table th:nth-child(5) { width: 16%; }
+    .admin-installations-table th:nth-child(6) { width: 14%; }
     .admin-installations-table th,
     .admin-installations-table td {
         padding: 0.68rem 0.55rem;
@@ -156,7 +130,7 @@
     </section>
 
     <section class="card table-card">
-        <div class="table-wrap">
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
             <table class="telecom-table admin-installations-table">
                 <thead>
                     <tr>
@@ -196,7 +170,7 @@
                         <tr>
                             <td>
                                 <div class="record-stack">
-                                    <span class="record-strong">{{ method_exists($installation, 'displayJobReference') ? $installation->displayJobReference() : '#'.$installation->id }}</span>
+                                    <span class="record-strong record-reference">{{ method_exists($installation, 'displayJobReference') ? $installation->displayJobReference() : '#'.$installation->id }}</span>
                                 </div>
                             </td>
                             <td>
@@ -251,7 +225,7 @@
         </div>
     </section>
 
-    @if(method_exists($installations, 'links'))
+    @if(method_exists($installations, 'hasPages') && $installations->hasPages())
         <section class="card toolbar-card">
             {{ $installations->links() }}
         </section>

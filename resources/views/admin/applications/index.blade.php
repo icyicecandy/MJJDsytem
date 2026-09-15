@@ -44,7 +44,7 @@
     </section>
 
     <section class="card table-card">
-        <div class="table-wrap">
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
             <table class="telecom-table admin-app-table">
                 <thead>
                     <tr>
@@ -60,7 +60,7 @@
                 <tbody>
                     @forelse($applications as $app)
                     <tr>
-                        <td class="ref-cell"><span class="record-strong">{{ $app->reference_no }}</span></td>
+                        <td class="ref-cell"><span class="record-strong record-reference">{{ $app->reference_no }}</span></td>
                         <td class="customer-cell">{{ $app->user->name }}</td>
                         <td class="contact-cell">{{ $app->mobile_number ?: 'Not provided' }}</td>
                         <td class="plan-cell">{{ $app->plan_code }}</td>

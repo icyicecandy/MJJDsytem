@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\User;
+use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\PublicUpload;
 use Carbon\Carbon;
@@ -44,7 +45,13 @@ class CustomerApplicationController extends Controller
 
     public function store(Request $request)
     {
-        $user = Auth::user();
+        return WorkflowTransaction::customerApplication(auth()->user(), function (User $user) use ($request) {
+            return $this->storeWithinTransaction($request, $user);
+        });
+    }
+
+    private function storeWithinTransaction(Request $request, User $user)
+    {
         $existing = $user->application;
         $existingId = $existing?->id;
 
@@ -119,8 +126,8 @@ class CustomerApplicationController extends Controller
             $reference = "APP-{$year}-{$random}";
         }
 
-        $idPath = PublicUpload::normalizePath($request->file('id_image')->store('application-ids', 'public'));
-        $idSelfiePath = PublicUpload::normalizePath($request->file('id_selfie_image')->store('application-ids', 'public'));
+        $idPath = PublicUpload::storeFile($request->file('id_image'), 'application-ids');
+        $idSelfiePath = PublicUpload::storeFile($request->file('id_selfie_image'), 'application-ids');
         $consentedAt = $user->consented_at ?? now();
 
         $payload = [
@@ -242,6 +249,13 @@ class CustomerApplicationController extends Controller
 
     public function requestReschedule(Request $request)
     {
+        return WorkflowTransaction::customerApplication(auth()->user(), function (User $user) use ($request) {
+            return $this->requestRescheduleWithinTransaction($request, $user);
+        });
+    }
+
+    private function requestRescheduleWithinTransaction(Request $request, User $user)
+    {
         $validated = $request->validate([
             'reschedule_preferred_date' => ['required', 'date', 'after:today'],
             'reschedule_preferred_time' => ['required', Rule::in(Installation::AVAILABLE_TIME_SLOTS)],
@@ -252,7 +266,7 @@ class CustomerApplicationController extends Controller
             'reschedule_reason.required' => 'Please provide a reason for the reschedule request.',
         ]);
 
-        $application = Auth::user()->application()->with('installation')->first();
+        $application = $user->application;
 
         if (! $application || ! $application->installation) {
             return back()
@@ -350,13 +364,20 @@ class CustomerApplicationController extends Controller
 
     public function requestCancellation(Request $request)
     {
+        return WorkflowTransaction::customerApplication(auth()->user(), function (User $user) use ($request) {
+            return $this->requestCancellationWithinTransaction($request, $user);
+        });
+    }
+
+    private function requestCancellationWithinTransaction(Request $request, User $user)
+    {
         $request->validate([
             'cancellation_reason' => ['required', 'string', 'max:1000'],
         ], [
             'cancellation_reason.required' => 'Please provide a reason before requesting cancellation.',
         ]);
 
-        $application = Auth::user()->application()->with('installation')->first();
+        $application = $user->application;
 
         if (! $application) {
             return back()->withErrors([

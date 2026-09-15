@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Application;
 use App\Models\Installation;
 use App\Models\InstallationLog;
+use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\PublicUpload;
 use Illuminate\Http\Request;
@@ -83,7 +84,20 @@ class TechnicianDashboardController extends Controller
 
     public function updateInstallationStatus(Request $request, Installation $installation)
     {
+        return WorkflowTransaction::installation($installation, function (Installation $installation) use ($request) {
+            return $this->updateInstallationStatusWithinTransaction($request, $installation);
+        });
+    }
+
+    private function updateInstallationStatusWithinTransaction(Request $request, Installation $installation)
+    {
         abort_if($installation->technician_id !== auth()->id(), 403);
+
+        if ($installation->application->status === Application::STATUS_CANCELLATION_REQUESTED) {
+            return back()->withErrors([
+                'status' => 'This installation is waiting for cancellation review. Please wait for the admin decision.',
+            ]);
+        }
 
         $validated = $request->validate([
             'status' => ['required', 'in:in_progress,reschedule_required'],
@@ -146,6 +160,13 @@ class TechnicianDashboardController extends Controller
     }
 
     public function complete(Request $request, Installation $installation)
+    {
+        return WorkflowTransaction::installation($installation, function (Installation $installation) use ($request) {
+            return $this->completeWithinTransaction($request, $installation);
+        });
+    }
+
+    private function completeWithinTransaction(Request $request, Installation $installation)
     {
         abort_if($installation->technician_id !== auth()->id(), 403);
 
@@ -242,6 +263,13 @@ class TechnicianDashboardController extends Controller
     }
 
     public function activate(Installation $installation)
+    {
+        return WorkflowTransaction::installation($installation, function (Installation $installation) {
+            return $this->activateWithinTransaction($installation);
+        });
+    }
+
+    private function activateWithinTransaction(Installation $installation)
     {
         abort_if($installation->technician_id !== auth()->id(), 403);
 

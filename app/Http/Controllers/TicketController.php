@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\PublicUpload;
 use Illuminate\Http\Request;
@@ -64,6 +65,11 @@ class TicketController extends Controller
 
     public function store(Request $request)
     {
+        return WorkflowTransaction::run(fn () => $this->storeWithinTransaction($request));
+    }
+
+    private function storeWithinTransaction(Request $request)
+    {
         $request->validate([
             'subject' => 'required|in:' . implode(',', Ticket::subjectKeys()),
             'description' => 'required|string',
@@ -123,6 +129,13 @@ class TicketController extends Controller
 
     public function reply(Request $request, Ticket $ticket)
     {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) use ($request) {
+            return $this->replyWithinTransaction($request, $ticket);
+        });
+    }
+
+    private function replyWithinTransaction(Request $request, Ticket $ticket)
+    {
         abort_unless(Auth::id() === $ticket->user_id, 403);
         abort_unless($ticket->canReceiveReplies(), 422, 'Closed or cancelled tickets cannot receive new replies.');
 
@@ -152,6 +165,13 @@ class TicketController extends Controller
 
     public function cancel(Ticket $ticket)
     {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) {
+            return $this->cancelWithinTransaction($ticket);
+        });
+    }
+
+    private function cancelWithinTransaction(Ticket $ticket)
+    {
         abort_unless(Auth::id() === $ticket->user_id, 403);
         abort_unless($ticket->isOpenForWork(), 422, 'Only open tickets can be cancelled.');
 
@@ -173,6 +193,13 @@ class TicketController extends Controller
     }
 
     public function requestCancellation(Ticket $ticket)
+    {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) {
+            return $this->requestCancellationWithinTransaction($ticket);
+        });
+    }
+
+    private function requestCancellationWithinTransaction(Ticket $ticket)
     {
         abort_unless(Auth::id() === $ticket->user_id, 403);
         abort_unless($ticket->status === Ticket::STATUS_IN_PROGRESS, 422, 'Only in-progress tickets can request cancellation.');
@@ -206,6 +233,13 @@ class TicketController extends Controller
 
     public function close(Ticket $ticket)
     {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) {
+            return $this->closeWithinTransaction($ticket);
+        });
+    }
+
+    private function closeWithinTransaction(Ticket $ticket)
+    {
         abort_unless(Auth::id() === $ticket->user_id, 403);
         abort_unless($ticket->status === Ticket::STATUS_RESOLVED, 422, 'Only resolved tickets can be closed.');
 
@@ -229,6 +263,13 @@ class TicketController extends Controller
     }
 
     public function reopen(Request $request, Ticket $ticket)
+    {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) use ($request) {
+            return $this->reopenWithinTransaction($request, $ticket);
+        });
+    }
+
+    private function reopenWithinTransaction(Request $request, Ticket $ticket)
     {
         abort_unless(Auth::id() === $ticket->user_id, 403);
         abort_unless($ticket->status === Ticket::STATUS_RESOLVED, 422, 'Only resolved tickets can be reopened.');

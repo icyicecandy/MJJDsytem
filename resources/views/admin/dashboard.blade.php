@@ -2,6 +2,23 @@
 
 @section('title','Admin Dashboard')
 
+@push('styles')
+<style>
+    .operations-overview__heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
+    .operations-overview__heading h2 { margin: 0; font-size: 1rem; }
+    .operations-overview__period, .operations-overview__note { margin: 0.5rem 0 1rem; color: var(--color-text-muted); font-size: 0.85rem; }
+    .operations-overview__total { margin: 0 0 1rem; color: var(--color-primary); }
+    .operations-overview__total strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+    .operations-overview__chart { list-style: none; padding: 0; margin: 0; display: grid; gap: 1rem; }
+    .operations-overview__row { display: grid; grid-template-columns: 5rem minmax(0, 1fr) minmax(2rem, max-content); align-items: center; gap: 0.65rem; font-size: 0.85rem; }
+    .operations-overview__track { height: 0.85rem; background: #e8eef8; border-radius: 0.4rem; overflow: hidden; }
+    .operations-overview__bar { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2563eb, #0891b2); }
+    .operations-overview__count { text-align: right; font-variant-numeric: tabular-nums; }
+    .operations-overview__note { margin: 1rem 0 0; }
+    .operations-overview__empty { padding: 0.75rem; border-radius: 0.5rem; background: #f1f5f9; color: var(--color-text-muted); }
+</style>
+@endpush
+
 @section('content')
 @php
     $icon = fn($svg) => $svg;
@@ -44,7 +61,7 @@
                 <div>
                     <div class="metric-label">Scheduled Installations</div>
                     <div class="metric-value">{{ $scheduledInstallations }}</div>
-                    <div class="metric-meta">Upcoming field jobs</div>
+                    <div class="metric-meta">Applications awaiting installation</div>
                 </div>
                 <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a4 4 0 0 0-5.65 5.65L3 18v3h3l6.05-6.05A4 4 0 0 0 17.7 9.3l-3 3-3-3 3-3z"></path></svg></div>
             </div>
@@ -64,7 +81,7 @@
                 <div>
                     <div class="metric-label">Open Tickets</div>
                     <div class="metric-value">{{ $openTickets }}</div>
-                    <div class="metric-meta">Issues awaiting action</div>
+                    <div class="metric-meta">Assigned and unassigned; not yet started</div>
                 </div>
                 <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 0 0 4v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2 2 0 0 0 0-4z"></path><path d="M13 5v14"></path></svg></div>
             </div>
@@ -78,12 +95,35 @@
                     <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h18v18H3z"></path><path d="M7 15l3-3 2 2 5-5"></path></svg></span>
                     <div>
                         <div class="panel-title">Operations Overview</div>
-                        <div class="panel-subtitle">Core service metrics for daily monitoring</div>
+                        <div class="panel-subtitle">Monthly application submissions</div>
                     </div>
                 </div>
             </div>
             <div class="panel-body">
-                <div class="chart" data-chart="monthly-applications"></div>
+                <section class="operations-overview" aria-labelledby="operationsChartTitle">
+                    <div class="operations-overview__heading">
+                        <h2 id="operationsChartTitle">Applications over the last 6 months</h2>
+                        <a href="{{ route('admin.dashboard') }}" class="btn secondary" data-overview-refresh>Refresh</a>
+                    </div>
+                    <p class="operations-overview__period">{{ $monthlyApplications->first()['label'] }} &ndash; {{ $monthlyApplications->last()['label'] }}</p>
+                    <p class="operations-overview__total"><strong>{{ number_format($overviewTotal) }}</strong> applications in this period</p>
+                    @if($overviewTotal === 0)
+                        <p class="operations-overview__empty">No applications submitted in this period.</p>
+                    @endif
+                    <ol class="operations-overview__chart" aria-label="Monthly application counts">
+                        @foreach($monthlyApplications as $month)
+                            <li class="operations-overview__row" data-month="{{ $month['month'] }}" data-count="{{ $month['count'] }}">
+                                <span>{{ $month['label'] }}</span>
+                                <span class="operations-overview__track" aria-hidden="true">
+                                    <span class="operations-overview__bar" style="width: {{ round($month['count'] / $overviewMaximum * 100, 2) }}%"></span>
+                                </span>
+                                <strong class="operations-overview__count">{{ number_format($month['count']) }}</strong>
+                            </li>
+                        @endforeach
+                    </ol>
+                    <p class="operations-overview__note">All application statuses included. Current month is partial.</p>
+                    <p class="operations-overview__note">Updated {{ $overviewUpdatedAt->format('M d, Y h:i A') }} ({{ config('app.timezone') }}). Select Refresh for the latest totals.</p>
+                </section>
             </div>
         </div>
 

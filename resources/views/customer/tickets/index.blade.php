@@ -47,15 +47,24 @@
     </section>
 
     <section class="card table-card">
-        <div class="table-wrap">
-            <table class="telecom-table">
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
+            <table class="telecom-table ticket-list-table ticket-list-table--customer">
+                    <colgroup>
+                        <col class="ticket-col-reference">
+                        <col class="ticket-col-subject">
+                        <col class="ticket-col-urgency">
+                        <col class="ticket-col-status">
+                        <col class="ticket-col-person">
+                        <col class="ticket-col-submitted">
+                        <col class="ticket-col-action">
+                    </colgroup>
                 <thead>
                     <tr><th>Tracking Number</th><th>Subject</th><th>Urgency</th><th>Status</th><th>Assigned Staff</th><th>Submitted</th><th>Action</th></tr>
                 </thead>
                 <tbody>
                     @forelse($tickets as $ticket)
                     <tr>
-                        <td><span class="record-strong">{{ $ticket->publicReference() }}</span></td>
+                        <td><span class="record-strong record-reference">{{ $ticket->publicReference() }}</span></td>
                         <td>{{ $ticket->subject }}</td>
                         <td><span class="badge ticket-urgency-text urgency-{{ $ticket->displayUrgencyClass() }}">{{ $ticket->displayUrgencyLabel() }}</span></td>
                         <td><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></td>

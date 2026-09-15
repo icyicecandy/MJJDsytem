@@ -69,6 +69,7 @@
             </div>
             <div class="panel-body">
                 @if($tickets->count())
+                    <div class="table-wrap" tabindex="0" role="region" aria-label="Tickets table">
                     <table class="telecom-table">
                         <thead>
                             <tr><th>Tracking Number</th><th>Subject</th><th>Status</th><th>Action</th></tr>
@@ -76,7 +77,7 @@
                         <tbody>
                             @foreach($tickets as $ticket)
                                 <tr>
-                                    <td><span class="record-strong">{{ $ticket->publicReference() }}</span></td>
+                                    <td><span class="record-strong record-reference">{{ $ticket->publicReference() }}</span></td>
                                     <td>{{ $ticket->subject }}</td>
                                     <td><span class="badge {{ $ticket->status }}">{{ ucfirst(str_replace('_', ' ', $ticket->status)) }}</span></td>
                                     <td><a href="{{ route('customer.tickets.show', $ticket) }}" class="btn secondary">View</a></td>
@@ -84,6 +85,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                    </div>
                 @else
                     <div class="empty-state">No support tickets yet. Use the quick issue report button whenever you need assistance.</div>
                 @endif

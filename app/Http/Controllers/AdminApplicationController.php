@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\User;
+use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
 use Carbon\Carbon;
@@ -64,6 +65,13 @@ class AdminApplicationController extends Controller
     }
 
     public function updateStatus(Request $request, Application $application)
+    {
+        return WorkflowTransaction::application($application, function (Application $application) use ($request) {
+            return $this->updateStatusWithinTransaction($request, $application);
+        });
+    }
+
+    private function updateStatusWithinTransaction(Request $request, Application $application)
     {
         $previousStatus = $application->status;
 
@@ -186,6 +194,13 @@ class AdminApplicationController extends Controller
 
     public function schedule(Request $request, Application $application)
     {
+        return WorkflowTransaction::application($application, function (Application $application) use ($request) {
+            return $this->scheduleWithinTransaction($request, $application);
+        }, $request->integer('technician_id') ?: null);
+    }
+
+    private function scheduleWithinTransaction(Request $request, Application $application)
+    {
         $validated = $request->validate([
             'technician_id' => ['required', 'exists:users,id'],
             'installation_date' => ['required', 'date'],
@@ -286,6 +301,13 @@ class AdminApplicationController extends Controller
 
     public function cancellationDecision(Request $request, Application $application)
     {
+        return WorkflowTransaction::application($application, function (Application $application) use ($request) {
+            return $this->cancellationDecisionWithinTransaction($request, $application);
+        });
+    }
+
+    private function cancellationDecisionWithinTransaction(Request $request, Application $application)
+    {
         $validated = $request->validate([
             'decision' => ['required', Rule::in(['approve', 'reject'])],
             'cancellation_notes' => ['nullable', 'string', 'max:1000'],
@@ -365,6 +387,13 @@ class AdminApplicationController extends Controller
 
     public function rescheduleDecision(Request $request, Application $application)
     {
+        return WorkflowTransaction::application($application, function (Application $application) use ($request) {
+            return $this->rescheduleDecisionWithinTransaction($request, $application);
+        }, $request->integer('technician_id') ?: null);
+    }
+
+    private function rescheduleDecisionWithinTransaction(Request $request, Application $application)
+    {
         $isApprove = $request->input('decision') === 'approve';
         $isReject = $request->input('decision') === 'reject';
 
@@ -386,7 +415,9 @@ class AdminApplicationController extends Controller
         $application->loadMissing(['installation.technician', 'user']);
         $installation = $application->installation;
 
-        if (! $installation || ! $installation->hasPendingCustomerRescheduleRequest()) {
+        if (! $installation || ! $installation->hasPendingCustomerRescheduleRequest()
+            || $application->status !== Application::STATUS_SCHEDULED
+            || $installation->status !== Installation::STATUS_SCHEDULED) {
             return back()->withErrors([
                 'reschedule' => 'This application is not waiting for customer reschedule review.',
             ]);
@@ -524,6 +555,7 @@ class AdminApplicationController extends Controller
             ->whereIn('status', Installation::activeSchedulingStatuses())
             ->whereNotNull('installation_time')
             ->when($ignoreInstallationId, fn ($query, $installationId) => $query->where('id', '!=', $installationId))
+            ->lockForUpdate()
             ->get()
             ->contains(function (Installation $installation) use ($newStart, $newEnd) {
                 $existingStart = $installation->scheduledStartAt();

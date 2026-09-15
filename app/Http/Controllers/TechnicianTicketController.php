@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
 use App\Support\PublicUpload;
@@ -55,6 +56,13 @@ class TechnicianTicketController extends Controller
 
     public function start(Ticket $ticket)
     {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) {
+            return $this->startWithinTransaction($ticket);
+        });
+    }
+
+    private function startWithinTransaction(Ticket $ticket)
+    {
         abort_unless($ticket->technician_id === Auth::id(), 403);
         abort_unless($ticket->isOpenForWork(), 422, 'Only open tickets can be started.');
 
@@ -78,6 +86,13 @@ class TechnicianTicketController extends Controller
     }
 
     public function resolve(Request $request, Ticket $ticket)
+    {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) use ($request) {
+            return $this->resolveWithinTransaction($request, $ticket);
+        });
+    }
+
+    private function resolveWithinTransaction(Request $request, Ticket $ticket)
     {
         abort_unless($ticket->technician_id === Auth::id(), 403);
 
@@ -161,6 +176,13 @@ class TechnicianTicketController extends Controller
     }
 
     public function reply(Request $request, Ticket $ticket)
+    {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) use ($request) {
+            return $this->replyWithinTransaction($request, $ticket);
+        });
+    }
+
+    private function replyWithinTransaction(Request $request, Ticket $ticket)
     {
         abort_unless($ticket->technician_id === Auth::id(), 403);
         abort_unless($ticket->canReceiveReplies(), 422, 'Closed or cancelled tickets cannot receive new replies.');

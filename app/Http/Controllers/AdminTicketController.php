@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Ticket;
 use App\Models\User;
+use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
 use App\Support\PublicUpload;
@@ -83,6 +84,13 @@ class AdminTicketController extends Controller
     }
 
     public function update(Request $request, Ticket $ticket)
+    {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) use ($request) {
+            return $this->updateWithinTransaction($request, $ticket);
+        });
+    }
+
+    private function updateWithinTransaction(Request $request, Ticket $ticket)
     {
         $validated = $request->validate([
             'technician_id' => 'nullable|exists:users,id',
@@ -197,6 +205,13 @@ class AdminTicketController extends Controller
 
     public function approveCancellation(Ticket $ticket)
     {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) {
+            return $this->approveCancellationWithinTransaction($ticket);
+        });
+    }
+
+    private function approveCancellationWithinTransaction(Ticket $ticket)
+    {
         abort_unless($ticket->status === Ticket::STATUS_CANCELLATION_REQUESTED, 422, 'This ticket is not waiting for cancellation review.');
 
         $ticket->update([
@@ -230,6 +245,13 @@ class AdminTicketController extends Controller
 
     public function rejectCancellation(Ticket $ticket)
     {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) {
+            return $this->rejectCancellationWithinTransaction($ticket);
+        });
+    }
+
+    private function rejectCancellationWithinTransaction(Ticket $ticket)
+    {
         abort_unless($ticket->status === Ticket::STATUS_CANCELLATION_REQUESTED, 422, 'This ticket is not waiting for cancellation review.');
 
         $ticket->update([
@@ -262,6 +284,13 @@ class AdminTicketController extends Controller
     }
 
     public function approveReopenRequest(Ticket $ticket)
+    {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) {
+            return $this->approveReopenRequestWithinTransaction($ticket);
+        });
+    }
+
+    private function approveReopenRequestWithinTransaction(Ticket $ticket)
     {
         abort_unless($ticket->status === Ticket::STATUS_CLOSED, 422, 'Only closed tickets can have reopen requests approved.');
         abort_unless($ticket->hasPendingReopenRequest(), 422, 'This ticket has no pending reopen request.');
@@ -301,6 +330,13 @@ class AdminTicketController extends Controller
     }
 
     public function reply(Request $request, Ticket $ticket)
+    {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) use ($request) {
+            return $this->replyWithinTransaction($request, $ticket);
+        });
+    }
+
+    private function replyWithinTransaction(Request $request, Ticket $ticket)
     {
         abort_unless($ticket->canReceiveReplies(), 422, 'Closed or cancelled tickets cannot receive new replies.');
 

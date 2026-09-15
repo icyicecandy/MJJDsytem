@@ -198,7 +198,7 @@
         </div>
         <div class="panel-body">
             @if($customer->tickets->count())
-                <div class="table-wrap">
+                <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
                     <table class="telecom-table">
                         <thead>
                             <tr>
@@ -214,7 +214,7 @@
                                 <tr>
                                     <td>
                                         <div class="record-stack">
-                                            <span class="record-strong">{{ $ticket->publicReference() }}</span>
+                                            <span class="record-strong record-reference">{{ $ticket->publicReference() }}</span>
                                             <span class="record-muted">{{ \App\Models\Ticket::resolveSubjectLabel($ticket->subject) }}</span>
                                         </div>
                                     </td>

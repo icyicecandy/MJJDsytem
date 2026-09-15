@@ -1,39 +1,45 @@
-<x-guest-layout>
-    <form method="POST" action="{{ route('password.store') }}">
-        @csrf
+@extends('layouts.auth')
 
-        <!-- Password Reset Token -->
-        <input type="hidden" name="token" value="{{ $request->route('token') }}">
+@section('title', 'Reset Password | MJJD Telecom')
 
-        <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email', $request->email)" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+@section('content')
+    <div class="login-shell">
+        <div class="login-card">
+            <div class="login-intro">
+                <span class="login-kicker">Account Recovery</span>
+                <h1 class="form-title">Choose a new password</h1>
+                <p class="form-subtitle">Update the password for your MJJD account, then sign in with your new credentials.</p>
+            </div>
+            <div class="login-form-card">
+                <div class="login-form-head">
+                    <span class="login-form-badge">Password Help</span>
+                    <h3>Reset password</h3>
+                    <p>Enter your account email and confirm your new password.</p>
+                </div>
+                <form method="POST" action="{{ route('password.store') }}" class="auth-form login-form">
+                    @csrf
+                    <input type="hidden" name="token" value="{{ $request->route('token') }}">
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input id="email" type="email" name="email" value="{{ old('email', $request->email) }}" required autofocus autocomplete="username">
+                        @error('email')<span class="error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="form-group">
+                        <label for="password">New Password</label>
+                        <input id="password" type="password" name="password" required autocomplete="new-password">
+                        @error('password')<span class="error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="form-group">
+                        <label for="password_confirmation">Confirm Password</label>
+                        <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password">
+                        @error('password_confirmation')<span class="error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="form-group login-submit-row">
+                        <button type="submit" class="btn primary">Reset Password</button>
+                    </div>
+                    <p class="small-text"><a href="{{ url('/') }}">Back to sign in</a></p>
+                </form>
+            </div>
         </div>
-
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-            <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="new-password" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
-
-        <!-- Confirm Password -->
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
-
-            <x-text-input id="password_confirmation" class="block mt-1 w-full"
-                                type="password"
-                                name="password_confirmation" required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
-        </div>
-
-        <div class="flex items-center justify-end mt-4">
-            <x-primary-button>
-                {{ __('Reset Password') }}
-            </x-primary-button>
-        </div>
-    </form>
-</x-guest-layout>
+    </div>
+@endsection

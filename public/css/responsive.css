@@ -1,0 +1,204 @@
+/* Shared containment rules preserve the existing colors, components and controls. */
+body.layout :is(.main-content, .content, .page-stack, .panel-grid, .section-grid,
+    .panel-card, .panel-body, .card, .table-card, .toolbar-field, .detail-grid) {
+    min-width: 0;
+}
+body.layout :is(.panel-grid, .section-grid, .metrics-grid, .detail-grid,
+    .admin-app-grid, .admin-app-detail-grid) > * {
+    min-width: 0;
+}
+body.layout .table-wrap {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+}
+body.layout .table-wrap:focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+}
+body.layout .telecom-table {
+    table-layout: auto;
+}
+body.layout .telecom-table :is(th, td) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    vertical-align: top;
+    line-height: 1.45;
+}
+body.layout .telecom-table :is(.record-strong, .record-muted) {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+/* Let short labels determine their minimum width; wrap customer-entered text. */
+body.layout .telecom-table th {
+    overflow-wrap: normal;
+    word-break: normal;
+}
+body.layout .telecom-table :is(th, td):not([colspan]) {
+    min-width: 6rem;
+}
+body.layout .telecom-table :is(.col-actions, .actions-cell) {
+    width: 6rem;
+    white-space: normal;
+}
+body.layout .telecom-table .btn {
+    min-width: max-content;
+    white-space: nowrap;
+    overflow-wrap: normal;
+    text-align: center;
+}
+body.layout .telecom-table :is(.badge, .status-pill) {
+    box-sizing: border-box;
+    width: max-content;
+    min-width: min-content;
+    max-width: 12rem;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+    line-height: 1.4;
+    text-align: center;
+    border-radius: 0.65rem;
+}
+body.layout .telecom-table .record-reference {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+body.layout .telecom-table .record-stack {
+    min-width: 0;
+}
+body.layout .admin-installations-table .address-preview {
+    display: block;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    overflow: visible;
+    text-overflow: clip;
+}
+body.layout .admin-installations-table td:has(.record-stack) {
+    min-width: 8.5rem;
+}
+body.layout .admin-installations-table .badge {
+    max-width: 10rem;
+}
+body.layout .admin-installations-table .schedule-cell {
+    min-width: 8rem;
+}
+body.layout .telecom-table :is(select, input) {
+    min-width: 0;
+    max-width: 100%;
+}
+body.layout :is(.record-strong, .record-muted, .detail-value, .info-value,
+    .admin-app-value, .admin-app-detail-value, .tracking-meta, .ticket-message,
+    .chat-ui__message-text, .notif-item, .section-title-card, .panel-subtitle) {
+    overflow-wrap: anywhere;
+}
+body.layout :is(.toolbar-row, .toolbar-actions, .admin-ticket-actions) {
+    flex-wrap: wrap;
+}
+body.layout :is(.toolbar-field, .toolbar-field.grow) {
+    min-width: 0;
+    max-width: 100%;
+}
+body.layout :is(.toolbar-field, .admin-ticket-actions) :is(input, select) {
+    min-width: 0;
+    max-width: 100%;
+}
+body.layout :is(.admin-ticket-modal__dialog, .notifications-overlay__dialog,
+    .admin-app-map-modal__dialog) {
+    max-width: 100%;
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+}
+@media (max-width: 640px) {
+    body.layout .toolbar-field {
+        flex-basis: 100%;
+        width: 100%;
+    }
+    body.layout :is(.grid-4, .metrics-grid, .quick-link-grid, .ticket-queue-overview__grid) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    body.layout :is(.section-title-card, .panel-header) {
+        flex-wrap: wrap;
+    }
+    body.layout .telecom-table :is(th, td) {
+        font-size: 0.875rem;
+    }
+}
+
+/* Long customer-entered strings must not determine a grid or flex item's width. */
+body.layout .main-content {
+    overflow-wrap: anywhere;
+}
+body.layout :is(.ticket-detail-layout, .ticket-detail-main, .ticket-detail-sidebar,
+    .ticket-detail-card, .ticket-detail-hero__top, .ticket-detail-hero__meta,
+    .ticket-detail-thread, .ticket-detail-message, .profile-hero-copy,
+    .profile-hero-card, .workflow-header-main, .workflow-card,
+    .workflow-layout, .admin-app-summary-item) {
+    min-width: 0;
+}
+body.layout :is(.ticket-detail-hero__top, .ticket-detail-hero__meta,
+    .profile-hero-card, .workflow-title-row) > * {
+    min-width: 0;
+}
+body.layout .table-wrap .admin-technicians-table {
+    min-width: 1000px;
+}
+body.layout .telecom-table .next-schedule {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+    body.layout .admin-app-progress {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1rem;
+        overflow: visible;
+    }
+    body.layout .admin-app-progress-step {
+        display: grid;
+        grid-template-columns: 2rem minmax(0, 1fr);
+        align-items: start;
+        gap: 0.85rem;
+    }
+    body.layout .admin-app-progress-marker {
+        display: block;
+    }
+    body.layout .admin-app-progress-line {
+        display: none;
+    }
+}
+
+/* Keep the map close button above the fixed navigation on short screens. */
+body.layout .admin-app-map-modal {
+    z-index: 1400;
+}
+
+/* Ticket lists have different columns by role. Keep controls compact and let
+   the subject use the remaining width instead of stretching the Action cell. */
+body.layout .telecom-table.ticket-list-table {
+    table-layout: fixed;
+    min-width: 64rem;
+}
+body.layout .telecom-table.ticket-list-table--admin {
+    min-width: 80rem;
+}
+body.layout .ticket-list-table .ticket-col-reference { width: 11rem; }
+body.layout .ticket-list-table .ticket-col-person { width: 16%; }
+body.layout .ticket-list-table--admin .ticket-col-person { width: 12%; }
+body.layout .ticket-list-table .ticket-col-urgency { width: 7rem; }
+body.layout .ticket-list-table .ticket-col-status { width: 11rem; }
+body.layout .ticket-list-table .ticket-col-submitted { width: 11rem; }
+body.layout .ticket-list-table .ticket-col-action { width: 6rem; }
+body.layout .ticket-list-table :is(th, td) {
+    padding: 0.75rem 0.8rem;
+    vertical-align: middle;
+}
+body.layout .ticket-list-table :is(th, td):last-child:not([colspan]) {
+    text-align: center;
+}
+body.layout .ticket-list-table .badge {
+    max-width: 100%;
+}
