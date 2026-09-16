@@ -4,15 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\User;
+use App\Services\WorkflowTransaction;
 use App\Support\ProfileSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Throwable;
 
 class ProfileController extends Controller
 {
@@ -26,38 +30,56 @@ class ProfileController extends Controller
 
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $user = $request->user();
-        $validated = $request->validated();
+        $obsoleteAvatar = WorkflowTransaction::run(function () use ($request) {
+            $user = User::query()->lockForUpdate()->findOrFail($request->user()->id);
+            $validated = $request->validated();
+            $oldAvatar = $user->avatar_path;
+            $emailChanged = $validated['email'] !== $user->email;
+            $phoneChanged = ($validated['phone'] ?? null) !== $user->phone;
 
-        $emailChanged = $validated['email'] !== $user->email;
-        $phoneChanged = ($validated['phone'] ?? null) !== $user->phone;
-
-        if ($request->boolean('remove_avatar') && $user->avatar_path) {
-            Storage::disk('public')->delete($user->avatar_path);
-            $validated['avatar_path'] = null;
-        }
-
-        if ($request->hasFile('avatar')) {
-            if ($user->avatar_path) {
-                Storage::disk('public')->delete($user->avatar_path);
+            if ($request->boolean('remove_avatar')) {
+                $validated['avatar_path'] = null;
             }
 
-            $validated['avatar_path'] = $request->file('avatar')->store('avatars/' . $user->id, 'public');
+            if ($request->hasFile('avatar')) {
+                try {
+                    $path = $request->file('avatar')->store('avatars/'.$user->id, 'public');
+                } catch (Throwable $exception) {
+                    report($exception);
+                    $path = false;
+                }
+                if (! $path) {
+                    throw ValidationException::withMessages([
+                        'avatar' => 'Your photo could not be saved. Please try again.',
+                    ]);
+                }
+                WorkflowTransaction::trackUpload($path, 'public');
+                $validated['avatar_path'] = $path;
+            }
+
+            unset($validated['avatar'], $validated['remove_avatar']);
+            $user->fill($validated);
+            if ($emailChanged) {
+                $user->email_verified_at = null;
+            }
+            if ($phoneChanged) {
+                $user->phone_verified_at = null;
+            }
+            $user->save();
+
+            return $oldAvatar && $oldAvatar !== $user->avatar_path ? $oldAvatar : null;
+        });
+
+        // Only discard the old photo after its replacement/removal has saved.
+        if ($obsoleteAvatar) {
+            try {
+                if (! Storage::disk('public')->delete($obsoleteAvatar)) {
+                    Log::warning('Could not remove a replaced profile photo.', ['path' => $obsoleteAvatar]);
+                }
+            } catch (Throwable $exception) {
+                report($exception);
+            }
         }
-
-        unset($validated['avatar'], $validated['remove_avatar']);
-
-        $user->fill($validated);
-
-        if ($emailChanged) {
-            $user->email_verified_at = null;
-        }
-
-        if ($phoneChanged) {
-            $user->phone_verified_at = null;
-        }
-
-        $user->save();
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }

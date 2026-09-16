@@ -7,6 +7,7 @@ use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\User;
 use App\Services\WorkflowTransaction;
+use App\Services\TechnicianSchedule;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
 use Carbon\Carbon;
@@ -52,14 +53,8 @@ class AdminApplicationController extends Controller
     public function show(Application $application)
     {
         $application->load(['installation.technician', 'installation.logs.user', 'assessor']);
-        $technicians = User::where('role', 'technician')->orderBy('name')->get();
-        $activeSchedules = Installation::query()
-            ->whereIn('status', Installation::activeSchedulingStatuses())
-            ->whereNotNull('technician_id')
-            ->whereNotNull('installation_date')
-            ->whereNotNull('installation_time')
-            ->when($application->installation?->id, fn ($query, $installationId) => $query->where('id', '!=', $installationId))
-            ->get(['id', 'technician_id', 'installation_date', 'installation_time', 'status']);
+        $technicians = User::where('role', 'technician')->whereNull('disabled_at')->orderBy('name')->get();
+        $activeSchedules = TechnicianSchedule::bookings(ignoreInstallationId: $application->installation?->id);
 
         return view('admin.applications.show', compact('application', 'technicians', 'activeSchedules'));
     }
@@ -202,8 +197,8 @@ class AdminApplicationController extends Controller
     private function scheduleWithinTransaction(Request $request, Application $application)
     {
         $validated = $request->validate([
-            'technician_id' => ['required', 'exists:users,id'],
-            'installation_date' => ['required', 'date'],
+            'technician_id' => ['required', 'integer', 'exists:users,id'],
+            'installation_date' => ['required', 'date_format:Y-m-d'],
             'installation_time' => ['required', Rule::in(Installation::AVAILABLE_TIME_SLOTS)],
         ]);
 
@@ -213,12 +208,7 @@ class AdminApplicationController extends Controller
             ]);
         }
 
-        $technician = User::find($validated['technician_id']);
-        if (! $technician || ! $technician->isTechnician()) {
-            return back()
-                ->withErrors(['technician_id' => 'Selected user is not a technician.'])
-                ->withInput();
-        }
+        $technician = TechnicianSchedule::eligibleTechnician((int) $validated['technician_id']);
 
         $installation = Installation::where('application_id', $application->id)->first();
         if ($installation && (in_array($installation->status, [Installation::STATUS_SCHEDULED], true) || in_array($installation->status, Installation::completedStatuses(), true))) {
@@ -229,6 +219,8 @@ class AdminApplicationController extends Controller
             ]);
         }
 
+        TechnicianSchedule::assertFuture($validated['installation_date'], $validated['installation_time']);
+
         if ($this->technicianHasScheduleConflict(
             technicianId: (int) $validated['technician_id'],
             installationDate: $validated['installation_date'],
@@ -236,7 +228,7 @@ class AdminApplicationController extends Controller
             ignoreInstallationId: $installation?->id,
         )) {
             return back()
-                ->withErrors(['installation_time' => 'This technician already has an installation scheduled during that time slot.'])
+                ->withErrors(['installation_time' => TechnicianSchedule::CONFLICT_MESSAGE])
                 ->withInput();
         }
 
@@ -399,9 +391,10 @@ class AdminApplicationController extends Controller
 
         $validated = $request->validate([
             'decision' => ['required', Rule::in(['approve', 'reject'])],
-            'technician_id' => [Rule::requiredIf($isApprove), 'nullable', 'exists:users,id'],
-            'installation_date' => [Rule::requiredIf($isApprove), 'nullable', 'date'],
+            'technician_id' => [Rule::requiredIf($isApprove), 'nullable', 'integer', 'exists:users,id'],
+            'installation_date' => [Rule::requiredIf($isApprove), 'nullable', 'date_format:Y-m-d'],
             'installation_time' => [Rule::requiredIf($isApprove), 'nullable', Rule::in(Installation::AVAILABLE_TIME_SLOTS)],
+            'customer_reschedule_reason' => [Rule::requiredIf($isApprove), 'nullable', 'string', 'max:1000'],
             'reschedule_rejection_reason' => [
                 Rule::requiredIf($isReject),
                 'nullable',
@@ -463,12 +456,9 @@ class AdminApplicationController extends Controller
             return back()->with('success', 'Reschedule request rejected. The original schedule remains active.');
         }
 
-        $technician = User::find($validated['technician_id']);
-        if (! $technician || ! $technician->isTechnician()) {
-            return back()
-                ->withErrors(['technician_id' => 'Selected user is not a technician.'])
-                ->withInput();
-        }
+        $technician = TechnicianSchedule::eligibleTechnician((int) $validated['technician_id']);
+
+        TechnicianSchedule::assertFuture($validated['installation_date'], $validated['installation_time']);
 
         if ($this->technicianHasScheduleConflict(
             technicianId: (int) $technician->id,
@@ -477,7 +467,7 @@ class AdminApplicationController extends Controller
             ignoreInstallationId: $installation->id,
         )) {
             return back()
-                ->withErrors(['installation_time' => 'This technician already has an installation scheduled during that time slot.'])
+                ->withErrors(['installation_time' => TechnicianSchedule::CONFLICT_MESSAGE])
                 ->withInput();
         }
 
@@ -491,6 +481,8 @@ class AdminApplicationController extends Controller
             'status' => Installation::STATUS_SCHEDULED,
             'reschedule_reviewed_at' => now(),
             'reschedule_rejection_reason' => null,
+            'customer_reschedule_reason' => trim($validated['customer_reschedule_reason']),
+            'customer_rescheduled_at' => now(),
         ]);
 
         $application->update(['status' => Application::STATUS_SCHEDULED]);
@@ -502,7 +494,7 @@ class AdminApplicationController extends Controller
         InstallationLog::create([
             'installation_id' => $installation->id,
             'user_id' => auth()->id(),
-            'notes' => 'Customer reschedule request approved by admin. New schedule: ' . $scheduleLabel . '.',
+            'notes' => 'Customer reschedule request approved by admin. New schedule: ' . $scheduleLabel . '. Reason shown to customer: ' . $installation->customer_reschedule_reason,
         ]);
 
         system_log(
@@ -524,7 +516,7 @@ class AdminApplicationController extends Controller
             AppNotificationSender::send(
                 $application->user,
                 'Reschedule request approved',
-                'Your installation has been rescheduled to ' . $scheduleLabel . '.',
+                $installation->customerRescheduleMessage(),
                 route('customer.application.show'),
                 'installation_reschedule_approved',
                 ['application_id' => $application->id, 'installation_id' => $installation->id],
@@ -546,26 +538,6 @@ class AdminApplicationController extends Controller
 
     private function technicianHasScheduleConflict(int $technicianId, string $installationDate, string $installationTime, ?int $ignoreInstallationId = null): bool
     {
-        $newStart = Carbon::parse($installationDate . ' ' . $installationTime);
-        $newEnd = $newStart->copy()->addMinutes(Installation::SLOT_DURATION_MINUTES);
-
-        return Installation::query()
-            ->where('technician_id', $technicianId)
-            ->whereDate('installation_date', $installationDate)
-            ->whereIn('status', Installation::activeSchedulingStatuses())
-            ->whereNotNull('installation_time')
-            ->when($ignoreInstallationId, fn ($query, $installationId) => $query->where('id', '!=', $installationId))
-            ->lockForUpdate()
-            ->get()
-            ->contains(function (Installation $installation) use ($newStart, $newEnd) {
-                $existingStart = $installation->scheduledStartAt();
-                $existingEnd = $installation->scheduledEndAt();
-
-                if (! $existingStart || ! $existingEnd) {
-                    return false;
-                }
-
-                return $newStart->lt($existingEnd) && $newEnd->gt($existingStart);
-            });
+        return TechnicianSchedule::conflicts($technicianId, $installationDate, $installationTime, $ignoreInstallationId);
     }
 }

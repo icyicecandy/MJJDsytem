@@ -824,7 +824,7 @@
         $isRejectedState = $statusKey === 'rejected';
         $isCancelledState = $statusKey === 'cancelled';
         $isInstallationScheduled = $installation?->status === \App\Models\Installation::STATUS_SCHEDULED;
-        $isRescheduleRequiredState = $installation?->status === \App\Models\Installation::STATUS_RESCHEDULE_REQUIRED;
+        $isRescheduleRequiredState = $installation?->canBeRescheduledByAdmin() ?? false;
         $hasPendingCustomerRescheduleRequest = $installation?->hasPendingCustomerRescheduleRequest() ?? false;
         $showReviewSummary = $application->assessed_at || filled($application->assessment_notes) || filled($application->serviceability_status) || filled($application->slot_availability_status) || filled($application->rejection_reason);
         $showAdminActionCard = $showReviewSummary || $isReviewState || $isApprovedState || $isRejectedState || $isInstallationScheduled || $isRescheduleRequiredState || $isCancellationRequestedState || $isCancelledState || $hasPendingCustomerRescheduleRequest;
@@ -863,10 +863,10 @@
         $activeScheduleMatrix = ($activeSchedules ?? collect())
             ->groupBy('technician_id')
             ->map(fn ($technicianSchedules) => $technicianSchedules
-                ->groupBy(fn ($schedule) => optional($schedule->installation_date)->format('Y-m-d'))
+                ->groupBy(fn ($schedule) => $schedule->scheduledStartAt()?->format('Y-m-d'))
                 ->map(fn ($daySchedules) => $daySchedules
                     ->map(fn ($schedule) => [
-                        'time' => \Carbon\Carbon::parse($schedule->installation_time)->format('H:i'),
+                        'time' => $schedule->scheduledStartAt()?->format('H:i'),
                         'status' => $schedule->status,
                     ])
                     ->values()
@@ -1251,7 +1251,7 @@
 
                                     <div class="admin-app-field">
                                         <label for="installation_date">Installation date</label>
-                                        <input id="installation_date" type="date" name="installation_date" value="{{ $selectedInstallationDate }}" required>
+                                        <input id="installation_date" type="date" name="installation_date" min="{{ now()->toDateString() }}" value="{{ $selectedInstallationDate }}" required>
                                         @error('installation_date')
                                             <span class="error">{{ $message }}</span>
                                         @enderror
@@ -1322,7 +1322,7 @@
 
                                     <div class="admin-app-field">
                                         <label for="installation_date">Installation date</label>
-                                        <input id="installation_date" type="date" name="installation_date" value="{{ $selectedRescheduleDate }}">
+                                        <input id="installation_date" type="date" name="installation_date" min="{{ now()->toDateString() }}" value="{{ $selectedRescheduleDate }}">
                                         @error('installation_date')
                                             <span class="error">{{ $message }}</span>
                                         @enderror
@@ -1341,6 +1341,12 @@
                                         @enderror
                                     </div>
 
+                                    <div class="admin-app-field admin-app-field--full">
+                                        <label for="customer_reschedule_reason">Reason shown to customer</label>
+                                        <textarea id="customer_reschedule_reason" name="customer_reschedule_reason" rows="3" maxlength="1000" >{{ old('customer_reschedule_reason', $installation->reschedule_request_reason) }}</textarea>
+                                        <p class="admin-app-helper">Required when approving. This explanation is sent to the customer. Do not include internal staff notes.</p>
+                                        @error('customer_reschedule_reason') <span class="error">{{ $message }}</span> @enderror
+                                    </div>
                                     <div class="admin-app-field admin-app-field--full">
                                         <label for="reschedule_rejection_reason">Rejection reason</label>
                                         <textarea id="reschedule_rejection_reason" name="reschedule_rejection_reason" rows="3" placeholder="Required when rejecting the reschedule request.">{{ old('reschedule_rejection_reason') }}</textarea>
@@ -1413,7 +1419,7 @@
 
                                     <div class="admin-app-field">
                                         <label for="installation_date">Installation date</label>
-                                        <input id="installation_date" type="date" name="installation_date" value="{{ $selectedInstallationDate }}" required>
+                                        <input id="installation_date" type="date" name="installation_date" min="{{ now()->toDateString() }}" value="{{ $selectedInstallationDate }}" required>
                                         @error('installation_date')
                                             <span class="error">{{ $message }}</span>
                                         @enderror
@@ -1430,6 +1436,12 @@
                                         @error('installation_time')
                                             <span class="error">{{ $message }}</span>
                                         @enderror
+                                    </div>
+                                    <div class="admin-app-field admin-app-field--full">
+                                        <label for="customer_reschedule_reason">Reason shown to customer</label>
+                                        <textarea id="customer_reschedule_reason" name="customer_reschedule_reason" rows="3" maxlength="1000" required>{{ old('customer_reschedule_reason', '') }}</textarea>
+                                        <p class="admin-app-helper">Required before rescheduling. This explanation is sent to the customer. Do not include internal staff notes.</p>
+                                        @error('customer_reschedule_reason') <span class="error">{{ $message }}</span> @enderror
                                     </div>
                                 </div>
 
@@ -1690,6 +1702,8 @@
             const installationTimeSelect = document.getElementById('installation_time');
             const installationTimeHint = document.getElementById('installationTimeHint');
             const schedulingConfig = {
+                today: @json(now()->toDateString()),
+                nowTime: @json(now()->format('H:i')),
                 duration: {{ \App\Models\Installation::SLOT_DURATION_MINUTES }},
                 slots: @json($availableTimeSlots),
                 bookings: @json($activeScheduleMatrix),
@@ -1739,7 +1753,9 @@
                     }
 
                     const slotValue = option.value;
-                    const blocked = dayBookings.some(function (booking) {
+                    const past = installationDate < schedulingConfig.today
+                        || (installationDate === schedulingConfig.today && slotValue <= schedulingConfig.nowTime);
+                    const blocked = (installationDate && past) || dayBookings.some(function (booking) {
                         return slotConflicts(slotValue, booking.time);
                     });
 

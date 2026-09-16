@@ -542,3 +542,8 @@ textarea.is-valid {
         width: 100%;
     }
 }
+
+/* Keep saved names and long upload filenames within the profile panels. */
+.profile-main, .profile-side, .profile-panel, .profile-hero-card > div { min-width: 0; }
+.profile-hero-card strong, .profile-hero-card p, .profile-avatar-controls .field-help { overflow-wrap: anywhere; }
+.profile-avatar-controls input[type=file] { min-width: 0; max-width: 100%; }

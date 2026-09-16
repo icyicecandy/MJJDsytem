@@ -68,6 +68,10 @@ class Ticket extends Model
     protected $fillable = [
         'user_id',
         'technician_id',
+        'appointment_date',
+        'appointment_time',
+        'appointment_change_reason',
+        'appointment_changed_at',
         'tracking_number',
         'subject',
         'description',
@@ -81,9 +85,34 @@ class Ticket extends Model
         'reopen_reviewed_by',
     ];
 
+    public const ACTIVE_SCHEDULING_STATUSES = [
+        self::STATUS_OPEN, self::STATUS_QUEUED, self::STATUS_IN_PROGRESS, self::STATUS_CANCELLATION_REQUESTED,
+    ];
+
+    public function scheduledStartAt(): ?\Carbon\Carbon
+    {
+        return $this->appointment_date && $this->appointment_time
+            ? \Carbon\Carbon::parse($this->appointment_date->format('Y-m-d').' '.$this->appointment_time)
+            : null;
+    }
+
+    public function scheduledEndAt(): ?\Carbon\Carbon
+    {
+        return $this->scheduledStartAt()?->addMinutes(Installation::SLOT_DURATION_MINUTES);
+    }
+
+    public function appointmentLabel(): string
+    {
+        return $this->scheduledStartAt()
+            ? $this->scheduledStartAt()->format('M d, Y g:i A').' - '.$this->scheduledEndAt()->format('g:i A')
+            : 'Not scheduled';
+    }
+
     protected function casts(): array
     {
         return [
+            'appointment_date' => 'date',
+            'appointment_changed_at' => 'datetime',
             'reopen_requested_at' => 'datetime',
             'reopen_reviewed_at' => 'datetime',
             'photo_paths' => 'array',

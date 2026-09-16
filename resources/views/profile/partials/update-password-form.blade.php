@@ -36,9 +36,9 @@
 
             <div class="profile-field">
                 <label for="update_password_password">New password <span class="field-badge required">Required</span></label>
-                <input id="update_password_password" name="password" type="password" autocomplete="new-password" required data-password-input>
+                <input id="update_password_password" name="password" type="password" autocomplete="new-password" required minlength="8" data-password-input>
                 <div class="field-meta-row password-meta-row">
-                    <p class="field-help">Use a strong password you do not use elsewhere.</p>
+                    <p class="field-help">Use at least 8 characters with uppercase and lowercase letters, a number, and a symbol.</p>
                     <span class="password-strength" data-password-strength>Too weak</span>
                 </div>
                 @error('password', 'updatePassword')

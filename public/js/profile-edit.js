@@ -62,6 +62,8 @@
         const passwordStrength = passwordForm?.querySelector('[data-password-strength]');
         const passwordMatch = passwordForm?.querySelector('[data-password-match]');
         let usernameTimer = null;
+        let usernameRequest = 0;
+        let avatarRequest = 0;
         let suppressBeforeUnload = false;
 
         const initialState = new Map();
@@ -90,7 +92,11 @@
         }
 
         trackedForms.forEach((form) => {
-            initialState.set(form, getFormState(form));
+            const state = JSON.parse(getFormState(form));
+            if (form === profileForm && form.dataset.savedValues) {
+                Object.assign(state, JSON.parse(form.dataset.savedValues));
+            }
+            initialState.set(form, JSON.stringify(state));
         });
 
         function isFormDirty(form) {
@@ -117,6 +123,8 @@
                 case 'name':
                     if (!value) {
                         message = 'Full name is required.';
+                    } else if (value.length < 2) {
+                        message = 'Full name must be at least 2 characters.';
                     } else if (!isValidPersonName(value)) {
                         message = 'Full name may only contain letters, spaces, hyphens, and apostrophes.';
                     }
@@ -129,8 +137,8 @@
                     }
                     break;
                 case 'phone':
-                    if (value && !/^\+?[0-9()\-\s]{10,20}$/.test(value)) {
-                        message = 'Enter a valid phone number.';
+                    if (value && !/^\+?[0-9]{10,15}$/.test(value.replace(/[\s()\-]+/g, ''))) {
+                        message = 'Enter a valid phone number with 10 to 15 digits.';
                     }
                     break;
                 case 'username': {
@@ -151,6 +159,7 @@
                     break;
             }
 
+            field.setCustomValidity(message);
             field.classList.toggle('is-invalid', !!message);
             field.classList.toggle('is-valid', !message && value !== '');
             field.setAttribute('aria-invalid', message ? 'true' : 'false');
@@ -161,6 +170,7 @@
 
         function updateAvatarPreview(file) {
             if (!avatarPreview) return;
+            const request = ++avatarRequest;
 
             if (!file) {
                 const originalImage = avatarPreview.dataset.originalImage;
@@ -177,6 +187,7 @@
 
             const reader = new FileReader();
             reader.onload = function (event) {
+                if (request !== avatarRequest) return;
                 avatarPreview.innerHTML = `<img src="${event.target?.result}" alt="Avatar preview" data-avatar-image>`;
             };
             reader.readAsDataURL(file);
@@ -186,7 +197,7 @@
 
         if (avatarPreview) {
             const image = avatarPreview.querySelector('img');
-            const fallback = avatarPreview.textContent.trim();
+            const fallback = avatarPreview.dataset.fallback || avatarPreview.textContent.trim();
             if (image) avatarPreview.dataset.originalImage = image.getAttribute('src') || '';
             avatarPreview.dataset.originalFallback = fallback;
         }
@@ -202,6 +213,8 @@
         });
 
         usernameInput?.addEventListener('input', function () {
+            const request = ++usernameRequest;
+            clearTimeout(usernameTimer);
             if (!validateField(usernameInput)) {
                 if (usernameMessage) {
                     usernameMessage.textContent = 'Lowercase letters, numbers, dots, hyphens, and underscores only.';
@@ -217,11 +230,13 @@
                         headers: { Accept: 'application/json' },
                     });
                     const data = await response.json();
+                    if (request !== usernameRequest) return;
                     const serverMessage = data.message || data.errors?.username?.[0] || 'Username check unavailable.';
                     usernameMessage.textContent = serverMessage;
                     usernameInput.classList.toggle('is-invalid', !response.ok || !data.available);
                     usernameInput.classList.toggle('is-valid', response.ok && !!data.available);
                 } catch (error) {
+                    if (request !== usernameRequest) return;
                     usernameMessage.textContent = 'Could not verify username right now.';
                 }
             }, 350);
@@ -229,12 +244,17 @@
 
         avatarInput?.addEventListener('change', function () {
             if (removeAvatarInput) removeAvatarInput.value = '0';
-            updateAvatarPreview(avatarInput.files[0]);
+            const file = avatarInput.files[0];
+            const invalid = file && (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 2 * 1024 * 1024);
+            avatarInput.setCustomValidity(invalid ? 'Choose a JPG, PNG, or WebP image up to 2 MB.' : '');
+            setInlineMessage(avatarInput, avatarInput.validationMessage);
+            updateAvatarPreview(invalid ? null : file);
             updateSaveButton();
         });
 
         removeAvatarButton?.addEventListener('click', function () {
-            if (avatarInput) avatarInput.value = '';
+            avatarRequest++;
+            if (avatarInput) { avatarInput.value = ''; avatarInput.setCustomValidity(''); setInlineMessage(avatarInput, ''); }
             if (removeAvatarInput) removeAvatarInput.value = '1';
             if (avatarPreview) {
                 avatarPreview.innerHTML = `<span data-avatar-fallback>${avatarPreview.dataset.originalFallback || ''}</span>`;
@@ -247,6 +267,13 @@
         cancelButton?.addEventListener('click', function () {
             if (!profileForm) return;
             profileForm.reset();
+            usernameRequest++;
+            clearTimeout(usernameTimer);
+            const saved = JSON.parse(initialState.get(profileForm));
+            profileForm.querySelectorAll('input, select, textarea').forEach(field => {
+                if (field.name in saved && field.type !== 'file') field.value = saved[field.name];
+                field.setCustomValidity('');
+            });
             if (removeAvatarInput) removeAvatarInput.value = '0';
             updateAvatarPreview(null);
             profileForm.querySelectorAll('.is-invalid, .is-valid').forEach((field) => {
@@ -260,14 +287,16 @@
             updateSaveButton();
         });
 
-        passwordInput?.addEventListener('input', function () {
+        function updatePasswordStrength() {
+            if (!passwordInput) return;
             const strength = getPasswordStrength(passwordInput.value);
             if (passwordStrength) {
                 passwordStrength.textContent = strength === 'weak' ? 'Too weak' : strength === 'medium' ? 'Looks better' : 'Strong password';
                 passwordStrength.classList.remove('is-weak', 'is-medium', 'is-strong');
                 passwordStrength.classList.add(`is-${strength}`);
             }
-        });
+        }
+        passwordInput?.addEventListener('input', updatePasswordStrength);
 
         function updatePasswordMatch() {
             if (!passwordInput || !passwordConfirm || !passwordMatch) return;
@@ -281,6 +310,10 @@
             passwordMatch.textContent = isMatch ? 'Passwords match.' : 'Passwords do not match.';
             passwordMatch.classList.toggle('is-success', isMatch);
         }
+
+        passwordForm?.addEventListener('reset', () => {
+            window.setTimeout(() => { updatePasswordStrength(); updatePasswordMatch(); }, 0);
+        });
 
         passwordInput?.addEventListener('input', updatePasswordMatch);
         passwordConfirm?.addEventListener('input', updatePasswordMatch);
@@ -307,6 +340,7 @@
         });
 
         updateSaveButton();
+        updatePasswordStrength();
         updatePasswordMatch();
     });
 })();

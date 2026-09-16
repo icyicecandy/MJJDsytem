@@ -1,3 +1,11 @@
+@php
+    $savedProfileValues = [
+        'name' => $user->name, 'username' => $user->username ?? '', 'email' => $user->email,
+        'phone' => $user->phone ?? '', 'address' => $user->address ?? '',
+        'date_of_birth' => $user->date_of_birth?->toDateString() ?? '', 'gender' => $user->gender ?? '',
+        'avatar' => '', 'remove_avatar' => '0',
+    ];
+@endphp
 <section class="panel-card profile-panel">
     <div class="panel-header">
         <div class="panel-title-wrap">
@@ -13,15 +21,15 @@
     </div>
 
     <div class="panel-body">
-        <form id="profileForm" method="post" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="profile-form" data-unsaved-warning="You have unsaved profile changes.">
+        <form id="profileForm" data-saved-values="{{ json_encode($savedProfileValues) }}" method="post" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="profile-form" data-unsaved-warning="You have unsaved profile changes.">
             @csrf
             @method('patch')
 
             <div class="profile-section-grid">
                 <div class="profile-field profile-field-full">
-                    <label>Profile photo</label>
+                    <label for="avatar">Profile photo</label>
                     <div class="profile-avatar-editor">
-                        <div class="profile-avatar-preview" data-avatar-preview>
+                        <div class="profile-avatar-preview" data-avatar-preview data-fallback="{{ $user->initials }}">
                             @if($user->avatar_url)
                                 <img src="{{ $user->avatar_url }}" alt="{{ $user->name }} avatar" data-avatar-image>
                             @else
@@ -30,6 +38,7 @@
                         </div>
                         <div class="profile-avatar-controls">
                             <input id="avatar" name="avatar" type="file" accept=".jpg,.jpeg,.png,.webp" data-avatar-input>
+                            <p class="field-help">JPG, PNG, or WebP, up to 2 MB.</p>
                             <input type="hidden" name="remove_avatar" value="{{ old('remove_avatar', '0') }}" data-remove-avatar-input>
                             <p class="field-help" data-avatar-file-name>{{ $user->avatar_url ? 'Current avatar in use.' : 'No file selected.' }}</p>
                             <div class="btn-group">
@@ -44,7 +53,7 @@
 
                 <div class="profile-field">
                     <label for="name">Full name <span class="field-badge required">Required</span></label>
-                    <input id="name" name="name" type="text" value="{{ old('name', $user->name) }}" required maxlength="255" pattern="^[A-Za-z][A-Za-z\s'\-]*$" autocomplete="name" data-validate="name">
+                    <input id="name" name="name" type="text" value="{{ old('name', $user->name) }}" required minlength="2" maxlength="255" pattern="^[A-Za-z][A-Za-z\s'\-]*$" autocomplete="name" data-validate="name">
                     @error('name')
                         <p class="field-error">{{ $message }}</p>
                     @enderror
@@ -52,7 +61,7 @@
 
                 <div class="profile-field">
                     <label for="username">Username <span class="field-badge required">Required</span></label>
-                    <input id="username" name="username" type="text" value="{{ old('username', $user->username) }}" required maxlength="30" autocapitalize="off" spellcheck="false" data-validate="username" data-username-check-url="{{ route('profile.username.check') }}">
+                    <input id="username" name="username" type="text" value="{{ old('username', $user->username) }}" required minlength="3" maxlength="30" autocapitalize="off" spellcheck="false" data-validate="username" data-username-check-url="{{ route('profile.username.check') }}">
                     <p class="field-help" data-username-message>Lowercase letters, numbers, dots, hyphens, and underscores only.</p>
                     @error('username')
                         <p class="field-error">{{ $message }}</p>
@@ -61,7 +70,7 @@
 
                 <div class="profile-field">
                     <label for="email">Email address <span class="field-badge required">Required</span></label>
-                    <input id="email" name="email" type="email" value="{{ old('email', $user->email) }}" required autocomplete="email" data-validate="email">
+                    <input id="email" name="email" type="email" value="{{ old('email', $user->email) }}" required maxlength="255" autocomplete="email" data-validate="email">
                     <p class="field-help">{{ $user->email_verified_at ? 'Verified' : 'Changing your email will require re-verification.' }}</p>
                     @error('email')
                         <p class="field-error">{{ $message }}</p>
@@ -79,7 +88,7 @@
 
                 <div class="profile-field">
                     <label for="date_of_birth">Date of birth</label>
-                    <input id="date_of_birth" name="date_of_birth" type="date" value="{{ old('date_of_birth', $user->date_of_birth?->toDateString()) }}">
+                    <input id="date_of_birth" name="date_of_birth" type="date" max="{{ now()->subDay()->toDateString() }}" value="{{ old('date_of_birth', $user->date_of_birth?->toDateString()) }}">
                     @error('date_of_birth')
                         <p class="field-error">{{ $message }}</p>
                     @enderror
@@ -101,7 +110,7 @@
 
                 <div class="profile-field profile-field-full">
                     <label for="address">Address</label>
-                    <textarea id="address" name="address" rows="3" autocomplete="street-address">{{ old('address', $user->address) }}</textarea>
+                    <textarea id="address" name="address" rows="3" maxlength="500" autocomplete="street-address">{{ old('address', $user->address) }}</textarea>
                     <p class="field-help">Keep your address current for service applications and support records.</p>
                     @error('address')
                         <p class="field-error">{{ $message }}</p>

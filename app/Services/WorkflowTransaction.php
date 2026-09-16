@@ -90,9 +90,14 @@ class WorkflowTransaction
         });
     }
 
-    public static function customerApplication(User $customer, Closure $action): mixed
+    public static function customerApplication(User $customer, Closure $action, bool $protectContacts = false): mixed
     {
-        return self::run(function () use ($customer, $action) {
+        return self::run(function () use ($customer, $action, $protectContacts) {
+            if ($protectContacts) {
+                // Serialize contact checks across customers, including the first
+                // insert. Lock BEFORE any reads so MySQL sees the latest commit.
+                DB::table('application_contact_guard')->where('id', 1)->lockForUpdate()->firstOrFail();
+            }
             // Protect the first submission even when no application row exists yet.
             $current = User::query()->lockForUpdate()->findOrFail($customer->id);
             $application = $current->application()->lockForUpdate()->first();
@@ -105,11 +110,12 @@ class WorkflowTransaction
         });
     }
 
-    public static function ticket(Ticket $ticket, Closure $action): mixed
+    public static function ticket(Ticket $ticket, Closure $action, ?int $technicianId = null): mixed
     {
-        return self::run(fn () => $action(
-            Ticket::query()->lockForUpdate()->findOrFail($ticket->id)
-        ));
+        return self::run(function () use ($ticket, $action, $technicianId) {
+            self::lockTechnician($technicianId);
+            return $action(Ticket::query()->lockForUpdate()->findOrFail($ticket->id));
+        });
     }
 
     private static function lockTechnician(?int $technicianId): void

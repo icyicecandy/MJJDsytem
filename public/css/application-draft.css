@@ -1,0 +1,9 @@
+.apply-draft-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; margin-bottom: 1rem; border: 1px solid #cbd5e1; border-radius: 1rem; background: #f8fafc; color: #0f172a; }
+.apply-draft-bar > div { min-width: 0; }
+.apply-draft-bar p { margin: .4rem 0 0; font-size: .9rem; line-height: 1.5; overflow-wrap: anywhere; }
+.apply-draft-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; flex-shrink: 0; }
+.apply-draft-bar [data-error=true] { color: #b91c1c; }
+@media (max-width: 640px) {
+    .apply-draft-bar { align-items: stretch; flex-direction: column; }
+    .apply-draft-actions > button { flex: 1 1 auto; }
+}

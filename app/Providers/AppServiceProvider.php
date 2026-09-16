@@ -3,7 +3,10 @@
 namespace App\Providers;
 
 use Carbon\Carbon;
+use Illuminate\Contracts\Validation\UncompromisedVerifier;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\NotPwnedVerifier;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -13,6 +16,22 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         require_once app_path('Support/helpers.php');
+
+        $this->app->extend(UncompromisedVerifier::class, function ($verifier, $app) {
+            // Windows PHP/OpenSSL may have no CA bundle. Use the existing OS trust
+            // store for this service without changing other HTTP clients or TLS checks.
+            if (PHP_OS_FAMILY !== 'Windows' || ! defined('CURLSSLOPT_NATIVE_CA')) {
+                return $verifier;
+            }
+
+            $http = clone $app->make(HttpFactory::class);
+            $http->globalOptions([
+                'verify' => true,
+                'curl' => [CURLOPT_SSL_OPTIONS => CURLSSLOPT_NATIVE_CA],
+            ]);
+
+            return new NotPwnedVerifier($http);
+        });
     }
 
     /**

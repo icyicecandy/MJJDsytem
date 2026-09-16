@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\WorkflowTransaction;
+use App\Services\TechnicianSchedule;
+use App\Models\Installation;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
 use App\Support\PublicUpload;
@@ -53,7 +57,7 @@ class AdminTicketController extends Controller
 
         $tickets = $ticketsQuery->get();
 
-        $technicians = User::where('role', 'technician')
+        $technicians = User::where('role', 'technician')->whereNull('disabled_at')
             ->withCount([
                 'assignedTickets as active_ticket_load' => fn ($query) => $query->whereIn('status', [
                     Ticket::STATUS_OPEN,
@@ -80,21 +84,25 @@ class AdminTicketController extends Controller
             'cancelled' => Ticket::where('status', Ticket::STATUS_CANCELLED)->count(),
         ];
 
-        return view('admin.tickets.index', compact('tickets', 'technicians', 'queueSummary', 'selectedStatus', 'search'));
+        $scheduleBookings = TechnicianSchedule::calendar();
+        return view('admin.tickets.index', compact('scheduleBookings', 'tickets', 'technicians', 'queueSummary', 'selectedStatus', 'search'));
     }
 
     public function update(Request $request, Ticket $ticket)
     {
         return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) use ($request) {
             return $this->updateWithinTransaction($request, $ticket);
-        });
+        }, $request->integer('technician_id') ?: null);
     }
 
     private function updateWithinTransaction(Request $request, Ticket $ticket)
     {
         $validated = $request->validate([
-            'technician_id' => 'nullable|exists:users,id',
+            'technician_id' => 'nullable|integer|exists:users,id',
             'admin_action' => 'nullable|in:save,close',
+            'appointment_date' => ['nullable', 'date_format:Y-m-d'],
+            'appointment_time' => ['nullable', Rule::in(Installation::AVAILABLE_TIME_SLOTS)],
+            'appointment_change_reason' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $previousTechnicianId = $ticket->technician_id;
@@ -108,10 +116,8 @@ class AdminTicketController extends Controller
         abort_if($ticket->status === Ticket::STATUS_CANCELLATION_REQUESTED, 422, 'Review the cancellation request before updating this ticket.');
         abort_if($ticket->status === Ticket::STATUS_CLOSED && $adminAction !== 'close', 422, 'Closed tickets cannot be updated.');
 
-        if ($technicianId) {
-            $technician = User::findOrFail($technicianId);
-            abort_unless($technician->isTechnician(), 422);
-        }
+        $previousAppointment = $ticket->appointmentLabel();
+        $previousStart = $ticket->scheduledStartAt()?->toDateTimeString();
 
         if ($adminAction === 'close') {
             abort_unless($ticket->status === Ticket::STATUS_RESOLVED, 422, 'Only resolved tickets can be closed by admin.');
@@ -127,6 +133,33 @@ class AdminTicketController extends Controller
                 'message' => 'Ticket closed by admin.',
             ]);
         } else {
+            abort_if($ticket->status === Ticket::STATUS_RESOLVED, 422, 'Resolved tickets cannot be reassigned. Close or reopen the ticket first.');
+            $appointmentDate = null;
+            $appointmentTime = null;
+            if ($technicianId) {
+                $technician = TechnicianSchedule::eligibleTechnician((int) $technicianId);
+                $appointmentDate = $validated['appointment_date'] ?? null;
+                $appointmentTime = $validated['appointment_time'] ?? null;
+                $errors = [];
+                if (! $appointmentDate) $errors['appointment_date'] = 'Choose an appointment date for this ticket assignment.';
+                if (! $appointmentTime) $errors['appointment_time'] = 'Choose an appointment time for this ticket assignment.';
+                if ($errors) throw ValidationException::withMessages($errors);
+                TechnicianSchedule::assertFuture($appointmentDate, $appointmentTime, 'appointment_date', 'appointment_time');
+                if (TechnicianSchedule::conflicts((int) $technicianId, $appointmentDate, $appointmentTime, ignoreTicketId: $ticket->id)) {
+                    throw ValidationException::withMessages(['appointment_time' => TechnicianSchedule::CONFLICT_MESSAGE]);
+                }
+            }
+            $newStart = $appointmentDate && $appointmentTime
+                ? \Carbon\Carbon::parse($appointmentDate.' '.$appointmentTime)->toDateTimeString() : null;
+            $changingExistingAppointment = $previousStart !== null && $previousStart !== $newStart;
+            $publicReason = trim($validated['appointment_change_reason'] ?? '');
+            if ($changingExistingAppointment && $publicReason === '') {
+                throw ValidationException::withMessages(['appointment_change_reason' => 'Explain the appointment change. This reason will be sent to the customer.']);
+            }
+            $reasonData = $previousStart === $newStart ? [] : [
+                'appointment_change_reason' => $changingExistingAppointment ? $publicReason : null,
+                'appointment_changed_at' => $changingExistingAppointment ? now() : null,
+            ];
             $nextStatus = match ($ticket->status) {
                 Ticket::STATUS_IN_PROGRESS => $technicianId ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_OPEN,
                 Ticket::STATUS_RESOLVED => Ticket::STATUS_RESOLVED,
@@ -136,11 +169,28 @@ class AdminTicketController extends Controller
 
             $ticket->update([
                 'technician_id' => $technicianId,
+                'appointment_date' => $appointmentDate,
+                'appointment_time' => $appointmentTime,
                 'status' => $nextStatus,
-            ]);
+            ] + $reasonData);
         }
 
         $ticket->refresh();
+
+        $appointmentChanged = $previousStart !== $ticket->scheduledStartAt()?->toDateTimeString();
+        if ($adminAction === 'save' && ($appointmentChanged || $previousTechnicianId != $ticket->technician_id)) {
+            $message = 'Ticket appointment updated from '.$previousAppointment.' to '.$ticket->appointmentLabel().'.';
+            if ($appointmentChanged && $ticket->appointment_change_reason) {
+                $message .= ' Reason: '.$ticket->appointment_change_reason;
+            }
+            $ticket->messages()->create(['user_id' => auth()->id(), 'message' => $message]);
+            system_log('Ticket Appointment Updated', $ticket->publicReference().': '.$message);
+            foreach (collect([$ticket->user, $technician, $previousTechnicianId ? User::find($previousTechnicianId) : null])->filter()->unique('id') as $recipient) {
+                $url = $recipient->isTechnician() ? route('technician.tickets.index') : route('customer.tickets.show', $ticket);
+                AppNotificationSender::send($recipient, 'Ticket appointment updated', $ticket->publicReference().': '.$message,
+                    $url, 'ticket_appointment_updated', ['ticket_id' => $ticket->id], auth()->id());
+            }
+        }
 
         if ($technician && $ticket->technician_id && $ticket->technician_id !== $previousTechnicianId) {
             AppNotificationSender::send(
@@ -188,7 +238,7 @@ class AdminTicketController extends Controller
     public function show(Ticket $ticket)
     {
         $ticket->load('messages.user', 'user', 'technician', 'reopenReviewer');
-        $technicians = User::where('role', 'technician')
+        $technicians = User::where('role', 'technician')->whereNull('disabled_at')
             ->withCount([
                 'assignedTickets as active_ticket_load' => fn ($query) => $query->whereIn('status', [
                     Ticket::STATUS_OPEN,
@@ -200,7 +250,8 @@ class AdminTicketController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('admin.tickets.show', compact('ticket', 'technicians'));
+        $scheduleBookings = TechnicianSchedule::calendar();
+        return view('admin.tickets.show', compact('scheduleBookings', 'ticket', 'technicians'));
     }
 
     public function approveCancellation(Ticket $ticket)
@@ -295,10 +346,15 @@ class AdminTicketController extends Controller
         abort_unless($ticket->status === Ticket::STATUS_CLOSED, 422, 'Only closed tickets can have reopen requests approved.');
         abort_unless($ticket->hasPendingReopenRequest(), 422, 'This ticket has no pending reopen request.');
 
-        $nextStatus = $ticket->technician_id ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_OPEN;
+        $nextStatus = Ticket::STATUS_OPEN;
 
         $ticket->forceFill(array_merge([
             'status' => $nextStatus,
+            'technician_id' => null,
+            'appointment_date' => null,
+            'appointment_time' => null,
+            'appointment_change_reason' => null,
+            'appointment_changed_at' => null,
         ], $ticket->lifecycleAttributes([
             'reopen_reviewed_at' => now(),
             'reopen_reviewed_by' => auth()->id(),
@@ -306,7 +362,7 @@ class AdminTicketController extends Controller
 
         $ticket->messages()->create([
             'user_id' => auth()->id(),
-            'message' => 'Ticket reopen request approved by admin.',
+            'message' => 'Ticket reopen request approved by admin. Returned to the queue for a new technician appointment.',
         ]);
 
         system_log(

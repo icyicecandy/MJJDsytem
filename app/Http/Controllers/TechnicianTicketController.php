@@ -65,6 +65,10 @@ class TechnicianTicketController extends Controller
     {
         abort_unless($ticket->technician_id === Auth::id(), 403);
         abort_unless($ticket->isOpenForWork(), 422, 'Only open tickets can be started.');
+        if (! $ticket->scheduledStartAt()) {
+            return back()->withErrors(['appointment' => 'Ask an admin to schedule this ticket before starting work.']);
+        }
+
 
         $ticket->forceFill(array_merge([
             'status' => Ticket::STATUS_IN_PROGRESS,

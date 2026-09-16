@@ -55,6 +55,8 @@ class Installation extends Model
         'activation_status',
         'technician_remarks',
         'reassignment_reason',
+        'customer_reschedule_reason',
+        'customer_rescheduled_at',
         'reschedule_requested_at',
         'reschedule_preferred_date',
         'reschedule_preferred_time',
@@ -79,6 +81,7 @@ class Installation extends Model
     {
         return [
             'assigned_at' => 'datetime',
+            'customer_rescheduled_at' => 'datetime',
             'installation_date' => 'date',
             'reschedule_requested_at' => 'datetime',
             'reschedule_preferred_date' => 'date',
@@ -141,6 +144,18 @@ class Installation extends Model
     public function isRescheduleRequired(): bool
     {
         return $this->status === self::STATUS_RESCHEDULE_REQUIRED;
+    }
+
+    public function customerRescheduleMessage(): string
+    {
+        return 'Your installation has been rescheduled to '.$this->scheduledStartAt()->format('F d, Y g:i A')
+            .' ('.config('app.timezone').'). Reason: '.$this->customer_reschedule_reason;
+    }
+
+    public function canBeRescheduledByAdmin(): bool
+    {
+        return $this->status === self::STATUS_RESCHEDULE_REQUIRED
+            || ($this->status === self::STATUS_SCHEDULED && $this->scheduledStartAt()?->lte(now()));
     }
 
     public function hasPendingCustomerRescheduleRequest(): bool

@@ -166,6 +166,7 @@ test('a pending reschedule cannot revive a cancelled installation', function () 
     ]);
     $this->actingAs(User::factory()->create(['role' => 'admin']))
         ->patch(route('admin.applications.reschedule', $application), [
+            'customer_reschedule_reason' => 'Appointment moved at the customer request.',
             'decision' => 'approve', 'technician_id' => $technician->id,
             'installation_date' => now()->addDays(6)->toDateString(), 'installation_time' => '10:00',
         ])->assertSessionHasErrors('reschedule');

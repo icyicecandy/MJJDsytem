@@ -154,7 +154,7 @@ test('customer can search and filter support tickets', function () {
 
 test('technician starts assigned open ticket', function () {
     $technician = makeTicketUser('technician');
-    $ticket = makeTicket(['technician_id' => $technician->id]);
+    $ticket = makeTicket(['technician_id' => $technician->id, 'appointment_date' => now()->addDay()->toDateString(), 'appointment_time' => '09:00']);
 
     $this
         ->actingAs($technician)
@@ -231,6 +231,7 @@ test('admin assignment does not start work automatically', function () {
         ->patch(route('admin.tickets.update', $ticket, false), [
             'admin_action' => 'save',
             'technician_id' => $technician->id,
+            'appointment_date' => now()->addDay()->toDateString(), 'appointment_time' => '09:00',
         ])
         ->assertRedirect(route('admin.tickets.index', absolute: false));
 
@@ -412,8 +413,10 @@ test('customer reopens resolved ticket with a reason', function () {
         ])
         ->assertRedirect();
 
-    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_IN_PROGRESS)
-        ->and($ticket->messages()->where('message', 'like', 'Ticket reopened by customer.%')->exists())->toBeTrue();
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_OPEN)
+        ->and($ticket->technician_id)->toBeNull()
+        ->and($ticket->appointment_date)->toBeNull()
+        ->and($ticket->messages()->where('message', 'like', 'Ticket reopened by customer and returned to the queue%')->exists())->toBeTrue();
 });
 
 test('customer cannot reopen closed ticket', function () {
@@ -451,10 +454,12 @@ test('admin approves closed ticket reopen request', function () {
         ->patch(route('admin.tickets.reopen-request.approve', $ticket, false))
         ->assertRedirect();
 
-    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_IN_PROGRESS)
+    expect($ticket->refresh()->status)->toBe(Ticket::STATUS_OPEN)
+        ->and($ticket->technician_id)->toBeNull()
+        ->and($ticket->appointment_date)->toBeNull()
         ->and($ticket->hasPendingReopenRequest())->toBeFalse()
         ->and($ticket->reopen_reviewed_by)->toBe($admin->id)
-        ->and($ticket->messages()->where('message', 'Ticket reopen request approved by admin.')->exists())->toBeTrue();
+        ->and($ticket->messages()->where('message', 'Ticket reopen request approved by admin. Returned to the queue for a new technician appointment.')->exists())->toBeTrue();
 });
 
 test('closed ticket cannot receive new replies', function () {

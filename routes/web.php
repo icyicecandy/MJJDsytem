@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ApplicationDraftController;
 use App\Http\Controllers\ApplicationIdPhotoController;
 use App\Http\Controllers\CustomerApplicationController;
 use App\Http\Controllers\AdminApplicationController;
@@ -89,6 +90,9 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:custo
     })->name('customer.dashboard');
 
     Route::get('/customer/apply', [CustomerApplicationController::class, 'create'])->name('customer.apply');
+    Route::post('/customer/apply/draft', [ApplicationDraftController::class, 'store'])->middleware('throttle:20,1')->name('customer.apply.draft.save');
+    Route::delete('/customer/apply/draft', [ApplicationDraftController::class, 'destroy'])->name('customer.apply.draft.destroy');
+    Route::get('/customer/apply/draft/photo', [ApplicationDraftController::class, 'photo'])->name('customer.apply.draft.photo');
     Route::get('/customer/apply/contact-check', [CustomerApplicationController::class, 'contactCheck'])->name('customer.apply.contact-check');
     Route::post('/customer/apply', [CustomerApplicationController::class, 'store'])->name('customer.apply.store');
     Route::get('/customer/apply/done', [CustomerApplicationController::class, 'done'])->name('customer.apply.done');

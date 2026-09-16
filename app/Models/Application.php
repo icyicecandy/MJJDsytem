@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\ApplicationIdUpload;
+use App\Support\ApplicationContact;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -51,6 +52,20 @@ class Application extends Model
         'assessed_at',
         'status',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Application $application) {
+            if ($application->isDirty('email')) {
+                $application->email = ApplicationContact::email($application->email);
+            }
+            if ($application->isDirty('mobile_number')) {
+                $application->mobile_number = ApplicationContact::phone($application->mobile_number);
+            }
+            $application->email_key = ApplicationContact::key('email', $application->email);
+            $application->mobile_number_key = ApplicationContact::key('mobile_number', $application->mobile_number);
+        });
+    }
 
     protected function casts(): array
     {

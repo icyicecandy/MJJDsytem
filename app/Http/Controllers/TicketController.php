@@ -279,10 +279,15 @@ class TicketController extends Controller
             'reason' => ['required', 'string', 'max:4000'],
         ]);
 
-        $nextStatus = $ticket->technician_id ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_OPEN;
+        $nextStatus = Ticket::STATUS_OPEN;
 
         $ticket->forceFill(array_merge([
             'status' => $nextStatus,
+            'technician_id' => null,
+            'appointment_date' => null,
+            'appointment_time' => null,
+            'appointment_change_reason' => null,
+            'appointment_changed_at' => null,
         ], $ticket->lifecycleAttributes([
             'reopen_requested_at' => now(),
             'reopen_reason' => $validated['reason'],
@@ -292,7 +297,7 @@ class TicketController extends Controller
 
         $ticket->messages()->create([
             'user_id' => Auth::id(),
-            'message' => 'Ticket reopened by customer. Reason: ' . $validated['reason'],
+            'message' => 'Ticket reopened by customer and returned to the queue for a new appointment. Reason: ' . $validated['reason'],
         ]);
 
         AppNotificationSender::sendToRole(

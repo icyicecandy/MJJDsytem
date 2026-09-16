@@ -8,6 +8,10 @@ use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
+beforeEach(function () {
+    $this->travelTo(Carbon::parse('2026-04-20 07:00:00'));
+});
+
 test('approved applications can be scheduled with assigned_at and installation pages remain accessible', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $customer = User::factory()->create(['role' => 'customer']);
@@ -227,7 +231,7 @@ test('same technician cannot be scheduled twice in the same one hour slot', func
 
     $response
         ->assertRedirect(route('admin.applications.show', $application, false))
-        ->assertSessionHasErrors(['installation_time' => 'This technician already has an installation scheduled during that time slot.']);
+        ->assertSessionHasErrors(['installation_time' => 'This technician already has an installation or ticket appointment during that time slot.']);
 
     expect(Installation::where('application_id', $application->id)->doesntExist())->toBeTrue()
         ->and($application->refresh()->status)->toBe('approved');
@@ -547,6 +551,7 @@ test('admin approves customer reschedule request and updates installation schedu
         ->actingAs($admin)
         ->from(route('admin.applications.show', $application, false))
         ->patch(route('admin.applications.reschedule', $application, false), [
+            'customer_reschedule_reason' => 'Appointment moved at the customer request.',
             'decision' => 'approve',
             'technician_id' => $technician->id,
             'installation_date' => $newDate,
@@ -608,6 +613,7 @@ test('admin rejection of customer reschedule request requires and stores reason'
         ->actingAs($admin)
         ->from(route('admin.applications.show', $application, false))
         ->patch(route('admin.applications.reschedule', $application, false), [
+            'customer_reschedule_reason' => 'Appointment moved at the customer request.',
             'decision' => 'reject',
         ])
         ->assertRedirect(route('admin.applications.show', $application, false))
@@ -619,6 +625,7 @@ test('admin rejection of customer reschedule request requires and stores reason'
         ->actingAs($admin)
         ->from(route('admin.applications.show', $application, false))
         ->patch(route('admin.applications.reschedule', $application, false), [
+            'customer_reschedule_reason' => 'Appointment moved at the customer request.',
             'decision' => 'reject',
             'reschedule_rejection_reason' => 'No technician slot is available for the requested time.',
         ]);
@@ -1133,6 +1140,7 @@ test('technician can mark reschedule required and admin can reschedule', functio
     $this->actingAs($admin)
         ->from(route('admin.applications.show', $application, false))
         ->patch(route('admin.installations.reschedule', $installation, false), [
+            'customer_reschedule_reason' => 'Appointment moved at the customer request.',
             'technician_id' => $technician->id,
             'installation_date' => now()->addDays(4)->format('Y-m-d'),
             'installation_time' => '13:00',

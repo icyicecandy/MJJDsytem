@@ -159,25 +159,40 @@
                         <dt>Assigned Staff</dt>
                         <dd>{{ $assignedStaff }}</dd>
                     </div>
+                    <div>
+                        <dt>Appointment ({{ config('app.timezone') }})</dt>
+                        <dd>{{ $ticket->appointmentLabel() }}</dd>
+                    </div>
+                    @if(filled($ticket->appointment_change_reason))
+                        <div>
+                            <dt>Reason for appointment change</dt>
+                            <dd style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ $ticket->appointment_change_reason }}</dd>
+                        </div>
+                    @endif
                 </dl>
             </section>
 
             <section class="ticket-detail-card ticket-sidebar-card">
                 <h2>Assignment</h2>
-                @if(! $isReadOnly && ! $isCancellationRequested)
-                    <form method="post" action="{{ route('admin.tickets.update', $ticket) }}" class="ticket-action-form">
+                @if(! $isReadOnly && ! $isCancellationRequested && ! $isResolved)
+                    <form method="post" action="{{ route('admin.tickets.update', $ticket) }}" class="ticket-action-form" data-ticket-appointment-form>
                         @csrf
                         @method('PATCH')
                         <input type="hidden" name="admin_action" value="save">
                         <label for="technician_id">Technician</label>
                         <select id="technician_id" name="technician_id" class="technician-load-select">
                             <option value="">Unassigned Queue</option>
+                            @if($ticket->technician_id && ! $technicians->contains('id', $ticket->technician_id))
+                                <option value="{{ $ticket->technician_id }}" selected disabled>Current technician unavailable - choose another</option>
+                            @endif
                             @foreach($technicians as $tech)
-                                <option value="{{ $tech->id }}" {{ $ticket->technician_id == $tech->id ? 'selected' : '' }}>
+                                <option value="{{ $tech->id }}" @selected(old('technician_id', $ticket->technician_id) == $tech->id)>
                                     {{ $tech->name }} ({{ $tech->active_ticket_load }} active)
                                 </option>
                             @endforeach
                         </select>
+                        @error('technician_id') <span class="error">{{ $message }}</span> @enderror
+                        @include('admin.tickets.appointment-fields', ['appointmentPrefix' => 'ticketAppointment', 'appointmentTicket' => $ticket])
                         <button class="btn">{{ $ticket->technician_id ? 'Update Assignment' : 'Assign Technician' }}</button>
                     </form>
                 @else

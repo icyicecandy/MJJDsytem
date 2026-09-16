@@ -156,7 +156,7 @@
             <div class="flash-stack">
                 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
                 @if(session('error'))<div class="alert alert-error">{{ session('error') }}</div>@endif
-                @if(session('status'))<div class="alert alert-info">{{ session('status') }}</div>@endif
+                @if(session('status'))<div class="alert alert-info">{{ match (session('status')) { 'profile-updated' => 'Profile successfully updated.', 'password-updated' => 'Password successfully changed.', 'password-set' => 'Password successfully set.', default => session('status') } }}</div>@endif
             </div>
         @endif
 

@@ -120,6 +120,14 @@
                     </div>
                 @endif
 
+                @if(filled($installation?->customer_reschedule_reason))
+                    <div class="application-alert-card" data-customer-reschedule-reason>
+                        <strong>Reason for the latest reschedule</strong>
+                        <p style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ $installation->customer_reschedule_reason }}</p>
+                        <p>Updated {{ $installation->customer_rescheduled_at?->displayDateTime('F j, Y g:i A') }}. Your current appointment is shown above.</p>
+                    </div>
+                @endif
+
                 @if($status === 'rejected')
                     <div class="application-alert-card is-danger">
                         <strong>Rejection Reason</strong>

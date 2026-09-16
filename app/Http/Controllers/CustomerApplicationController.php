@@ -3,12 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
+use App\Models\ApplicationDraft;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\User;
 use App\Services\WorkflowTransaction;
+use App\Services\TechnicianSchedule;
 use App\Support\AppNotificationSender;
 use App\Support\ApplicationIdUpload;
+use App\Support\ApplicationContact;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,17 +43,23 @@ class CustomerApplicationController extends Controller
         $mapBounds = self::SERVICE_BOUNDS;
         $addressCatalog = config('luzon_service_areas.regions', []);
 
-        return view('customer.apply', compact('application', 'mapBounds', 'addressCatalog'));
+        $draft = ApplicationDraft::query()->where('user_id', $user->id)->where('expires_at', '>', now())->first();
+
+        return view('customer.apply', compact('application', 'mapBounds', 'addressCatalog', 'draft'));
     }
 
     public function store(Request $request)
     {
-        return WorkflowTransaction::customerApplication(auth()->user(), function (User $user) use ($request) {
-            return $this->storeWithinTransaction($request, $user);
-        });
+        $obsoleteDraftPhoto = null;
+        $response = WorkflowTransaction::customerApplication(auth()->user(), function (User $user) use ($request, &$obsoleteDraftPhoto) {
+            $obsoleteDraftPhoto = null;
+            return $this->storeWithinTransaction($request, $user, $obsoleteDraftPhoto);
+        }, protectContacts: true);
+        ApplicationDraft::deletePhoto($obsoleteDraftPhoto);
+        return $response;
     }
 
-    private function storeWithinTransaction(Request $request, User $user)
+    private function storeWithinTransaction(Request $request, User $user, ?string &$obsoleteDraftPhoto)
     {
         $existing = $user->application;
         $existingId = $existing?->id;
@@ -58,6 +67,13 @@ class CustomerApplicationController extends Controller
         if ($this->hasActiveApplication($existing)) {
             return redirect()->route('customer.dashboard')
                 ->with('error', 'You already have an active application.');
+        }
+
+        $draft = ApplicationDraft::query()->where('user_id', $user->id)->where('expires_at', '>', now())->lockForUpdate()->first();
+        if (($request->input('draft_token') ?: null) !== $draft?->token) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'draft' => 'Your saved draft changed in another tab or expired. Reload Apply and review it before submitting.',
+            ]);
         }
 
         $request->merge([
@@ -69,18 +85,20 @@ class CustomerApplicationController extends Controller
             'first_name' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z][A-Za-z\s\'-]*$/'],
             'last_name' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z][A-Za-z\s\'-]*$/'],
             'email' => [
+                'bail',
                 'required',
                 'string',
                 'email',
                 'max:255',
-                Rule::unique('applications', 'email')->ignore($existingId),
+                ApplicationContact::uniqueRule('email', $existingId),
             ],
             'mobile_number' => [
+                'bail',
                 'required',
                 'string',
                 'max:16',
                 'regex:/^\+?[0-9]{10,15}$/',
-                Rule::unique('applications', 'mobile_number')->ignore($existingId),
+                ApplicationContact::uniqueRule('mobile_number', $existingId),
             ],
             'region' => ['required', 'string', 'max:100'],
             'province' => ['required', 'string', 'max:100'],
@@ -90,7 +108,7 @@ class CustomerApplicationController extends Controller
             'lat' => ['required', 'numeric'],
             'lng' => ['required', 'numeric'],
             'plan_code' => ['required', 'in:S2S_50,S2S_100'],
-            'id_selfie_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'id_selfie_image' => [$draft?->hasPhoto() ? 'nullable' : 'required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [
             'first_name.regex' => 'First name may only contain letters, spaces, hyphens, and apostrophes.',
             'last_name.regex' => 'Last name may only contain letters, spaces, hyphens, and apostrophes.',
@@ -124,7 +142,9 @@ class CustomerApplicationController extends Controller
             $reference = "APP-{$year}-{$random}";
         }
 
-        $idSelfiePath = ApplicationIdUpload::store($request->file('id_selfie_image'));
+        $idSelfiePath = $request->hasFile('id_selfie_image')
+            ? ApplicationIdUpload::store($request->file('id_selfie_image'))
+            : $draft->photo_path;
         $consentedAt = $user->consented_at ?? now();
 
         $payload = [
@@ -182,6 +202,11 @@ class CustomerApplicationController extends Controller
             'Application ' . $application->reference_no . ' was submitted by ' . $user->name . '.'
         );
 
+        if ($draft) {
+            $obsoleteDraftPhoto = $draft->photo_path !== $idSelfiePath ? $draft->photo_path : null;
+            $draft->delete();
+        }
+
         return redirect()->route('customer.apply.done', ['reference' => $application->reference_no]);
     }
 
@@ -205,15 +230,8 @@ class CustomerApplicationController extends Controller
         $email = trim((string) ($validated['email'] ?? ''));
         $mobileNumber = trim((string) ($validated['mobile_number'] ?? ''));
 
-        $emailExists = $email !== '' && Application::query()
-            ->where('email', $email)
-            ->when($existingId, fn ($query) => $query->whereKeyNot($existingId))
-            ->exists();
-
-        $mobileExists = $mobileNumber !== '' && Application::query()
-            ->where('mobile_number', $mobileNumber)
-            ->when($existingId, fn ($query) => $query->whereKeyNot($existingId))
-            ->exists();
+        $emailExists = $email !== '' && ApplicationContact::duplicate('email', $email, $existingId);
+        $mobileExists = $mobileNumber !== '' && ApplicationContact::duplicate('mobile_number', $mobileNumber, $existingId);
 
         return response()->json([
             'email' => [
@@ -454,18 +472,14 @@ class CustomerApplicationController extends Controller
         return $application !== null && ! $application->isTerminalForNewApplication();
     }
 
-    private function normalizeEmailInput(mixed $value): string
+    private function normalizeEmailInput(mixed $value): mixed
     {
-        $value = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', (string) $value) ?? '';
-
-        return trim(preg_replace('/\s+/', '', $value) ?? $value);
+        return ApplicationContact::email($value);
     }
 
-    private function normalizeContactNumberInput(mixed $value): string
+    private function normalizeContactNumberInput(mixed $value): mixed
     {
-        $value = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', (string) $value) ?? '';
-
-        return trim(preg_replace('/\s+/', '', $value) ?? $value);
+        return ApplicationContact::phone($value);
     }
 
     private function hasScheduledInstallation(Application $application): bool
@@ -498,14 +512,7 @@ class CustomerApplicationController extends Controller
         $startDate = now()->addDay()->startOfDay();
         $endDate = $startDate->copy()->addDays(self::RESCHEDULE_AVAILABILITY_DAYS - 1);
 
-        $activeSchedules = Installation::query()
-            ->whereIn('status', Installation::activeSchedulingStatuses())
-            ->whereIn('technician_id', $technicianIds)
-            ->whereNotNull('installation_date')
-            ->whereNotNull('installation_time')
-            ->whereBetween('installation_date', [$startDate->toDateString(), $endDate->toDateString()])
-            ->whereKeyNot($currentInstallation->id)
-            ->get(['id', 'technician_id', 'installation_date', 'installation_time']);
+        $activeSchedules = TechnicianSchedule::bookings($technicianIds->all(), $currentInstallation->id);
         $currentDateKey = $currentInstallation->installation_date?->format('Y-m-d');
         $currentTime = $currentInstallation->installation_time
             ? Carbon::parse($currentInstallation->installation_time)->format('H:i')
@@ -516,7 +523,7 @@ class CustomerApplicationController extends Controller
         for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
             $dateKey = $date->toDateString();
             $daySchedules = $activeSchedules
-                ->filter(fn (Installation $schedule) => $schedule->installation_date?->format('Y-m-d') === $dateKey);
+                ->filter(fn ($schedule) => $schedule->scheduledStartAt()?->format('Y-m-d') === $dateKey);
 
             $slots = collect(Installation::AVAILABLE_TIME_SLOTS)
                 ->map(function (string $slot) use ($dateKey, $daySchedules, $technicianIds, $currentDateKey, $currentTime) {
@@ -528,7 +535,7 @@ class CustomerApplicationController extends Controller
                     $slotEnd = $slotStart->copy()->addMinutes(Installation::SLOT_DURATION_MINUTES);
 
                     $takenTechnicians = $daySchedules
-                        ->filter(function (Installation $schedule) use ($slotStart, $slotEnd) {
+                        ->filter(function ($schedule) use ($slotStart, $slotEnd) {
                             $existingStart = $schedule->scheduledStartAt();
                             $existingEnd = $schedule->scheduledEndAt();
 

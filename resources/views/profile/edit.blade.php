@@ -3,7 +3,7 @@
 @section('title', 'Edit Profile')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/profile.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/profile.css') }}?v={{ filemtime(public_path('css/profile.css')) }}">
 @endpush
 
 @section('content')
@@ -43,5 +43,5 @@
 @endsection
 
 @push('scripts')
-    <script defer src="{{ asset('js/profile-edit.js') }}"></script>
+    <script defer src="{{ asset('js/profile-edit.js') }}?v={{ filemtime(public_path('js/profile-edit.js')) }}"></script>
 @endpush

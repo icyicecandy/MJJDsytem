@@ -2263,7 +2263,9 @@ body.ticket-overlay-open {
     font-weight: 700;
 }
 
-.admin-ticket-modal__form select {
+.admin-ticket-modal__form select,
+.admin-ticket-modal__form input[type="date"],
+.admin-ticket-modal__form textarea {
     min-height: 3rem;
     border-radius: 14px;
     border-color: rgba(148, 163, 184, 0.16);
@@ -7275,4 +7277,11 @@ body.login-modal-open {
         max-height: min(90vh, calc(100vh - 0.9rem));
         max-height: min(90dvh, calc(100dvh - 0.9rem));
     }
+}
+
+.admin-ticket-modal__form input[type="date"] {
+    color-scheme: dark;
+}
+.admin-ticket-modal .ticket-appointment-fields .ticket-sidebar-note {
+    color: rgba(236, 242, 252, 0.82);
 }

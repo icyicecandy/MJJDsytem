@@ -1,35 +1,52 @@
 @push('styles')
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="stylesheet" href="{{ asset('css/application-camera.css') }}?v={{ filemtime(public_path('css/application-camera.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/application-draft.css') }}?v={{ filemtime(public_path('css/application-draft.css')) }}">
 @endpush
 @push('scripts')
     <script defer src="{{ asset('js/application-camera.js') }}?v={{ filemtime(public_path('js/application-camera.js')) }}"></script>
+    <script defer src="{{ asset('js/application-draft.js') }}?v={{ filemtime(public_path('js/application-draft.js')) }}"></script>
 @endpush
 
 <x-app-layout>
     @php
+        $draft = $draft ?? null;
+        $formApplication = $draft ? (object) array_map(fn ($value) => $value ?? '', $draft->payload) : $application;
+        $draftPhotoUrl = $draft?->photoUrl();
         $regions = $addressCatalog ?? [];
-        $currentLat = old('lat', $application->lat ?? null);
-        $currentLng = old('lng', $application->lng ?? null);
-        $selectedRegion = old('region', $application->region ?? ($regions[0]['name'] ?? ''));
+        $currentLat = old('lat', $formApplication->lat ?? null);
+        $currentLng = old('lng', $formApplication->lng ?? null);
+        $selectedRegion = old('region', $formApplication->region ?? ($regions[0]['name'] ?? ''));
         $selectedRegionItem = collect($regions)->firstWhere('name', $selectedRegion);
         $selectedRegion = $selectedRegionItem['name'] ?? $selectedRegion;
         $provinceItems = $selectedRegionItem['provinces'] ?? [];
-        $selectedProvince = old('province', $application->province ?? ($provinceItems[0]['name'] ?? ''));
+        $selectedProvince = old('province', $formApplication->province ?? ($provinceItems[0]['name'] ?? ''));
         $selectedProvinceItem = collect($provinceItems)->firstWhere('name', $selectedProvince);
         $selectedProvince = $selectedProvinceItem['name'] ?? $selectedProvince;
         $municipalityItems = $selectedProvinceItem['municipalities'] ?? [];
-        $selectedMunicipality = old('municipality', $application->municipality ?? '');
+        $selectedMunicipality = old('municipality', $formApplication->municipality ?? '');
         $selectedMunicipalityItem = collect($municipalityItems)->firstWhere('name', $selectedMunicipality);
         $selectedMunicipality = $selectedMunicipalityItem['name'] ?? $selectedMunicipality;
-        $selectedBarangay = old('barangay', $application->barangay ?? '');
+        $selectedBarangay = old('barangay', $formApplication->barangay ?? '');
         $barangayItems = $selectedMunicipalityItem['barangays'] ?? [];
         $hasConfiguredBarangays = !empty($barangayItems);
         $serviceBounds = $mapBounds ?? ['south' => 15.45, 'west' => 119.55, 'north' => 16.55, 'east' => 121.05, 'center' => [15.96, 120.34], 'zoom' => 9];
-        $initialStep = 1;
+        $initialStep = $errors->any() ? 1 : ($draft?->step ?? 1);
     @endphp
 
     <div class="apply-wizard-shell">
+        <section class="apply-draft-bar" aria-label="Application draft">
+            <div>
+                <strong>{{ $draft ? 'Your saved application draft has been restored.' : 'Need to finish later?' }}</strong>
+                <p>Save your progress before leaving. Drafts are private and expire 30 days after your last save.</p>
+                <p id="applicationDraftStatus" role="status" aria-live="polite">{{ $draft ? 'Last saved: ' . $draft->updated_at->format('M d, Y h:i A') : 'Your application is submitted only when you select Submit Application.' }}</p>
+            </div>
+            <div class="apply-draft-actions">
+                <button type="button" class="btn secondary" id="applicationDraftSave">Save draft</button>
+                <button type="button" class="apply-link-btn" id="applicationDraftDiscard" @disabled(!$draft)>Discard draft</button>
+            </div>
+        </section>
+
         <div class="apply-stepper" data-apply-stepper>
             <div class="apply-step is-active" data-step="1"><span>1</span><label>Applicant</label></div>
             <div class="apply-step" data-step="2"><span>2</span><label>Location</label></div>
@@ -41,11 +58,13 @@
         @if ($errors->any())
             <section class="notice-card apply-notice-card">
                 Please review the required fields before submitting your application.
+                @error('draft')<p>{{ $message }}</p>@enderror
             </section>
         @endif
 
-        <form method="POST" action="{{ route('customer.apply.store') }}" enctype="multipart/form-data" class="apply-wizard-form" id="customerApplyWizard" novalidate>
+        <form method="POST" action="{{ route('customer.apply.store') }}" enctype="multipart/form-data" class="apply-wizard-form" id="customerApplyWizard" data-draft-save-url="{{ route('customer.apply.draft.save') }}" data-draft-discard-url="{{ route('customer.apply.draft.destroy') }}" novalidate>
             @csrf
+            <input type="hidden" name="draft_token" id="applicationDraftToken" value="{{ $draft?->token }}">
             <input type="hidden" name="lat" id="apply_lat" value="{{ $currentLat }}">
             <input type="hidden" name="lng" id="apply_lng" value="{{ $currentLng }}">
 
@@ -60,7 +79,7 @@
                 <div class="apply-form-grid">
                     <div class="apply-field">
                         <label for="first_name">First Name</label>
-                        <input id="first_name" type="text" name="first_name" value="{{ old('first_name', $application->first_name ?? '') }}" required maxlength="100" pattern="^[A-Za-z][A-Za-z\s'\-]*$">
+                        <input id="first_name" type="text" name="first_name" value="{{ old('first_name', $formApplication->first_name ?? '') }}" required maxlength="100" pattern="^[A-Za-z][A-Za-z\s'\-]*$">
                         @error('first_name')
                             <span class="error">{{ $message }}</span>
                         @enderror
@@ -69,7 +88,7 @@
 
                     <div class="apply-field">
                         <label for="last_name">Last Name</label>
-                        <input id="last_name" type="text" name="last_name" value="{{ old('last_name', $application->last_name ?? '') }}" required maxlength="100" pattern="^[A-Za-z][A-Za-z\s'\-]*$">
+                        <input id="last_name" type="text" name="last_name" value="{{ old('last_name', $formApplication->last_name ?? '') }}" required maxlength="100" pattern="^[A-Za-z][A-Za-z\s'\-]*$">
                         @error('last_name')
                             <span class="error">{{ $message }}</span>
                         @enderror
@@ -78,20 +97,20 @@
 
                     <div class="apply-field">
                         <label for="email">Email Address</label>
-                        <input id="email" type="email" name="email" value="{{ old('email', $application->email ?? auth()->user()->email) }}" required maxlength="255" autocomplete="email">
+                        <input id="email" type="email" name="email" value="{{ old('email', $formApplication->email ?? auth()->user()->email) }}" required maxlength="255" autocomplete="email">
                         @error('email')
                             <span class="error">{{ $message }}</span>
                         @enderror
-                        <span class="error" id="emailDuplicateError" hidden></span>
+                        <span class="error" id="emailDuplicateError" aria-live="polite" hidden></span>
                     </div>
 
                     <div class="apply-field">
                         <label for="mobile_number">Mobile Number</label>
-                        <input id="mobile_number" type="tel" name="mobile_number" value="{{ old('mobile_number', $application->mobile_number ?? auth()->user()->phone) }}" placeholder="09171234567" required maxlength="16" inputmode="tel" autocomplete="tel" pattern="^\+?[0-9]{10,15}$">
+                        <input id="mobile_number" type="tel" name="mobile_number" value="{{ old('mobile_number', $formApplication->mobile_number ?? auth()->user()->phone) }}" placeholder="09171234567" required maxlength="32" inputmode="tel" autocomplete="tel" pattern="^\+?[0-9]{10,15}$">
                         @error('mobile_number')
                             <span class="error">{{ $message }}</span>
                         @enderror
-                        <span class="error" id="mobileDuplicateError" hidden></span>
+                        <span class="error" id="mobileDuplicateError" aria-live="polite" hidden></span>
                     </div>
                 </div>
 
@@ -184,7 +203,7 @@
 
                     <div class="apply-field full-span">
                         <label for="street_landmark">Street / Landmark / House Details</label>
-                        <input id="street_landmark" type="text" name="street_landmark" value="{{ old('street_landmark', $application->street_landmark ?? '') }}" placeholder="House #, street name, purok, nearby landmarks">
+                        <input id="street_landmark" type="text" name="street_landmark" value="{{ old('street_landmark', $formApplication->street_landmark ?? '') }}" placeholder="House #, street name, purok, nearby landmarks">
                         @error('street_landmark')
                             <span class="error">{{ $message }}</span>
                         @enderror
@@ -224,8 +243,8 @@
                 </div>
 
                 <div class="apply-plan-stack">
-                    <label class="apply-plan-option {{ old('plan_code', $application->plan_code ?? '') === 'S2S_50' ? 'selected' : '' }}">
-                        <input type="radio" name="plan_code" value="S2S_50" {{ old('plan_code', $application->plan_code ?? '') === 'S2S_50' ? 'checked' : '' }} required>
+                    <label class="apply-plan-option {{ old('plan_code', $formApplication->plan_code ?? '') === 'S2S_50' ? 'selected' : '' }}">
+                        <input type="radio" name="plan_code" value="S2S_50" {{ old('plan_code', $formApplication->plan_code ?? '') === 'S2S_50' ? 'checked' : '' }} required>
                         <div>
                             <strong>Superfiber 50 Mbps</strong>
                             <span>Good for daily browsing, messaging, streaming, and home use.</span>
@@ -233,8 +252,8 @@
                         <div class="apply-plan-price">PHP 999 installation fee</div>
                     </label>
 
-                    <label class="apply-plan-option {{ old('plan_code', $application->plan_code ?? '') === 'S2S_100' ? 'selected' : '' }}">
-                        <input type="radio" name="plan_code" value="S2S_100" {{ old('plan_code', $application->plan_code ?? '') === 'S2S_100' ? 'checked' : '' }} required>
+                    <label class="apply-plan-option {{ old('plan_code', $formApplication->plan_code ?? '') === 'S2S_100' ? 'selected' : '' }}">
+                        <input type="radio" name="plan_code" value="S2S_100" {{ old('plan_code', $formApplication->plan_code ?? '') === 'S2S_100' ? 'checked' : '' }} required>
                         <div>
                             <strong>Extraboost 100 Mbps</strong>
                             <span>Higher-speed access for multiple users, devices, and heavier streaming.</span>
@@ -264,11 +283,11 @@
                     <label for="id_selfie_image">Customer holding valid ID</label>
                     <p class="text-muted mt-1">Hold your valid ID beside your face so both are clearly visible. JPG, PNG, or WebP, up to 5 MB.</p>
                     <div class="id-photo-actions">
-                    <input id="id_selfie_image" type="file" name="id_selfie_image" accept=".jpg,.jpeg,.png,.webp" required>
+                    <input id="id_selfie_image" type="file" name="id_selfie_image" accept=".jpg,.jpeg,.png,.webp" data-saved-photo-url="{{ $draftPhotoUrl }}" @required(!$draftPhotoUrl)>
                         <button type="button" class="btn secondary" id="idCameraOpen" aria-haspopup="dialog" aria-controls="idCameraDialog">Take photo</button>
                     </div>
-                    <p id="idPhotoStatus" class="id-photo-status" role="status" aria-live="polite"></p>
-                    <img id="idPhotoPreview" class="id-photo-preview" alt="Selected photo of you holding your ID" hidden>
+                    <p id="idPhotoStatus" class="id-photo-status" role="status" aria-live="polite">{{ $draftPhotoUrl ? 'Your saved ID photo is ready. Choose File or Take photo to replace it.' : '' }}</p>
+                    <img id="idPhotoPreview" class="id-photo-preview" alt="Selected photo of you holding your ID" @if($draftPhotoUrl) src="{{ $draftPhotoUrl }}" @else hidden @endif>
                     @error('id_selfie_image')
                         <span class="error">{{ $message }}</span>
                     @enderror
@@ -421,10 +440,7 @@
         }
 
         function normalizeEmailValue(value) {
-            return String(value || '')
-                .replace(/[\u200B-\u200D\uFEFF]/g, '')
-                .replace(/\s+/g, '')
-                .trim();
+            return String(value || '').trim().toLowerCase();
         }
 
         function validateEmailFormat() {
@@ -450,10 +466,10 @@
         }
 
         function normalizeMobileValue(value) {
-            return String(value || '')
-                .replace(/[\u200B-\u200D\uFEFF]/g, '')
-                .replace(/\s+/g, '')
-                .trim();
+            const normalized = String(value || '').replace(/[\s()\-]+/g, '');
+            return /^\+?639[0-9]{9}$/.test(normalized)
+                ? '0' + normalized.replace(/^\+/, '').slice(2)
+                : normalized;
         }
 
         function validateMobileNumber(options = {}) {
@@ -502,6 +518,7 @@
                 return Promise.resolve(true);
             }
 
+            clearTimeout(contactCheckTimer);
             const payload = new URLSearchParams();
             if (shouldCheckDuplicate(emailInput)) {
                 payload.set('email', emailInput.value.trim());
@@ -515,17 +532,32 @@
             }
 
             const requestId = ++latestContactRequest;
+            const snapshot = [emailInput.value, mobileInput.value];
+            const isCurrent = () => requestId === latestContactRequest
+                && snapshot[0] === emailInput.value && snapshot[1] === mobileInput.value;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
             contactCheckPromise = fetch(`${contactCheckUrl}?${payload.toString()}`, {
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 credentials: 'same-origin',
+                signal: controller.signal,
             })
-                .then(response => response.ok ? response.json() : Promise.reject())
+                .then(async response => {
+                    const data = await response.json();
+                    if (!response.ok) {
+                        const error = new Error('Contact check failed');
+                        error.fieldErrors = response.status === 422 ? data.errors : null;
+                        throw error;
+                    }
+                    return data;
+                })
                 .then(data => {
-                    if (requestId !== latestContactRequest) {
-                        return true;
+                    if (!isCurrent()) return false;
+                    if (typeof data?.email?.duplicate !== 'boolean' || typeof data?.mobile_number?.duplicate !== 'boolean') {
+                        throw new Error('Invalid contact check response');
                     }
 
                     const emailMessage = data?.email?.duplicate ? (data.email.message || 'This email address is already used in another application.') : '';
@@ -540,8 +572,16 @@
 
                     return !emailMessage && !mobileMessage;
                 })
-                .catch(() => true)
+                .catch(error => {
+                    if (isCurrent()) {
+                        const message = 'Unable to check contact details. Check your connection and try Next again.';
+                        if (payload.has('email')) setDuplicateState(emailInput, emailDuplicateError, error.fieldErrors?.email?.[0] || message);
+                        if (payload.has('mobile_number')) setDuplicateState(mobileInput, mobileDuplicateError, error.fieldErrors?.mobile_number?.[0] || message);
+                    }
+                    return false;
+                })
                 .finally(() => {
+                    clearTimeout(timeout);
                     if (requestId === latestContactRequest) {
                         contactCheckPromise = null;
                     }
@@ -597,7 +637,7 @@
             setText('reviewAddress', currentAddressParts().join(', ') || '-');
             setText('reviewPin', latInput && lngInput && latInput.value && lngInput.value ? `${latInput.value}, ${lngInput.value}` : 'Not set');
             setText('reviewPlan', checkedPlan ? checkedPlan.value.replace('_', ' ') : '-');
-            setText('reviewIdSelfie', idSelfieInput && idSelfieInput.files.length ? idSelfieInput.files[0].name : 'Required');
+            setText('reviewIdSelfie', idSelfieInput && idSelfieInput.files.length ? idSelfieInput.files[0].name : (idSelfieInput?.dataset.savedPhotoUrl ? 'Saved ID photo' : 'Required'));
             updateAddressSummary();
         }
 
@@ -1361,6 +1401,7 @@
 
         if (emailInput) {
             emailInput.addEventListener('input', function () {
+                latestContactRequest += 1;
                 const emailValid = validateEmailFormat();
                 updateReview();
                 if (emailInput.value !== '' && emailValid) {
@@ -1381,6 +1422,7 @@
 
         if (mobileInput) {
             mobileInput.addEventListener('input', function () {
+                latestContactRequest += 1;
                 const mobileValid = validateMobileNumber({ enforceComplete: false });
                 updateReview();
                 if (mobilePattern.test(mobileInput.value.trim()) && mobileValid) {

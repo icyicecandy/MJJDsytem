@@ -122,6 +122,8 @@
                                 data-ticket-status="{{ $ticket->displayStatusLabel() }}"
                                 data-ticket-status-value="{{ $ticket->status }}"
                                 data-ticket-urgency="{{ $ticket->displayUrgencyLabel() }}"
+                                data-ticket-appointment-date="{{ $ticket->appointment_date?->format('Y-m-d') }}"
+                                data-ticket-appointment-time="{{ $ticket->scheduledStartAt()?->format('H:i') }}"
                                 data-ticket-technician-id="{{ $ticket->technician_id ?? '' }}"
                                 data-ticket-technician-name="{{ optional($ticket->technician)->name ?? 'Unassigned Queue' }}"
                                 data-ticket-update-url="{{ route('admin.tickets.update', $ticket) }}"
@@ -161,7 +163,7 @@
                 <div class="tracking-meta"><strong>Assigned To</strong><span data-overlay-technician>-</span></div>
             </div>
 
-            <form method="POST" class="admin-ticket-modal__form" data-overlay-assign-form>
+            <form method="POST" class="admin-ticket-modal__form" data-overlay-assign-form data-ticket-appointment-form>
                 @csrf
                 @method('PATCH')
                 <input type="hidden" name="admin_action" value="save">
@@ -174,6 +176,7 @@
                         </option>
                     @endforeach
                 </select>
+                @include('admin.tickets.appointment-fields', ['appointmentPrefix' => 'overlayAppointment', 'appointmentTicket' => null])
                 <div class="admin-ticket-modal__actions">
                     <button type="submit" class="btn" data-overlay-assign-submit>Save Assignment</button>
                     <a href="#" class="btn secondary" data-overlay-detail-link>Open Full Ticket</a>
@@ -226,7 +229,17 @@
 
         const openOverlay = (button) => {
             assignForm.action = button.dataset.ticketUpdateUrl;
-            technicianSelect.value = button.dataset.ticketTechnicianId || '';
+            technicianSelect.querySelector('[data-unavailable-technician]')?.remove();
+            const selectedId = button.dataset.ticketTechnicianId || '';
+            if (selectedId && !Array.from(technicianSelect.options).some(option => option.value === selectedId)) {
+                const option = new Option('Current technician unavailable - choose another', selectedId);
+                option.disabled = true; option.dataset.unavailableTechnician = 'true'; technicianSelect.add(option);
+            }
+            technicianSelect.value = selectedId;
+            assignForm.querySelector('[name=appointment_ticket_id]').value = button.dataset.ticketId;
+            assignForm.querySelector('[name=appointment_change_reason]').value = '';
+            assignForm.querySelector('[name=appointment_date]').value = button.dataset.ticketAppointmentDate || '';
+            assignForm.querySelector('[name=appointment_time]').value = button.dataset.ticketAppointmentTime || '';
             detailLink.href = button.dataset.ticketShowUrl || '#';
             closeTechnicianInput.value = button.dataset.ticketTechnicianId || '';
 
@@ -243,8 +256,9 @@
             const isCancellationRequested = button.dataset.ticketStatusValue === 'cancellation_requested';
             const isResolved = button.dataset.ticketStatusValue === 'resolved';
 
-            technicianSelect.disabled = isReadOnly || isCancellationRequested;
-            assignSubmit.hidden = isReadOnly || isCancellationRequested;
+            technicianSelect.disabled = isReadOnly || isCancellationRequested || isResolved;
+            assignSubmit.hidden = isReadOnly || isCancellationRequested || isResolved;
+            assignForm.dispatchEvent(new Event('appointment:refresh'));
 
             if (isResolved) {
                 closeForm.hidden = false;
@@ -258,6 +272,18 @@
             overlay.setAttribute('aria-hidden', 'false');
             document.body.classList.add('ticket-overlay-open');
         };
+
+        window.addEventListener('load', () => {
+            const previousId = @json(old('appointment_ticket_id'));
+            const button = Array.from(document.querySelectorAll('[data-ticket-overlay-open]')).find(item => item.dataset.ticketId === String(previousId));
+            if (!previousId || !button) return;
+            openOverlay(button);
+            technicianSelect.value = @json(old('technician_id', ''));
+            assignForm.querySelector('[name=appointment_date]').value = @json(old('appointment_date', ''));
+            assignForm.querySelector('[name=appointment_time]').value = @json(old('appointment_time', ''));
+            assignForm.querySelector('[name=appointment_change_reason]').value = @json(old('appointment_change_reason', ''));
+            assignForm.dispatchEvent(new Event('appointment:refresh'));
+        });
 
         const closeOverlay = () => {
             overlay.classList.remove('is-open');

@@ -40,13 +40,7 @@ class ProfileSanitizer
             return null;
         }
 
-        $hasPlusPrefix = str_starts_with($value, '+');
-        $digits = preg_replace('/\D+/', '', $value) ?? '';
-
-        if ($digits === '') {
-            return null;
-        }
-
-        return $hasPlusPrefix ? '+' . $digits : $digits;
+        // Strip formatting only. Letters and misplaced plus signs must fail validation.
+        return preg_replace('/[\s()\-]+/u', '', $value) ?? $value;
     }
 }

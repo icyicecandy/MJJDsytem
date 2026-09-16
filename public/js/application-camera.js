@@ -140,7 +140,7 @@
             input.files = files.files;
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.dispatchEvent(new Event('change', { bubbles: true }));
-            status.textContent = 'Photo selected. It will be uploaded when you submit the application.';
+            status.textContent = 'Photo selected. Save your draft to keep it, or submit your application when ready.';
             closeCamera();
         } catch (_) {
             cameraStatus.textContent = 'This browser cannot attach the captured photo. Please close the camera and use Choose File.';
@@ -155,7 +155,14 @@
         input.setCustomValidity('');
         status.textContent = '';
         const file = input.files[0];
-        if (!file) return;
+        if (!file) {
+            if (input.dataset.savedPhotoUrl) {
+                status.textContent = 'Your saved ID photo is ready. Choose File or Take photo to replace it.';
+                preview.src = input.dataset.savedPhotoUrl;
+                preview.hidden = false;
+            }
+            return;
+        }
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > limit || file.size === 0) {
             const message = 'Choose a JPG, PNG, or WebP image up to 5 MB.';
             input.setCustomValidity(message);
