@@ -206,7 +206,7 @@ body.layout .ticket-list-table .badge {
 /* Mobile-only header controls. Existing desktop selectors above stay unchanged. */
 body.layout .mobile-header-action { display: none; }
 
-@media (max-width: 1024px) {
+@media (max-width: 900px) {
     /* Reuse the 74px header and 1024px sidebar breakpoint. */
     body.layout:is(.is-auth, .is-guest) .navbar {
         height: 74px;
