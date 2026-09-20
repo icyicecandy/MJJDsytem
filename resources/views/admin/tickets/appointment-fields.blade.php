@@ -27,6 +27,6 @@
     @endpush
     @push('scripts')
         <script type="application/json" id="ticketScheduleConfig">{!! json_encode(['bookings' => $scheduleBookings, 'today' => now()->toDateString(), 'time' => now()->format('H:i')], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
-        <script src="{{ asset('js/ticket-appointments.js') }}" defer></script>
+        <script src="{{ asset('js/ticket-appointments.js') }}?v={{ filemtime(public_path('js/ticket-appointments.js')) }}" defer></script>
     @endpush
 @endonce

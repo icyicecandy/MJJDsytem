@@ -6,13 +6,13 @@
     <meta name="csrf-token" content="{{ csrf_token() }}" />
     <link rel="icon" type="image/png" href="{{ asset('images/favicon/mjjdnewlogo.png') }}" />
     <title>@yield('title', 'MJJD Telecom CRM')</title>
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}" />
-    <link rel="stylesheet" href="{{ asset('css/consent.css') }}" />
+    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v={{ filemtime(public_path('css/dashboard.css')) }}" />
+    <link rel="stylesheet" href="{{ asset('css/consent.css') }}?v={{ filemtime(public_path('css/consent.css')) }}" />
     @stack('styles')
     <link rel="stylesheet" href="{{ asset('css/responsive.css') }}?v={{ filemtime(public_path('css/responsive.css')) }}" />
-    <script defer src="{{ asset('js/dashboard.js') }}"></script>
-    <script defer src="{{ asset('js/auth.js') }}"></script>
-    <script defer src="{{ asset('js/consent.js') }}"></script>
+    <script defer src="{{ asset('js/dashboard.js') }}?v={{ filemtime(public_path('js/dashboard.js')) }}"></script>
+    <script defer src="{{ asset('js/auth.js') }}?v={{ filemtime(public_path('js/auth.js')) }}"></script>
+    <script defer src="{{ asset('js/consent.js') }}?v={{ filemtime(public_path('js/consent.js')) }}"></script>
 </head>
 <body class="layout {{ auth()->check() ? 'is-auth' : 'is-guest' }}" @auth data-notifications-feed="{{ route('notifications.feed') }}" data-notifications-index="{{ route('notifications.index') }}" data-notifications-mark-all="{{ route('notifications.mark-all-read') }}" @endauth>
     @php

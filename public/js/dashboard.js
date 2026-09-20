@@ -551,13 +551,14 @@
         const chatToggle = document.getElementById('chatToggle');
         const notificationsOverlay = document.getElementById('notificationsOverlay');
         const sidebarBreakpoint = window.matchMedia ? window.matchMedia('(max-width: 1024px)') : null;
+        const guestMenuBreakpoint = window.matchMedia ? window.matchMedia('(max-width: 900px)') : null;
 
-        // Reuse the public navigation as a disclosure only at the existing tablet breakpoint.
+        // Keep the public navigation behavior aligned with its 900px CSS breakpoint.
         const guestMenuToggle = document.getElementById('guestMenuToggle');
         const guestNavigation = document.getElementById('guestNavigation');
-        if (guestMenuToggle && guestNavigation && sidebarBreakpoint) {
+        if (guestMenuToggle && guestNavigation && guestMenuBreakpoint) {
             function setGuestMenuOpen(open, restoreFocus = false) {
-                const mobile = sidebarBreakpoint.matches;
+                const mobile = guestMenuBreakpoint.matches;
                 const expanded = mobile && open;
                 guestNavigation.classList.toggle('is-open', expanded);
                 guestNavigation.inert = mobile && !expanded;
@@ -569,7 +570,7 @@
                 setGuestMenuOpen(!guestNavigation.classList.contains('is-open'));
             });
             guestNavigation.addEventListener('click', event => {
-                if (event.target.closest('a') && sidebarBreakpoint.matches) setGuestMenuOpen(false);
+                if (event.target.closest('a') && guestMenuBreakpoint.matches) setGuestMenuOpen(false);
             });
             document.addEventListener('click', event => {
                 if (!guestNavigation.contains(event.target) && !guestMenuToggle.contains(event.target)) {
@@ -588,7 +589,11 @@
                     }
                 }, 0);
             });
-            sidebarBreakpoint.addEventListener('change', () => setGuestMenuOpen(false));
+            if (guestMenuBreakpoint.addEventListener) {
+                guestMenuBreakpoint.addEventListener('change', () => setGuestMenuOpen(false));
+            } else if (guestMenuBreakpoint.addListener) {
+                guestMenuBreakpoint.addListener(() => setGuestMenuOpen(false));
+            }
             setGuestMenuOpen(false);
         }
         function sidebarCanToggle() {
