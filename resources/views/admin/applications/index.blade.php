@@ -13,7 +13,7 @@
 
     <section class="card toolbar-card">
         @php $statuses = ['' => 'All','submitted'=>'Submitted','under_review'=>'Under Review','approved'=>'Approved','cancellation_requested'=>'Cancellation Requested','rejected'=>'Rejected','scheduled'=>'Scheduled','installed'=>'Installed','activated'=>'Activated','cancelled'=>'Cancelled']; @endphp
-        <form method="GET" action="{{ route('admin.applications.index') }}" class="toolbar-row">
+        <form method="GET" action="{{ route('admin.applications.index') }}" class="toolbar-row" data-mobile-filter>
             <div class="toolbar-field">
                 <label for="application_status_filter">Status</label>
                 <select id="application_status_filter" name="status">
@@ -45,7 +45,7 @@
 
     <section class="card table-card">
         <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
-            <table class="telecom-table admin-app-table">
+            <table class="telecom-table admin-app-table" data-mobile-cards>
                 <thead>
                     <tr>
                         <th>Ref #</th>

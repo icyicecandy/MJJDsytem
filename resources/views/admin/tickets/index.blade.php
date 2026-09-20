@@ -13,7 +13,7 @@
 
     <section class="card ticket-queue-overview">
         <div class="ticket-queue-overview__head">
-            <form method="GET" action="{{ route('admin.tickets.index') }}" class="toolbar-row">
+            <form method="GET" action="{{ route('admin.tickets.index') }}" class="toolbar-row" data-mobile-filter>
                 @if($selectedStatus !== 'all')
                     <input type="hidden" name="status" value="{{ $selectedStatus }}">
                 @endif
@@ -71,7 +71,7 @@
 
     <section class="card table-card">
         <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
-            <table class="telecom-table ticket-list-table ticket-list-table--admin">
+            <table class="telecom-table ticket-list-table ticket-list-table--admin" data-mobile-cards>
                     <colgroup>
                         <col class="ticket-col-reference">
                         <col class="ticket-col-person">
@@ -91,6 +91,7 @@
                         <th>Status</th>
                         <th>Technician</th>
                         <th>Submitted</th>
+                        <th class="mobile-table-only">Schedule</th>
                         <th class="col-actions">Action</th>
                     </tr>
                 </thead>
@@ -110,6 +111,9 @@
                             @endif
                         </td>
                         <td>{{ $ticket->created_at->displayDateTime() }}</td>
+                        <td class="mobile-table-only">
+                            {{ $ticket->scheduledStartAt()?->displayDateTime('M d, Y h:i A') ?? 'Not scheduled' }}
+                        </td>
                         <td class="actions-cell">
                             <button
                                 type="button"
@@ -135,7 +139,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8"><div class="empty-state compact">No support tickets available.</div></td>
+                        <td colspan="9"><div class="empty-state compact">No support tickets available.</div></td>
                     </tr>
                     @endforelse
                 </tbody>

@@ -45,11 +45,11 @@
         </div>
 
         @if($showFilters)
-            <form method="GET" action="{{ $filterAction }}" class="chat-ui__filters is-compact {{ $showScopeFilter ? 'has-scope' : '' }}">
-                <input type="text" name="search" value="{{ $search }}" placeholder="Search conversations">
+            <form method="GET" action="{{ $filterAction }}" class="chat-ui__filters is-compact {{ $showScopeFilter ? 'has-scope' : '' }}" data-chat-list-filter>
+                <input type="text" inputmode="search" name="search" value="{{ $search }}" placeholder="Search conversations" aria-label="Search conversations">
 
                 @if($showScopeFilter)
-                    <select name="scope">
+                    <select name="scope" aria-label="Conversation status" data-chat-filter-scope>
                         <option value="" {{ $scope === '' ? 'selected' : '' }}>All</option>
                         <option value="waiting" {{ $scope === 'waiting' ? 'selected' : '' }}>Waiting</option>
                         <option value="mine" {{ $scope === 'mine' ? 'selected' : '' }}>Mine</option>

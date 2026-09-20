@@ -73,7 +73,7 @@
                     <span class="user-role">{{ ucfirst(Auth::user()->role) }}</span>
                 </span>
                 <div class="notif-shell">
-                    <button id="notifToggle" class="icon-btn notif-toggle" aria-label="Notifications">
+                    <button id="notifToggle" class="icon-btn notif-toggle" aria-label="Notifications" aria-expanded="false" aria-controls="notifDropdown notificationsOverlay">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path>
                             <path d="M9 17a3 3 0 0 0 6 0"></path>
@@ -128,7 +128,18 @@
                     </div>
                 </div>
             @else
-                <div class="guest-nav-wrap">
+                <a href="{{ route('login') }}" class="icon-btn mobile-header-action" aria-label="Log in to your account" data-open-login-modal>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M20 21a8 8 0 0 0-16 0"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </a>
+                <button type="button" id="guestMenuToggle" class="icon-btn mobile-header-action" aria-label="Open navigation" aria-controls="guestNavigation" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+                <div class="guest-nav-wrap" id="guestNavigation">
                     <nav class="guest-nav" aria-label="Primary">
                         <a href="{{ url('/') }}">Home</a>
                         <a href="{{ url('/#plans') }}">Plans</a>
@@ -176,7 +187,7 @@
     </main>
 
     @auth
-        <div class="notifications-overlay" id="notificationsOverlay" aria-hidden="true">
+        <div class="notifications-overlay" id="notificationsOverlay" aria-hidden="true" inert>
             <div class="notifications-overlay__backdrop" data-close-notifications-overlay></div>
             <div class="notifications-overlay__dialog" role="dialog" aria-modal="true" aria-labelledby="notificationsOverlayTitle">
                 <button type="button" class="notifications-overlay__close" data-close-notifications-overlay aria-label="Close notifications overlay">&times;</button>
@@ -195,6 +206,20 @@
                     <div class="notifications-overlay__filters">
                         <button type="button" class="notifications-filter-chip is-active" data-notifications-filter="all">All</button>
                         <button type="button" class="notifications-filter-chip" data-notifications-filter="unread">Unread</button>
+                    </div>
+
+                    <div class="notifications-mobile-controls" aria-label="Filter notifications">
+                        <label class="notifications-mobile-search">
+                            <span>Search</span>
+                            <input type="search" placeholder="Title or message" autocomplete="off" data-notifications-search>
+                        </label>
+                        <label>
+                            <span>Show</span>
+                            <select data-notifications-mobile-filter>
+                                <option value="all">All</option>
+                                <option value="unread">Unread</option>
+                            </select>
+                        </label>
                     </div>
 
                     <div class="notifications-overlay__list notifications-page-list" id="notificationsOverlayList">
@@ -217,6 +242,7 @@
                             <div class="notif-empty">No notifications yet.</div>
                         @endforelse
                     </div>
+                    <div class="notif-empty notifications-filter-empty" id="notificationsOverlayFilterEmpty" hidden>No notifications match this search.</div>
                 </div>
             </div>
         </div>

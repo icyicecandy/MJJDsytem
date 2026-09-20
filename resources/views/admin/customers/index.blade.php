@@ -47,7 +47,7 @@
     </section>
 
     <section class="card toolbar-card">
-        <form method="GET" action="{{ route('admin.customers.index') }}" class="toolbar-row">
+        <form method="GET" action="{{ route('admin.customers.index') }}" class="toolbar-row" data-mobile-filter>
             <div class="toolbar-field">
                 <label for="status">Application Status</label>
                 <select name="status" id="status">
@@ -74,7 +74,7 @@
 
     <section class="card table-card">
         <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
-            <table class="telecom-table admin-customers-table">
+            <table class="telecom-table admin-customers-table" data-mobile-cards>
                 <thead>
                     <tr>
                         <th>Customer ID</th>

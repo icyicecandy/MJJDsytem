@@ -13,7 +13,16 @@ class NotificationController extends Controller
     public function index(Request $request): View
     {
         $filter = $request->string('filter')->toString();
+        $search = $request->string('search')->trim()->limit(100)->toString();
         $query = $request->user()->appNotifications();
+
+        if ($search !== '') {
+            $query->where(function ($notificationQuery) use ($search) {
+                $notificationQuery
+                    ->where('title', 'like', "%{$search}%")
+                    ->orWhere('message', 'like', "%{$search}%");
+            });
+        }
 
         if ($filter === 'unread') {
             $query->unread();
@@ -25,7 +34,7 @@ class NotificationController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('notifications.index', compact('notifications', 'filter'));
+        return view('notifications.index', compact('notifications', 'filter', 'search'));
     }
 
     public function feed(Request $request): JsonResponse

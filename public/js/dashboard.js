@@ -136,6 +136,12 @@
         const overlayOpeners = document.querySelectorAll('[data-open-notifications-overlay]');
         const overlayClosers = document.querySelectorAll('[data-close-notifications-overlay]');
         const overlayFilterButtons = document.querySelectorAll('[data-notifications-filter]');
+        const overlaySearch = document.querySelector('[data-notifications-search]');
+        const overlayMobileFilter = document.querySelector('[data-notifications-mobile-filter]');
+        const overlayFilterEmpty = document.getElementById('notificationsOverlayFilterEmpty');
+        const notifToggle = document.getElementById('notifToggle');
+        const notifDropdown = document.getElementById('notifDropdown');
+        const mobileNotifications = window.matchMedia ? window.matchMedia('(max-width: 1024px)') : null;
 
         if (!feedUrl || !notifDropdownList || !notifUnreadLabel || !notifDot) {
             return;
@@ -143,17 +149,38 @@
 
         let isFetching = false;
         let overlayFilter = 'all';
+        let overlayTrigger = null;
 
         function applyOverlayFilter() {
             if (!notificationsOverlayList) {
                 return;
             }
 
-            notificationsOverlayList.querySelectorAll('[data-notification-item]').forEach((item) => {
+            const query = String(overlaySearch?.value || '').trim().toLocaleLowerCase();
+            let visibleCount = 0;
+            const items = notificationsOverlayList.querySelectorAll('[data-notification-item]');
+
+            items.forEach((item) => {
                 const isUnread = item.getAttribute('data-notification-unread') === '1';
-                const show = overlayFilter === 'all' || isUnread;
+                const matchesStatus = overlayFilter === 'all' || isUnread;
+                const matchesSearch = query === '' || item.textContent.toLocaleLowerCase().includes(query);
+                const show = matchesStatus && matchesSearch;
                 item.style.display = show ? '' : 'none';
+                if (show) visibleCount += 1;
             });
+
+            if (overlayFilterEmpty) {
+                overlayFilterEmpty.hidden = items.length === 0 || visibleCount > 0;
+            }
+        }
+
+        function setOverlayFilter(value) {
+            overlayFilter = value === 'unread' ? 'unread' : 'all';
+            overlayFilterButtons.forEach((button) => {
+                button.classList.toggle('is-active', button.getAttribute('data-notifications-filter') === overlayFilter);
+            });
+            if (overlayMobileFilter) overlayMobileFilter.value = overlayFilter;
+            applyOverlayFilter();
         }
 
         function applyNotificationState(payload) {
@@ -236,50 +263,110 @@
             });
         }
 
-        function openNotificationsOverlay() {
+        function setDropdownOpen(open) {
+            if (!notifDropdown) return;
+            notifDropdown.style.display = open ? 'block' : 'none';
+            notifToggle?.setAttribute('aria-expanded', String(open));
+        }
+
+        function openNotificationsOverlay(trigger = null) {
             if (!notificationsOverlay) {
                 return;
             }
 
+            overlayTrigger = trigger || notifToggle;
+            setDropdownOpen(false);
             notificationsOverlay.classList.add('is-open');
             notificationsOverlay.setAttribute('aria-hidden', 'false');
+            notificationsOverlay.removeAttribute('inert');
+            notifToggle?.setAttribute('aria-expanded', 'true');
             document.body.classList.add('ticket-overlay-open');
+            window.requestAnimationFrame(() => {
+                const firstControl = mobileNotifications?.matches && overlaySearch
+                    ? overlaySearch
+                    : notificationsOverlay.querySelector('.notifications-overlay__close');
+                firstControl?.focus();
+            });
         }
 
-        function closeNotificationsOverlay() {
+        function closeNotificationsOverlay(restoreFocus = false) {
             if (!notificationsOverlay) {
                 return;
             }
 
             notificationsOverlay.classList.remove('is-open');
             notificationsOverlay.setAttribute('aria-hidden', 'true');
+            notificationsOverlay.setAttribute('inert', '');
+            notifToggle?.setAttribute('aria-expanded', 'false');
             document.body.classList.remove('ticket-overlay-open');
+            if (restoreFocus && overlayTrigger) overlayTrigger.focus();
+        }
+
+        if (notifToggle && notifDropdown) {
+            notifToggle.addEventListener('click', function (event) {
+                event.stopPropagation();
+                if (mobileNotifications?.matches) {
+                    event.preventDefault();
+                    openNotificationsOverlay(notifToggle);
+                    return;
+                }
+                setDropdownOpen(notifDropdown.style.display !== 'block');
+            });
         }
 
         overlayOpeners.forEach((button) => {
             button.addEventListener('click', function (event) {
                 event.preventDefault();
-                const notifDropdown = document.getElementById('notifDropdown');
-                if (notifDropdown) {
-                    notifDropdown.style.display = 'none';
-                }
-                openNotificationsOverlay();
+                openNotificationsOverlay(button);
             });
         });
 
         overlayClosers.forEach((button) => {
-            button.addEventListener('click', closeNotificationsOverlay);
+            button.addEventListener('click', () => closeNotificationsOverlay(true));
         });
 
         overlayFilterButtons.forEach((button) => {
             button.addEventListener('click', function () {
-                overlayFilter = button.getAttribute('data-notifications-filter') || 'all';
-                overlayFilterButtons.forEach((filterButton) => {
-                    filterButton.classList.toggle('is-active', filterButton === button);
-                });
-                applyOverlayFilter();
+                setOverlayFilter(button.getAttribute('data-notifications-filter') || 'all');
             });
         });
+        overlayMobileFilter?.addEventListener('change', () => setOverlayFilter(overlayMobileFilter.value));
+        overlaySearch?.addEventListener('input', applyOverlayFilter);
+
+        notificationsOverlay?.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                closeNotificationsOverlay(true);
+                return;
+            }
+            if (event.key !== 'Tab') return;
+
+            const focusable = Array.from(notificationsOverlay.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]'))
+                .filter((element) => element.offsetParent !== null);
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
+
+        if (mobileNotifications) {
+            const syncNotificationViewport = () => {
+                setDropdownOpen(false);
+                if (notificationsOverlay?.classList.contains('is-open')) closeNotificationsOverlay(false);
+            };
+            if (mobileNotifications.addEventListener) {
+                mobileNotifications.addEventListener('change', syncNotificationViewport);
+            } else {
+                mobileNotifications.addListener(syncNotificationViewport);
+            }
+        }
 
         refreshNotifications();
         window.setInterval(() => {
@@ -298,6 +385,161 @@
         initReadonlyLocationMaps();
     });
 
+    function initMobileChatFilters() {
+        if (!window.matchMedia) return;
+        const mobileChatFilters = window.matchMedia('(max-width: 768px)');
+        document.querySelectorAll('form[data-chat-list-filter]').forEach(form => {
+            const scope = form.querySelector('[data-chat-filter-scope]');
+            scope?.addEventListener('change', () => {
+                if (mobileChatFilters.matches) form.requestSubmit();
+            });
+        });
+    }
+
+    function initMobileFilterDrawers() {
+        const forms = Array.from(document.querySelectorAll('form[data-mobile-filter]'));
+        if (!forms.length || !window.matchMedia) return;
+
+        const mobileViewport = window.matchMedia('(max-width: 767px)');
+
+        forms.forEach((form, index) => {
+            const home = document.createComment(`mobile-filter-home-${index + 1}`);
+            form.parentNode.insertBefore(home, form);
+
+            const activeNames = new Set();
+            new FormData(form).forEach((value, name) => {
+                const normalized = String(value || '').trim();
+                if (normalized !== '' && normalized !== 'all' && !['_token', '_method', 'page'].includes(name)) {
+                    activeNames.add(name);
+                }
+            });
+
+            const trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.className = 'mobile-filter-trigger';
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.innerHTML = `
+                <span class="mobile-filter-trigger__label">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+                    <span>Filters</span>
+                </span>
+                ${activeNames.size ? `<span class="mobile-filter-trigger__count">${activeNames.size} active</span>` : '<span class="mobile-filter-trigger__hint">Search and refine</span>'}
+            `;
+            home.parentNode.insertBefore(trigger, home);
+
+            const overlayId = `mobileFilterOverlay${index + 1}`;
+            const titleId = `${overlayId}Title`;
+            trigger.setAttribute('aria-controls', overlayId);
+            trigger.setAttribute('aria-label', activeNames.size ? `Filters, ${activeNames.size} active` : 'Open filters');
+
+            const overlay = document.createElement('div');
+            overlay.id = overlayId;
+            overlay.className = 'mobile-filter-overlay';
+            overlay.setAttribute('aria-hidden', 'true');
+            overlay.setAttribute('inert', '');
+            overlay.innerHTML = `
+                <button type="button" class="mobile-filter__backdrop" tabindex="-1" aria-label="Close filters"></button>
+                <section class="mobile-filter__sheet" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
+                    <header class="mobile-filter__header">
+                        <div>
+                            <span class="mobile-filter__eyebrow">Refine results</span>
+                            <h2 id="${titleId}">Filters</h2>
+                        </div>
+                        <button type="button" class="mobile-filter__close" aria-label="Close filters">&times;</button>
+                    </header>
+                    <div class="mobile-filter__body"></div>
+                </section>
+            `;
+            document.body.appendChild(overlay);
+
+            const sheetBody = overlay.querySelector('.mobile-filter__body');
+            const closeButton = overlay.querySelector('.mobile-filter__close');
+            const backdrop = overlay.querySelector('.mobile-filter__backdrop');
+
+            function setOpen(open, restoreFocus = false) {
+                const shouldOpen = Boolean(open && mobileViewport.matches);
+                overlay.classList.toggle('is-open', shouldOpen);
+                overlay.setAttribute('aria-hidden', String(!shouldOpen));
+                if (shouldOpen) {
+                    overlay.removeAttribute('inert');
+                } else {
+                    overlay.setAttribute('inert', '');
+                }
+                trigger.setAttribute('aria-expanded', String(shouldOpen));
+                document.body.classList.toggle('mobile-filter-open', shouldOpen);
+
+                if (shouldOpen) {
+                    const firstControl = form.querySelector('select, input:not([type="hidden"]), button, a[href]');
+                    window.requestAnimationFrame(() => (firstControl || closeButton).focus());
+                } else if (restoreFocus && mobileViewport.matches) {
+                    trigger.focus();
+                }
+            }
+
+            function syncForViewport() {
+                setOpen(false);
+                if (mobileViewport.matches) {
+                    if (form.parentNode !== sheetBody) sheetBody.appendChild(form);
+                } else if (home.parentNode && form.previousSibling !== home) {
+                    home.parentNode.insertBefore(form, home.nextSibling);
+                }
+            }
+
+            trigger.addEventListener('click', () => setOpen(true));
+            closeButton.addEventListener('click', () => setOpen(false, true));
+            backdrop.addEventListener('click', () => setOpen(false, true));
+            overlay.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setOpen(false, true);
+                    return;
+                }
+                if (event.key !== 'Tab') return;
+
+                const focusable = Array.from(overlay.querySelectorAll('button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), a[href]'))
+                    .filter(element => element.offsetParent !== null);
+                if (!focusable.length) return;
+
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            });
+
+            if (mobileViewport.addEventListener) {
+                mobileViewport.addEventListener('change', syncForViewport);
+            } else {
+                mobileViewport.addListener(syncForViewport);
+            }
+            syncForViewport();
+        });
+    }
+
+    function initResponsiveTableCards() {
+        document.querySelectorAll('table[data-mobile-cards]').forEach(table => {
+            const labels = Array.from(table.querySelectorAll('thead th')).map(header => header.textContent.trim());
+            table.querySelectorAll('tbody tr').forEach(row => {
+                const cells = Array.from(row.children).filter(cell => cell.tagName === 'TD');
+                if (cells.length === 1 && cells[0].hasAttribute('colspan')) {
+                    row.classList.add('mobile-card-empty');
+                    return;
+                }
+                cells.forEach((cell, index) => {
+                    if (!cell.hasAttribute('data-mobile-label')) {
+                        cell.setAttribute('data-mobile-label', labels[index] || 'Details');
+                    }
+                });
+            });
+            table.classList.add('mobile-card-ready');
+            table.closest('.table-wrap')?.classList.add('mobile-card-wrap');
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         const sidebar = document.getElementById('sidebar');
         const toggle = document.getElementById('sidebarToggle');
@@ -310,6 +552,45 @@
         const notificationsOverlay = document.getElementById('notificationsOverlay');
         const sidebarBreakpoint = window.matchMedia ? window.matchMedia('(max-width: 1024px)') : null;
 
+        // Reuse the public navigation as a disclosure only at the existing tablet breakpoint.
+        const guestMenuToggle = document.getElementById('guestMenuToggle');
+        const guestNavigation = document.getElementById('guestNavigation');
+        if (guestMenuToggle && guestNavigation && sidebarBreakpoint) {
+            function setGuestMenuOpen(open, restoreFocus = false) {
+                const mobile = sidebarBreakpoint.matches;
+                const expanded = mobile && open;
+                guestNavigation.classList.toggle('is-open', expanded);
+                guestNavigation.inert = mobile && !expanded;
+                guestMenuToggle.setAttribute('aria-expanded', String(expanded));
+                guestMenuToggle.setAttribute('aria-label', expanded ? 'Close navigation' : 'Open navigation');
+                if (restoreFocus && mobile) guestMenuToggle.focus();
+            }
+            guestMenuToggle.addEventListener('click', () => {
+                setGuestMenuOpen(!guestNavigation.classList.contains('is-open'));
+            });
+            guestNavigation.addEventListener('click', event => {
+                if (event.target.closest('a') && sidebarBreakpoint.matches) setGuestMenuOpen(false);
+            });
+            document.addEventListener('click', event => {
+                if (!guestNavigation.contains(event.target) && !guestMenuToggle.contains(event.target)) {
+                    setGuestMenuOpen(false);
+                }
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && guestNavigation.classList.contains('is-open')) {
+                    setGuestMenuOpen(false, true);
+                }
+            });
+            guestNavigation.addEventListener('focusout', () => {
+                setTimeout(() => {
+                    if (!guestNavigation.contains(document.activeElement) && document.activeElement !== guestMenuToggle) {
+                        setGuestMenuOpen(false);
+                    }
+                }, 0);
+            });
+            sidebarBreakpoint.addEventListener('change', () => setGuestMenuOpen(false));
+            setGuestMenuOpen(false);
+        }
         function sidebarCanToggle() {
             return !sidebarBreakpoint || sidebarBreakpoint.matches;
         }
@@ -328,11 +609,13 @@
             if (!sidebar) return;
 
             if (!sidebarCanToggle()) {
+                sidebar.inert = false;
                 sidebar.classList.remove('open', 'collapsed');
                 syncSidebarButton(true);
                 return;
             }
 
+            sidebar.inert = !isOpen;
             sidebar.classList.toggle('open', isOpen);
             sidebar.classList.remove('collapsed');
             syncSidebarButton(isOpen);
@@ -385,7 +668,6 @@
         }
 
         toggleDropdown(profileToggle, profileDropdown);
-        toggleDropdown(notifToggle, notifDropdown);
 
         if (chatToggle) {
             chatToggle.addEventListener('click', () => {
@@ -396,6 +678,9 @@
         document.addEventListener('click', function (event) {
             if (profileDropdown) profileDropdown.style.display = 'none';
             if (notifDropdown) notifDropdown.style.display = 'none';
+            if (notifToggle && (!notificationsOverlay || !notificationsOverlay.classList.contains('is-open'))) {
+                notifToggle.setAttribute('aria-expanded', 'false');
+            }
             if (sidebar && sidebarCanToggle() && sidebar.classList.contains('open')) {
                 const target = event.target;
                 const clickedSidebar = sidebar.contains(target);
@@ -407,6 +692,10 @@
         });
 
         document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && sidebar && sidebarCanToggle() && sidebar.classList.contains('open')) {
+                setSidebarOpen(false);
+                if (toggle) toggle.focus();
+            }
             if (event.key === 'Escape' && notificationsOverlay && notificationsOverlay.classList.contains('is-open')) {
                 notificationsOverlay.classList.remove('is-open');
                 notificationsOverlay.setAttribute('aria-hidden', 'true');
@@ -432,6 +721,9 @@
             el.textContent = type.replace(/-/g, ' ').toUpperCase();
         });
 
+        initMobileChatFilters();
+        initMobileFilterDrawers();
+        initResponsiveTableCards();
         initReadonlyLocationMaps();
         initNotificationCenter();
     });

@@ -135,7 +135,7 @@
             <div class="panel-body">
                 @if($tickets->count())
                     <div class="table-wrap" tabindex="0" role="region" aria-label="Tickets table">
-                    <table class="telecom-table">
+                    <table class="telecom-table" data-mobile-cards>
                         <thead><tr><th>Tracking Number</th><th>Subject</th><th>Status</th><th>Action</th></tr></thead>
                         <tbody>
                             @foreach($tickets as $ticket)

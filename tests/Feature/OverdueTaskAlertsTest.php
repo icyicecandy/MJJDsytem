@@ -43,7 +43,7 @@ test('overdue alerts reach each active admin and only the assigned technician wi
     $secondAdmin = User::factory()->create(['role' => 'admin']);
     $otherTech = User::factory()->create(['role' => 'technician']);
     $disabledAdmin = User::factory()->create(['role' => 'admin', 'disabled_at' => now()]);
-    $before = [$job->getAttributes(), $ticket->getAttributes()];
+    $before = [$job->fresh()->getAttributes(), $ticket->fresh()->getAttributes()];
     $this->artisan('tasks:alert-overdue')->expectsOutput('6 overdue alert(s) created.')->assertSuccessful();
     expect(AppNotification::count())->toBe(6)
         ->and(AppNotification::whereIn('user_id', [$customer->id, $otherTech->id, $disabledAdmin->id])->count())->toBe(0)

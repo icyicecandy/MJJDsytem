@@ -9,7 +9,7 @@
 
         <section class="card ticket-queue-overview">
             <div class="ticket-queue-overview__head">
-                <form method="GET" action="{{ route('technician.tickets.index') }}" class="toolbar-row">
+                <form method="GET" action="{{ route('technician.tickets.index') }}" class="toolbar-row" data-mobile-filter>
                     @if($selectedStatus !== 'all')
                         <input type="hidden" name="status" value="{{ $selectedStatus }}">
                     @endif
@@ -62,7 +62,7 @@
 
         <section class="card table-card">
             <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
-                <table class="telecom-table ticket-list-table ticket-list-table--technician">
+                <table class="telecom-table ticket-list-table ticket-list-table--technician" data-mobile-cards>
                     <colgroup>
                         <col class="ticket-col-reference">
                         <col class="ticket-col-person">
@@ -80,6 +80,7 @@
                             <th>Urgency</th>
                             <th>Status</th>
                             <th>Submitted</th>
+                            <th class="mobile-table-only">Schedule</th>
                             <th class="col-actions">Action</th>
                         </tr>
                     </thead>
@@ -94,6 +95,9 @@
                             <td><span class="badge urgency-{{ $ticket->displayUrgencyClass() }}">{{ $ticket->displayUrgencyLabel() }}</span></td>
                             <td><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></td>
                             <td>{{ $ticket->created_at->displayDateTime() }}</td>
+                            <td class="mobile-table-only">
+                                {{ $ticket->scheduledStartAt()?->displayDateTime('M d, Y h:i A') ?? 'Not scheduled' }}
+                            </td>
                             <td class="actions-cell">
                                 <button
                                     type="button"
@@ -117,7 +121,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7"><div class="empty-state compact">No assigned tickets.</div></td>
+                            <td colspan="8"><div class="empty-state compact">No assigned tickets.</div></td>
                         </tr>
                         @endforelse
                     </tbody>

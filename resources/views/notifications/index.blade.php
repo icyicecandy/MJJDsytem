@@ -16,10 +16,30 @@
             </form>
         </div>
 
-        <div class="notifications-compact-filters">
+        <div class="notifications-compact-filters notifications-compact-filters--desktop">
             <a href="{{ route('notifications.index') }}" class="notifications-filter-chip {{ $filter === 'all' ? 'is-active' : '' }}">All</a>
             <a href="{{ route('notifications.index', ['filter' => 'unread']) }}" class="notifications-filter-chip {{ $filter === 'unread' ? 'is-active' : '' }}">Unread</a>
         </div>
+
+        <form method="GET" action="{{ route('notifications.index') }}" class="notifications-mobile-page-filters">
+            <label class="notifications-mobile-search">
+                <span>Search</span>
+                <input type="search" name="search" value="{{ $search }}" placeholder="Title or message">
+            </label>
+            <label>
+                <span>Show</span>
+                <select name="filter">
+                    <option value="all" @selected($filter === 'all')>All</option>
+                    <option value="unread" @selected($filter === 'unread')>Unread</option>
+                </select>
+            </label>
+            <div class="notifications-mobile-page-actions">
+                <button type="submit" class="btn">Search</button>
+                @if($search !== '' || $filter !== 'all')
+                    <a href="{{ route('notifications.index') }}" class="btn secondary">Reset</a>
+                @endif
+            </div>
+        </form>
 
         <div class="panel-body">
             @if($notifications->count())
@@ -46,7 +66,7 @@
                     {{ $notifications->links() }}
                 </div>
             @else
-                <div class="empty-state">No notifications yet.</div>
+                <div class="empty-state">{{ $search !== '' ? 'No notifications match your search.' : ($filter === 'unread' ? 'No unread notifications.' : 'No notifications yet.') }}</div>
             @endif
         </div>
     </section>

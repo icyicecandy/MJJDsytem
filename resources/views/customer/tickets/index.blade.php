@@ -15,7 +15,7 @@
     </section>
 
     <section class="card toolbar-card">
-        <form method="GET" action="{{ route('customer.tickets.index') }}" class="toolbar-row">
+        <form method="GET" action="{{ route('customer.tickets.index') }}" class="toolbar-row" data-mobile-filter>
             <div class="toolbar-field">
                 <label for="customer_ticket_status">Status</label>
                 <select name="status" id="customer_ticket_status">
@@ -48,7 +48,7 @@
 
     <section class="card table-card">
         <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
-            <table class="telecom-table ticket-list-table ticket-list-table--customer">
+            <table class="telecom-table ticket-list-table ticket-list-table--customer" data-mobile-cards>
                     <colgroup>
                         <col class="ticket-col-reference">
                         <col class="ticket-col-subject">
@@ -59,7 +59,7 @@
                         <col class="ticket-col-action">
                     </colgroup>
                 <thead>
-                    <tr><th>Tracking Number</th><th>Subject</th><th>Urgency</th><th>Status</th><th>Assigned Staff</th><th>Submitted</th><th>Action</th></tr>
+                    <tr><th>Tracking Number</th><th>Subject</th><th>Urgency</th><th>Status</th><th>Assigned Staff</th><th>Submitted</th><th class="mobile-table-only">Schedule</th><th>Action</th></tr>
                 </thead>
                 <tbody>
                     @forelse($tickets as $ticket)
@@ -70,10 +70,13 @@
                         <td><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></td>
                         <td>{{ optional($ticket->technician)->name ?? 'Waiting for Assignment' }}</td>
                         <td>{{ $ticket->created_at->displayDateTime('m/d/y h:i A') }}</td>
+                        <td class="mobile-table-only">
+                            {{ $ticket->scheduledStartAt()?->displayDateTime('M d, Y h:i A') ?? 'Not scheduled' }}
+                        </td>
                         <td><a href="{{ route('customer.tickets.show', $ticket) }}" class="btn secondary">View</a></td>
                     </tr>
                     @empty
-                    <tr><td colspan="7"><div class="empty-state compact">No tickets yet.</div></td></tr>
+                    <tr><td colspan="8"><div class="empty-state compact">No tickets yet.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>

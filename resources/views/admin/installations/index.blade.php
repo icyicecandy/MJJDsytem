@@ -131,7 +131,7 @@
 
     <section class="card table-card">
         <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
-            <table class="telecom-table admin-installations-table">
+            <table class="telecom-table admin-installations-table" data-mobile-cards>
                 <thead>
                     <tr>
                         <th>Job</th>
