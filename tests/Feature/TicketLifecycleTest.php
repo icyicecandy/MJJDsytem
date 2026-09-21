@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Ticket;
 use App\Models\SystemLog;
+use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +25,7 @@ function makeTicket(array $attributes = []): Ticket
     ], $attributes));
 }
 
-test('customer creates ticket with open status', function () {
+test('customer ticket waits in the priority queue when no technician is on shift', function () {
     Storage::fake('public');
 
     $customer = makeTicketUser('customer');
@@ -42,7 +42,8 @@ test('customer creates ticket with open status', function () {
     $ticket = Ticket::firstOrFail();
 
     expect($ticket->user_id)->toBe($customer->id)
-        ->and($ticket->status)->toBe(Ticket::STATUS_OPEN)
+        ->and($ticket->status)->toBe(Ticket::STATUS_QUEUED)
+        ->and($ticket->response_due_at)->not->toBeNull()
         ->and($ticket->photo_path)->toStartWith('ticket-attachments/');
 
     Storage::disk('public')->assertExists($ticket->photo_path);
@@ -97,7 +98,8 @@ test('customer creates ticket for new or another installation request', function
 
     expect($ticket->subject)->toBe('Request for New/Another Installation')
         ->and($ticket->urgency)->toBe(Ticket::URGENCY_MEDIUM)
-        ->and($ticket->status)->toBe(Ticket::STATUS_OPEN);
+        ->and($ticket->status)->toBe(Ticket::STATUS_QUEUED)
+        ->and($ticket->response_due_at)->not->toBeNull();
 });
 
 test('customer can search and filter support tickets', function () {
@@ -231,14 +233,14 @@ test('admin assignment does not start work automatically', function () {
         ->patch(route('admin.tickets.update', $ticket, false), [
             'admin_action' => 'save',
             'technician_id' => $technician->id,
-            'appointment_date' => now()->addDay()->toDateString(), 'appointment_time' => '09:00',
         ])
         ->assertRedirect(route('admin.tickets.index', absolute: false));
 
     $ticket->refresh();
 
     expect($ticket->technician_id)->toBe($technician->id)
-        ->and($ticket->status)->toBe(Ticket::STATUS_OPEN);
+        ->and($ticket->status)->toBe(Ticket::STATUS_OPEN)
+        ->and($ticket->response_due_at)->not->toBeNull();
 });
 
 test('customer cannot close ticket before it is resolved', function () {
@@ -264,7 +266,7 @@ test('customer cancels open ticket and history is recorded', function () {
 
     expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CANCELLED)
         ->and($ticket->messages()->where('message', 'Customer cancelled this ticket.')->exists())->toBeTrue()
-        ->and(SystemLog::where('action', 'Ticket Cancelled')->where('description', 'like', '%' . $ticket->publicReference() . '%')->exists())->toBeTrue();
+        ->and(SystemLog::where('action', 'Ticket Cancelled')->where('description', 'like', '%'.$ticket->publicReference().'%')->exists())->toBeTrue();
 });
 
 test('customer cannot cancel another customers ticket', function () {
@@ -313,7 +315,7 @@ test('customer requests cancellation for in progress ticket', function () {
 
     expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CANCELLATION_REQUESTED)
         ->and($ticket->messages()->where('message', 'Customer requested ticket cancellation.')->exists())->toBeTrue()
-        ->and(SystemLog::where('action', 'Ticket Cancellation Requested')->where('description', 'like', '%' . $ticket->publicReference() . '%')->exists())->toBeTrue();
+        ->and(SystemLog::where('action', 'Ticket Cancellation Requested')->where('description', 'like', '%'.$ticket->publicReference().'%')->exists())->toBeTrue();
 });
 
 test('technician cannot resolve while cancellation is pending', function () {
@@ -347,7 +349,7 @@ test('admin approves ticket cancellation request', function () {
 
     expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CANCELLED)
         ->and($ticket->messages()->where('message', 'Admin approved ticket cancellation.')->exists())->toBeTrue()
-        ->and(SystemLog::where('action', 'Ticket Cancellation Approved')->where('description', 'like', '%' . $ticket->publicReference() . '%')->exists())->toBeTrue();
+        ->and(SystemLog::where('action', 'Ticket Cancellation Approved')->where('description', 'like', '%'.$ticket->publicReference().'%')->exists())->toBeTrue();
 });
 
 test('admin rejects ticket cancellation request', function () {
@@ -363,7 +365,7 @@ test('admin rejects ticket cancellation request', function () {
 
     expect($ticket->refresh()->status)->toBe(Ticket::STATUS_IN_PROGRESS)
         ->and($ticket->messages()->where('message', 'Admin rejected cancellation request. Ticket remains In Progress.')->exists())->toBeTrue()
-        ->and(SystemLog::where('action', 'Ticket Cancellation Rejected')->where('description', 'like', '%' . $ticket->publicReference() . '%')->exists())->toBeTrue();
+        ->and(SystemLog::where('action', 'Ticket Cancellation Rejected')->where('description', 'like', '%'.$ticket->publicReference().'%')->exists())->toBeTrue();
 });
 
 test('technician cannot approve or reject cancellation requests', function () {

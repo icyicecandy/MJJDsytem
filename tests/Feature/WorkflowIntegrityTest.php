@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\AdminApplicationController;
-use App\Models\AppNotification;
 use App\Models\Application;
+use App\Models\AppNotification;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\SystemLog;
@@ -22,7 +22,7 @@ function integrityApplication(array $attributes = []): Application
 
     return Application::create(array_merge([
         'user_id' => $customer->id,
-        'reference_no' => 'APP-' . fake()->unique()->numerify('########'),
+        'reference_no' => 'APP-'.fake()->unique()->numerify('########'),
         'first_name' => 'Jane', 'last_name' => 'Doe',
         'email' => $customer->email, 'mobile_number' => '09171234567',
         'region' => 'Ilocos Region', 'province' => 'Pangasinan',
@@ -36,8 +36,8 @@ function integrityInstallation(Application $application, User $technician, array
 {
     return Installation::create(array_merge([
         'application_id' => $application->id, 'technician_id' => $technician->id,
-        'installation_date' => now()->addDays(5)->toDateString(),
-        'installation_time' => '09:00', 'status' => Installation::STATUS_SCHEDULED,
+        'installation_date' => now()->addDays(7)->toDateString(),
+        'installation_time' => '08:00', 'status' => Installation::STATUS_SCHEDULED,
     ], $attributes));
 }
 
@@ -51,8 +51,8 @@ test('a failed scheduling audit rolls back installation application history and 
 
     expect(fn () => $this->post(route('admin.applications.schedule', $application), [
         'technician_id' => $technician->id,
-        'installation_date' => now()->addDays(5)->toDateString(),
-        'installation_time' => '09:00',
+        'installation_date' => now()->addDays(7)->toDateString(),
+        'installation_time' => '08:00',
     ]))->toThrow(RuntimeException::class, 'Forced audit failure');
 
     expect($application->fresh()->status)->toBe(Application::STATUS_APPROVED);
@@ -129,9 +129,9 @@ test('duplicate scheduling with the same stale route model creates only one book
     $application = integrityApplication();
     $technician = User::factory()->create(['role' => 'technician']);
     $this->actingAs(User::factory()->create(['role' => 'admin']));
-    $request = Request::create('/admin/applications/' . $application->id . '/schedule', 'POST', [
+    $request = Request::create('/admin/applications/'.$application->id.'/schedule', 'POST', [
         'technician_id' => $technician->id,
-        'installation_date' => now()->addDays(5)->toDateString(), 'installation_time' => '09:00',
+        'installation_date' => now()->addDays(7)->toDateString(), 'installation_time' => '08:00',
     ]);
     $controller = app(AdminApplicationController::class);
     $controller->schedule($request, $application);
@@ -168,7 +168,7 @@ test('a pending reschedule cannot revive a cancelled installation', function () 
         ->patch(route('admin.applications.reschedule', $application), [
             'customer_reschedule_reason' => 'Appointment moved at the customer request.',
             'decision' => 'approve', 'technician_id' => $technician->id,
-            'installation_date' => now()->addDays(6)->toDateString(), 'installation_time' => '10:00',
+            'installation_date' => now()->addDays(6)->toDateString(), 'installation_time' => '11:00',
         ])->assertSessionHasErrors('reschedule');
 
     expect($application->fresh()->status)->toBe(Application::STATUS_CANCELLED)

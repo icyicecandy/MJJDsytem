@@ -180,7 +180,7 @@
                                     <td>
                                         <div class="record-stack">
                                             <span class="record-strong">{{ $installation->installation_date?->format('M d, Y') ?? 'Not scheduled' }}</span>
-                                            <span class="record-muted">{{ $installation->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('h:i A') : 'Time to be confirmed' }}</span>
+                                            <span class="record-muted">{{ $installation->installation_time ? \App\Models\Installation::slotLabel(\Carbon\Carbon::parse($installation->installation_time)->format('H:i')) : 'Time to be confirmed' }}</span>
                                         </div>
                                     </td>
                                     <td><span class="badge {{ $installation->status }}">{{ $installation->displayStatusLabel() }}</span></td>
@@ -246,6 +246,40 @@
             @else
                 <div class="empty-state">No support tickets are currently assigned to this technician.</div>
             @endif
+        </div>
+    </section>
+
+    <section class="panel-card">
+        <div class="panel-header"><div class="panel-title-wrap">
+            <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
+            <div><div class="panel-title">Schedule & Ticket Capacity</div><div class="panel-subtitle">Shared availability rules for installations and ticket assignment</div></div>
+        </div></div>
+        <div class="panel-body">
+            <form method="POST" action="{{ route('admin.technicians.schedule', $technician) }}" class="apply-form-grid">
+                @csrf @method('PATCH')
+                <div class="apply-field full-span">
+                    <label>Working Weekdays</label>
+                    <div class="technician-day-picker">
+                        @foreach(\App\Models\User::technicianWorkDayOptions() as $value => $label)
+                            <label class="technician-day-chip"><input type="checkbox" name="technician_work_days[]" value="{{ $value }}" @checked(in_array($value, old('technician_work_days', $technician->technicianWorkDays()), true))><span>{{ $label }}</span></label>
+                        @endforeach
+                    </div>
+                    @error('technician_work_days')<span class="error">{{ $message }}</span>@enderror
+                </div>
+                <div class="apply-field"><label for="schedule_shift_start">Shift Start</label><input id="schedule_shift_start" name="technician_shift_start" type="time" value="{{ old('technician_shift_start', $technician->technicianShiftStart()) }}" required>@error('technician_shift_start')<span class="error">{{ $message }}</span>@enderror</div>
+                <div class="apply-field"><label for="schedule_shift_end">Shift End</label><input id="schedule_shift_end" name="technician_shift_end" type="time" value="{{ old('technician_shift_end', $technician->technicianShiftEnd()) }}" required>@error('technician_shift_end')<span class="error">{{ $message }}</span>@enderror</div>
+                <div class="apply-field"><label for="schedule_break_start">Break Start</label><input id="schedule_break_start" name="technician_break_start" type="time" value="{{ old('technician_break_start', $technician->technicianBreakStart()) }}">@error('technician_break_start')<span class="error">{{ $message }}</span>@enderror</div>
+                <div class="apply-field"><label for="schedule_break_end">Break End</label><input id="schedule_break_end" name="technician_break_end" type="time" value="{{ old('technician_break_end', $technician->technicianBreakEnd()) }}">@error('technician_break_end')<span class="error">{{ $message }}</span>@enderror</div>
+                <div class="apply-field"><label for="schedule_status">Availability Status</label><select id="schedule_status" name="technician_status" required>@foreach(['available'=>'Available','off_duty'=>'Off Duty','on_leave'=>'On Leave'] as $value=>$label)<option value="{{ $value }}" @selected(old('technician_status', $technician->technician_status ?: 'available') === $value)>{{ $label }}</option>@endforeach</select></div>
+                <div class="apply-field"><label for="schedule_max_tickets">Maximum Active Tickets</label><input id="schedule_max_tickets" name="technician_max_active_tickets" type="number" min="1" max="20" value="{{ old('technician_max_active_tickets', $technician->maximumActiveTicketWorkload()) }}" required>@error('technician_max_active_tickets')<span class="error">{{ $message }}</span>@enderror</div>
+                <div class="apply-field full-span">
+                    <label>Leave / Unavailable Dates</label>
+                    <div class="apply-form-grid">@for($dateIndex=0;$dateIndex<3;$dateIndex++)<input name="technician_unavailable_dates[]" type="date" min="{{ today()->toDateString() }}" value="{{ old('technician_unavailable_dates.'.$dateIndex, data_get($technician->technician_unavailable_dates, $dateIndex)) }}">@endfor</div>
+                    <p class="field-help">Record up to three upcoming unavailable dates.</p>
+                    @error('technician_unavailable_dates.*')<span class="error">{{ $message }}</span>@enderror
+                </div>
+                <div class="form-actions full-span"><button type="submit" class="btn">Save Schedule</button></div>
+            </form>
         </div>
     </section>
 

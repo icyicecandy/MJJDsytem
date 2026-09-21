@@ -59,7 +59,7 @@
                         <col class="ticket-col-action">
                     </colgroup>
                 <thead>
-                    <tr><th>Tracking Number</th><th>Subject</th><th>Urgency</th><th>Status</th><th>Assigned Staff</th><th>Submitted</th><th class="mobile-table-only">Schedule</th><th>Action</th></tr>
+                    <tr><th>Tracking Number</th><th>Subject</th><th>Urgency</th><th>Status</th><th>Assigned Staff</th><th>Submitted</th><th class="mobile-table-only">Response Target</th><th>Action</th></tr>
                 </thead>
                 <tbody>
                     @forelse($tickets as $ticket)
@@ -71,7 +71,7 @@
                         <td>{{ optional($ticket->technician)->name ?? 'Waiting for Assignment' }}</td>
                         <td>{{ $ticket->created_at->displayDateTime('m/d/y h:i A') }}</td>
                         <td class="mobile-table-only">
-                            {{ $ticket->scheduledStartAt()?->displayDateTime('M d, Y h:i A') ?? 'Not scheduled' }}
+                            {{ $ticket->responseTargetLabel() }}
                         </td>
                         <td><a href="{{ route('customer.tickets.show', $ticket) }}" class="btn secondary">View</a></td>
                     </tr>

@@ -111,7 +111,7 @@ test('technician dashboard shows installations assigned for the current app date
         'technician_id' => $technician->id,
         'assigned_at' => '2026-04-29 15:00:00',
         'installation_date' => '2026-04-30',
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => Installation::STATUS_SCHEDULED,
     ]);
 
@@ -120,7 +120,7 @@ test('technician dashboard shows installations assigned for the current app date
         'technician_id' => $technician->id,
         'assigned_at' => '2026-04-29 16:00:00',
         'installation_date' => '2026-05-01',
-        'installation_time' => '10:00',
+        'installation_time' => '11:00',
         'status' => Installation::STATUS_SCHEDULED,
     ]);
 
@@ -150,7 +150,8 @@ test('technician dashboard shows installations assigned for the current app date
         ->assertSee('April 30, 2026')
         ->assertSee('April Install')
         ->assertSee('Contact: 09170000430')
-        ->assertSee('09:00 AM')
+        ->assertSee('8:00 AM')
+        ->assertDontSee('8:00 AM - 11:00 AM')
         ->assertDontSee('May Future')
         ->assertDontSee('Other Technician');
 });

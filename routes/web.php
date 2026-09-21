@@ -76,14 +76,12 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence'])->group(fun
 Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:customer'])->group(function () {
     Route::get('/customer/dashboard', function () {
         $user = auth()->user();
-        $application = $user->application()->with('installation')->first();
-
-        $totalApplications = $application ? 1 : 0;
-        $latestApplication = $application;
+        $latestApplication = $user->application()->with('installation')->first();
+        $totalApplications = $user->applications()->count();
         $tickets = $user->tickets()->latest()->take(5)->get();
         $openTickets = $user->tickets()->where('status', 'open')->count();
-        $activeApplication = $application
-            ? in_array($application->status, ['submitted', 'under_review', 'approved', 'scheduled', 'cancellation_requested', 'installed', 'activated'], true)
+        $activeApplication = $latestApplication
+            ? in_array($latestApplication->status, ['submitted', 'under_review', 'approved', 'scheduled', 'cancellation_requested', 'installed'], true)
             : false;
 
         return view('customer.dashboard', compact('totalApplications', 'latestApplication', 'tickets', 'openTickets', 'activeApplication'));
@@ -134,6 +132,7 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin
     Route::get('/admin/customers/{customer}', [CustomerController::class, 'show'])->name('admin.customers.show');
     Route::get('/admin/technicians', [TechnicianController::class, 'index'])->name('admin.technicians.index');
     Route::post('/admin/technicians', [TechnicianController::class, 'store'])->name('admin.technicians.store');
+    Route::patch('/admin/technicians/{technician}/schedule', [TechnicianController::class, 'updateSchedule'])->name('admin.technicians.schedule');
     Route::patch('/admin/technicians/{technician}/disable', [TechnicianController::class, 'disableAccount'])->name('admin.technicians.disable');
     Route::patch('/admin/technicians/{technician}/enable', [TechnicianController::class, 'enableAccount'])->name('admin.technicians.enable');
     Route::get('/admin/technicians/{technician}', [TechnicianController::class, 'show'])->name('admin.technicians.show');
@@ -175,6 +174,7 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:techn
     Route::get('/technician/installations', [TechnicianDashboardController::class, 'installations'])->name('technician.installations.index');
     Route::get('/technician/installations/{installation}', [TechnicianDashboardController::class, 'showInstallation'])->name('technician.installations.show');
     Route::patch('/technician/installations/{installation}/status', [TechnicianDashboardController::class, 'updateInstallationStatus'])->name('technician.installations.status');
+    Route::patch('/technician/installations/{installation}/stop-work-notes', [TechnicianDashboardController::class, 'addStopWorkNotes'])->name('technician.installations.stop-work-notes');
     Route::post('/technician/installations/{installation}/complete', [TechnicianDashboardController::class, 'complete'])->name('technician.installations.complete');
     Route::patch('/technician/installations/{installation}/activate', [TechnicianDashboardController::class, 'activate'])->name('technician.installations.activate');
     Route::get('/technician/tickets', [TechnicianTicketController::class, 'index'])->name('technician.tickets.index');

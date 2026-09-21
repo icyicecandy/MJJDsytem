@@ -4,15 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Ticket;
 use App\Models\User;
-use App\Services\WorkflowTransaction;
 use App\Services\TechnicianSchedule;
-use App\Models\Installation;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
+use App\Services\TicketAssignmentService;
+use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
 use App\Support\PublicUpload;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AdminTicketController extends Controller
 {
@@ -29,10 +29,10 @@ class AdminTicketController extends Controller
 
         if ($search !== '') {
             $ticketsQuery->where(function ($query) use ($search) {
-                $query->where('tracking_number', 'like', '%' . $search . '%')
-                    ->orWhere('subject', 'like', '%' . $search . '%')
+                $query->where('tracking_number', 'like', '%'.$search.'%')
+                    ->orWhere('subject', 'like', '%'.$search.'%')
                     ->orWhereHas('user', function ($userQuery) use ($search) {
-                        $userQuery->where('name', 'like', '%' . $search . '%');
+                        $userQuery->where('name', 'like', '%'.$search.'%');
                     });
             });
         }
@@ -84,8 +84,7 @@ class AdminTicketController extends Controller
             'cancelled' => Ticket::where('status', Ticket::STATUS_CANCELLED)->count(),
         ];
 
-        $scheduleBookings = TechnicianSchedule::calendar();
-        return view('admin.tickets.index', compact('scheduleBookings', 'tickets', 'technicians', 'queueSummary', 'selectedStatus', 'search'));
+        return view('admin.tickets.index', compact('tickets', 'technicians', 'queueSummary', 'selectedStatus', 'search'));
     }
 
     public function update(Request $request, Ticket $ticket)
@@ -100,24 +99,20 @@ class AdminTicketController extends Controller
         $validated = $request->validate([
             'technician_id' => 'nullable|integer|exists:users,id',
             'admin_action' => 'nullable|in:save,close',
-            'appointment_date' => ['nullable', 'date_format:Y-m-d'],
-            'appointment_time' => ['nullable', Rule::in(Installation::AVAILABLE_TIME_SLOTS)],
-            'appointment_change_reason' => ['nullable', 'string', 'max:1000'],
+            'urgency' => ['nullable', Rule::in(Ticket::URGENCY_LEVELS)],
         ]);
 
         $previousTechnicianId = $ticket->technician_id;
+        $previousTechnician = $ticket->technician;
         $previousStatus = $ticket->status;
-        $technicianId = $validated['technician_id'] ?? null;
-        $technicianId = $technicianId ?: null;
+        $previousUrgency = $ticket->urgency;
+        $technicianId = ($validated['technician_id'] ?? null) ?: null;
         $technician = null;
         $adminAction = $validated['admin_action'] ?? 'save';
 
         abort_if($ticket->status === Ticket::STATUS_CANCELLED, 422, 'Cancelled tickets cannot be updated.');
         abort_if($ticket->status === Ticket::STATUS_CANCELLATION_REQUESTED, 422, 'Review the cancellation request before updating this ticket.');
         abort_if($ticket->status === Ticket::STATUS_CLOSED && $adminAction !== 'close', 422, 'Closed tickets cannot be updated.');
-
-        $previousAppointment = $ticket->appointmentLabel();
-        $previousStart = $ticket->scheduledStartAt()?->toDateTimeString();
 
         if ($adminAction === 'close') {
             abort_unless($ticket->status === Ticket::STATUS_RESOLVED, 422, 'Only resolved tickets can be closed by admin.');
@@ -134,85 +129,99 @@ class AdminTicketController extends Controller
             ]);
         } else {
             abort_if($ticket->status === Ticket::STATUS_RESOLVED, 422, 'Resolved tickets cannot be reassigned. Close or reopen the ticket first.');
-            $appointmentDate = null;
-            $appointmentTime = null;
+
+            $urgency = $validated['urgency'] ?? $ticket->urgency;
+            if ($ticket->urgency_review_required && ! array_key_exists('urgency', $validated)) {
+                throw ValidationException::withMessages([
+                    'urgency' => 'Choose the urgency before releasing this ticket to the technician queue.',
+                ]);
+            }
+
             if ($technicianId) {
                 $technician = TechnicianSchedule::eligibleTechnician((int) $technicianId);
-                $appointmentDate = $validated['appointment_date'] ?? null;
-                $appointmentTime = $validated['appointment_time'] ?? null;
-                $errors = [];
-                if (! $appointmentDate) $errors['appointment_date'] = 'Choose an appointment date for this ticket assignment.';
-                if (! $appointmentTime) $errors['appointment_time'] = 'Choose an appointment time for this ticket assignment.';
-                if ($errors) throw ValidationException::withMessages($errors);
-                TechnicianSchedule::assertFuture($appointmentDate, $appointmentTime, 'appointment_date', 'appointment_time');
-                if (TechnicianSchedule::conflicts((int) $technicianId, $appointmentDate, $appointmentTime, ignoreTicketId: $ticket->id)) {
-                    throw ValidationException::withMessages(['appointment_time' => TechnicianSchedule::CONFLICT_MESSAGE]);
+            }
+
+
+            $urgencyChanged = $urgency !== $previousUrgency || $ticket->urgency_review_required;
+            $nextStatus = $technicianId
+                ? ($ticket->status === Ticket::STATUS_IN_PROGRESS ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_OPEN)
+                : Ticket::STATUS_QUEUED;
+
+            $ticket->forceFill([
+                'technician_id' => $technicianId,
+                'status' => $nextStatus,
+                'urgency' => $urgency,
+                'urgency_review_required' => false,
+                'triaged_at' => $urgencyChanged ? now() : $ticket->triaged_at,
+                'triaged_by' => $urgencyChanged ? auth()->id() : $ticket->triaged_by,
+                'response_due_at' => $urgencyChanged
+                    ? Ticket::responseDueAtForUrgency($urgency)
+                    : ($ticket->response_due_at ?: Ticket::responseDueAtForUrgency($urgency, $ticket->created_at)),
+                'assigned_at' => $technicianId !== $previousTechnicianId
+                    ? ($technicianId ? now() : null)
+                    : $ticket->assigned_at,
+                'assignment_source' => $technicianId !== $previousTechnicianId
+                    ? ($technicianId ? 'manual' : null)
+                    : $ticket->assignment_source,
+                'appointment_date' => null,
+                'appointment_time' => null,
+                'appointment_change_reason' => null,
+                'appointment_changed_at' => null,
+            ])->save();
+
+            $ticket->unsetRelation('technician');
+
+            if (! $ticket->technician_id) {
+                $technician = app(TicketAssignmentService::class)->assign($ticket, auth()->id(), 'automatic_after_triage');
+                $ticket->refresh()->load('technician');
+            } else {
+                $ticket->load('technician');
+            }
+
+            $assignmentChanged = $previousTechnicianId !== $ticket->technician_id;
+            if ($assignmentChanged || $urgencyChanged) {
+                $message = 'Ticket queue updated. Priority: '.$ticket->displayUrgencyLabel()
+                    .'. Assignment: '.($previousTechnician?->name ?? 'Unassigned')
+                    .' to '.($ticket->technician?->name ?? 'Unassigned queue').'.';
+                $ticket->messages()->create(['user_id' => auth()->id(), 'message' => $message]);
+                system_log('Ticket Queue Updated', $ticket->publicReference().': '.$message);
+
+                if ($ticket->user) {
+                    AppNotificationSender::send(
+                        $ticket->user,
+                        'Support ticket updated',
+                        $ticket->publicReference().' priority is '.$ticket->displayUrgencyLabel()
+                            .'. Current assignment: '.($ticket->technician?->name ?? 'support queue').'.',
+                        route('customer.tickets.show', $ticket),
+                        'ticket_queue_updated',
+                        ['ticket_id' => $ticket->id],
+                        auth()->id()
+                    );
                 }
             }
-            $newStart = $appointmentDate && $appointmentTime
-                ? \Carbon\Carbon::parse($appointmentDate.' '.$appointmentTime)->toDateTimeString() : null;
-            $changingExistingAppointment = $previousStart !== null && $previousStart !== $newStart;
-            $publicReason = trim($validated['appointment_change_reason'] ?? '');
-            if ($changingExistingAppointment && $publicReason === '') {
-                throw ValidationException::withMessages(['appointment_change_reason' => 'Explain the appointment change. This reason will be sent to the customer.']);
-            }
-            $reasonData = $previousStart === $newStart ? [] : [
-                'appointment_change_reason' => $changingExistingAppointment ? $publicReason : null,
-                'appointment_changed_at' => $changingExistingAppointment ? now() : null,
-            ];
-            $nextStatus = match ($ticket->status) {
-                Ticket::STATUS_IN_PROGRESS => $technicianId ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_OPEN,
-                Ticket::STATUS_RESOLVED => Ticket::STATUS_RESOLVED,
-                Ticket::STATUS_CLOSED => Ticket::STATUS_CLOSED,
-                default => Ticket::STATUS_OPEN,
-            };
 
-            $ticket->update([
-                'technician_id' => $technicianId,
-                'appointment_date' => $appointmentDate,
-                'appointment_time' => $appointmentTime,
-                'status' => $nextStatus,
-            ] + $reasonData);
+            if ($technician && $ticket->technician_id && $ticket->technician_id !== $previousTechnicianId
+                && $ticket->assignment_source === 'manual') {
+                AppNotificationSender::send(
+                    $technician,
+                    'New support ticket assigned',
+                    $ticket->publicReference().' ('.$ticket->displayUrgencyLabel().') was manually assigned to your queue.',
+                    route('technician.tickets.show', $ticket),
+                    'ticket_assigned',
+                    ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference()],
+                    auth()->id()
+                );
+            }
         }
 
         $ticket->refresh();
 
-        $appointmentChanged = $previousStart !== $ticket->scheduledStartAt()?->toDateTimeString();
-        if ($adminAction === 'save' && ($appointmentChanged || $previousTechnicianId != $ticket->technician_id)) {
-            $message = 'Ticket appointment updated from '.$previousAppointment.' to '.$ticket->appointmentLabel().'.';
-            if ($appointmentChanged && $ticket->appointment_change_reason) {
-                $message .= ' Reason: '.$ticket->appointment_change_reason;
-            }
-            $ticket->messages()->create(['user_id' => auth()->id(), 'message' => $message]);
-            system_log('Ticket Appointment Updated', $ticket->publicReference().': '.$message);
-            foreach (collect([$ticket->user, $technician, $previousTechnicianId ? User::find($previousTechnicianId) : null])->filter()->unique('id') as $recipient) {
-                $url = $recipient->isTechnician() ? route('technician.tickets.index') : route('customer.tickets.show', $ticket);
-                AppNotificationSender::send($recipient, 'Ticket appointment updated', $ticket->publicReference().': '.$message,
-                    $url, 'ticket_appointment_updated', ['ticket_id' => $ticket->id], auth()->id());
-            }
-        }
-
-        if ($technician && $ticket->technician_id && $ticket->technician_id !== $previousTechnicianId) {
-            AppNotificationSender::send(
-                $technician,
-                'New support ticket assigned',
-                'Ticket "' . $ticket->subject . '" was assigned to you.',
-                route('technician.tickets.show', $ticket),
-                'ticket_assigned',
-                ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference()],
-                auth()->id()
-            );
-
-            system_log(
-                $previousTechnicianId ? 'Ticket Reassigned' : 'Ticket Assigned',
-                ($previousTechnicianId ? 'Reassigned' : 'Assigned') . ' technician ' . $technician->name . ' to ticket ' . $ticket->publicReference() . '.'
-            );
-        }
-
         if ($ticket->status !== $previousStatus) {
             system_log(
                 $ticket->status === Ticket::STATUS_CLOSED ? 'Ticket Closed' : 'Ticket Status Changed',
-                'Ticket ' . $ticket->publicReference() . ' status changed from ' . ucfirst(str_replace('_', ' ', $previousStatus)) . ' to ' . ucfirst(str_replace('_', ' ', $ticket->status)) . '.'
+                'Ticket '.$ticket->publicReference().' status changed from '
+                    .ucfirst(str_replace('_', ' ', $previousStatus)).' to '
+                    .ucfirst(str_replace('_', ' ', $ticket->status)).'.'
             );
         }
 
@@ -220,7 +229,7 @@ class AdminTicketController extends Controller
             AppNotificationSender::send(
                 $ticket->user,
                 'Support ticket updated',
-                'Your ticket "' . $ticket->subject . '" is now ' . ucfirst(str_replace('_', ' ', $ticket->status)) . '.',
+                'Your ticket "'.$ticket->subject.'" is now '.ucfirst(str_replace('_', ' ', $ticket->status)).'.',
                 route('customer.tickets.show', $ticket),
                 'ticket_status',
                 ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
@@ -232,7 +241,9 @@ class AdminTicketController extends Controller
 
         return redirect()
             ->route('admin.tickets.index')
-            ->with('success', $adminAction === 'close' ? 'Ticket closed successfully.' : 'Ticket assignment updated successfully.');
+            ->with('success', $adminAction === 'close'
+                ? 'Ticket closed successfully.'
+                : 'Ticket priority and queue assignment updated successfully.');
     }
 
     public function show(Ticket $ticket)
@@ -250,8 +261,7 @@ class AdminTicketController extends Controller
             ->orderBy('name')
             ->get();
 
-        $scheduleBookings = TechnicianSchedule::calendar();
-        return view('admin.tickets.show', compact('scheduleBookings', 'ticket', 'technicians'));
+        return view('admin.tickets.show', compact('ticket', 'technicians'));
     }
 
     public function approveCancellation(Ticket $ticket)
@@ -276,14 +286,14 @@ class AdminTicketController extends Controller
 
         system_log(
             'Ticket Cancellation Approved',
-            'Ticket ' . $ticket->publicReference() . ' cancellation was approved by ' . auth()->user()->name . '.'
+            'Ticket '.$ticket->publicReference().' cancellation was approved by '.auth()->user()->name.'.'
         );
 
         if ($ticket->user) {
             AppNotificationSender::send(
                 $ticket->user,
                 'Ticket cancellation approved',
-                'Your cancellation request for ticket "' . $ticket->subject . '" was approved.',
+                'Your cancellation request for ticket "'.$ticket->subject.'" was approved.',
                 route('customer.tickets.show', $ticket),
                 'ticket_cancellation_approved',
                 ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
@@ -316,14 +326,14 @@ class AdminTicketController extends Controller
 
         system_log(
             'Ticket Cancellation Rejected',
-            'Ticket ' . $ticket->publicReference() . ' cancellation was rejected by ' . auth()->user()->name . '.'
+            'Ticket '.$ticket->publicReference().' cancellation was rejected by '.auth()->user()->name.'.'
         );
 
         if ($ticket->user) {
             AppNotificationSender::send(
                 $ticket->user,
                 'Ticket cancellation rejected',
-                'Your cancellation request for ticket "' . $ticket->subject . '" was rejected. The ticket remains in progress.',
+                'Your cancellation request for ticket "'.$ticket->subject.'" was rejected. The ticket remains in progress.',
                 route('customer.tickets.show', $ticket),
                 'ticket_cancellation_rejected',
                 ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
@@ -367,14 +377,14 @@ class AdminTicketController extends Controller
 
         system_log(
             'Ticket Status Changed',
-            'Ticket ' . $ticket->publicReference() . ' reopen request was approved and status changed to ' . ucfirst(str_replace('_', ' ', $ticket->status)) . '.'
+            'Ticket '.$ticket->publicReference().' reopen request was approved and status changed to '.ucfirst(str_replace('_', ' ', $ticket->status)).'.'
         );
 
         if ($ticket->user) {
             AppNotificationSender::send(
                 $ticket->user,
                 'Ticket reopen request approved',
-                'Your request to reopen ticket "' . $ticket->subject . '" was approved.',
+                'Your request to reopen ticket "'.$ticket->subject.'" was approved.',
                 route('customer.tickets.show', $ticket),
                 'ticket_reopen_approved',
                 ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],

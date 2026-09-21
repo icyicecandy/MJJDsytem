@@ -449,6 +449,37 @@
                         @error('technician_employment_type')<span class="field-error">{{ $message }}</span>@enderror
                     </div>
 
+                    <div class="technician-create-field">
+                        <label for="technician_shift_start">Shift Start</label>
+                        <input id="technician_shift_start" name="technician_shift_start" type="time" value="{{ old('technician_shift_start', '08:00') }}" required>
+                        @error('technician_shift_start')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="technician-create-field">
+                        <label for="technician_shift_end">Shift End</label>
+                        <input id="technician_shift_end" name="technician_shift_end" type="time" value="{{ old('technician_shift_end', '17:00') }}" required>
+                        @error('technician_shift_end')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="technician-create-field">
+                        <label for="technician_break_start">Break Start <span class="record-muted">(optional)</span></label>
+                        <input id="technician_break_start" name="technician_break_start" type="time" value="{{ old('technician_break_start') }}">
+                        @error('technician_break_start')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="technician-create-field">
+                        <label for="technician_break_end">Break End <span class="record-muted">(optional)</span></label>
+                        <input id="technician_break_end" name="technician_break_end" type="time" value="{{ old('technician_break_end') }}">
+                        @error('technician_break_end')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="technician-create-field">
+                        <label for="technician_max_active_tickets">Maximum Active Tickets</label>
+                        <input id="technician_max_active_tickets" name="technician_max_active_tickets" type="number" min="1" max="20" value="{{ old('technician_max_active_tickets', 5) }}" required>
+                        @error('technician_max_active_tickets')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="technician-create-field">
+                        <label for="technician_unavailable_date">Initial Unavailable Date <span class="record-muted">(optional)</span></label>
+                        <input id="technician_unavailable_date" name="technician_unavailable_dates[]" type="date" value="{{ old('technician_unavailable_dates.0') }}" min="{{ today()->toDateString() }}">
+                        @error('technician_unavailable_dates.*')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+
                     <div class="technician-create-field full">
                         <label>Schedule</label>
                         <div class="technician-schedule-card">

@@ -41,7 +41,7 @@ test('approved applications can be scheduled with assigned_at and installation p
         ->post(route('admin.applications.schedule', $application, false), [
             'technician_id' => $technician->id,
             'installation_date' => '2026-05-01',
-            'installation_time' => '09:00',
+            'installation_time' => '08:00',
         ]);
 
     $response
@@ -105,7 +105,7 @@ test('non approved applications cannot be scheduled', function () {
         ->post(route('admin.applications.schedule', $application, false), [
             'technician_id' => $technician->id,
             'installation_date' => '2026-05-01',
-            'installation_time' => '09:00',
+            'installation_time' => '08:00',
         ]);
 
     $response
@@ -144,7 +144,7 @@ test('scheduled applications cannot be scheduled again and remain locked', funct
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => '2026-05-01',
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => 'scheduled',
     ]);
 
@@ -154,7 +154,7 @@ test('scheduled applications cannot be scheduled again and remain locked', funct
         ->post(route('admin.applications.schedule', $application, false), [
             'technician_id' => $technician->id,
             'installation_date' => '2026-05-02',
-            'installation_time' => '10:00',
+            'installation_time' => '11:00',
         ]);
 
     $response
@@ -169,7 +169,7 @@ test('scheduled applications cannot be scheduled again and remain locked', funct
         ->and($installation->installation_date->format('Y-m-d'))->toBe('2026-05-01');
 });
 
-test('same technician cannot be scheduled twice in the same one hour slot', function () {
+test('same technician cannot be scheduled twice in the same three-hour window', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $customerA = User::factory()->create(['role' => 'customer']);
     $customerB = User::factory()->create(['role' => 'customer']);
@@ -198,7 +198,7 @@ test('same technician cannot be scheduled twice in the same one hour slot', func
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => '2026-04-29',
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => 'scheduled',
     ]);
 
@@ -226,7 +226,7 @@ test('same technician cannot be scheduled twice in the same one hour slot', func
         ->post(route('admin.applications.schedule', $application, false), [
             'technician_id' => $technician->id,
             'installation_date' => '2026-04-29',
-            'installation_time' => '09:00',
+            'installation_time' => '08:00',
         ]);
 
     $response
@@ -237,7 +237,7 @@ test('same technician cannot be scheduled twice in the same one hour slot', func
         ->and($application->refresh()->status)->toBe('approved');
 });
 
-test('same technician can be scheduled on the next one hour slot', function () {
+test('same technician can be scheduled on the next three-hour window', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $customerA = User::factory()->create(['role' => 'customer']);
     $customerB = User::factory()->create(['role' => 'customer']);
@@ -266,7 +266,7 @@ test('same technician can be scheduled on the next one hour slot', function () {
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => '2026-04-29',
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => 'scheduled',
     ]);
 
@@ -294,7 +294,7 @@ test('same technician can be scheduled on the next one hour slot', function () {
         ->post(route('admin.applications.schedule', $application, false), [
             'technician_id' => $technician->id,
             'installation_date' => '2026-04-29',
-            'installation_time' => '10:00',
+            'installation_time' => '11:00',
         ]);
 
     $response
@@ -304,7 +304,7 @@ test('same technician can be scheduled on the next one hour slot', function () {
     $installation = Installation::where('application_id', $application->id)->first();
 
     expect($installation)->not->toBeNull()
-        ->and(\Carbon\Carbon::parse($installation->installation_time)->format('H:i'))->toBe('10:00')
+        ->and(\Carbon\Carbon::parse($installation->installation_time)->format('H:i'))->toBe('11:00')
         ->and($application->refresh()->status)->toBe('scheduled');
 });
 
@@ -312,7 +312,7 @@ test('customer can request installation reschedule with preferred date and time'
     $customer = User::factory()->create(['role' => 'customer']);
     $technician = User::factory()->create(['role' => 'technician']);
     $currentDate = now()->addDays(3)->toDateString();
-    $preferredDate = now()->addDays(5)->toDateString();
+    $preferredDate = now()->addDays(7)->toDateString();
 
     $application = Application::create([
         'user_id' => $customer->id,
@@ -337,7 +337,7 @@ test('customer can request installation reschedule with preferred date and time'
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => $currentDate,
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => Installation::STATUS_SCHEDULED,
     ]);
 
@@ -346,7 +346,7 @@ test('customer can request installation reschedule with preferred date and time'
         ->from(route('customer.application.show', absolute: false))
         ->patch(route('customer.application.reschedule', absolute: false), [
             'reschedule_preferred_date' => $preferredDate,
-            'reschedule_preferred_time' => '10:00',
+            'reschedule_preferred_time' => '11:00',
             'reschedule_reason' => 'Customer will be out of town.',
         ]);
 
@@ -358,7 +358,7 @@ test('customer can request installation reschedule with preferred date and time'
 
     expect($installation->hasPendingCustomerRescheduleRequest())->toBeTrue()
         ->and($installation->reschedule_preferred_date->format('Y-m-d'))->toBe($preferredDate)
-        ->and(Carbon::parse($installation->reschedule_preferred_time)->format('H:i'))->toBe('10:00')
+        ->and(Carbon::parse($installation->reschedule_preferred_time)->format('H:i'))->toBe('11:00')
         ->and($installation->reschedule_request_reason)->toBe('Customer will be out of town.')
         ->and($installation->installation_date->format('Y-m-d'))->toBe($currentDate)
         ->and($installation->status)->toBe(Installation::STATUS_SCHEDULED);
@@ -368,8 +368,8 @@ test('customer reschedule page only lists dates with available technician slots'
     $customer = User::factory()->create(['role' => 'customer']);
     $technician = User::factory()->create(['role' => 'technician']);
     $currentDate = now()->addDays(3)->toDateString();
-    $fullDate = now()->addDays(5)->toDateString();
-    $freeDate = now()->addDays(6)->toDateString();
+    $fullDate = now()->addDays(7)->toDateString();
+    $freeDate = now()->addDays(8)->toDateString();
 
     $application = Application::create([
         'user_id' => $customer->id,
@@ -394,18 +394,18 @@ test('customer reschedule page only lists dates with available technician slots'
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => $currentDate,
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => Installation::STATUS_SCHEDULED,
     ]);
 
     foreach (Installation::AVAILABLE_TIME_SLOTS as $index => $timeSlot) {
         $blockedApplication = Application::create([
             'user_id' => User::factory()->create(['role' => 'customer'])->id,
-            'reference_no' => 'APP-2026-0311-B' . $index,
+            'reference_no' => 'APP-2026-0311-B'.$index,
             'first_name' => 'Blocked',
             'last_name' => 'Slot',
-            'email' => 'blocked311' . $index . '@example.com',
-            'mobile_number' => '0917311' . str_pad((string) $index, 4, '0', STR_PAD_LEFT),
+            'email' => 'blocked311'.$index.'@example.com',
+            'mobile_number' => '0917311'.str_pad((string) $index, 4, '0', STR_PAD_LEFT),
             'region' => 'Ilocos Region',
             'province' => 'Pangasinan',
             'municipality' => 'Bayambang',
@@ -440,7 +440,7 @@ test('customer cannot request reschedule for a taken technician slot', function 
     $otherCustomer = User::factory()->create(['role' => 'customer']);
     $technician = User::factory()->create(['role' => 'technician']);
     $currentDate = now()->addDays(3)->toDateString();
-    $preferredDate = now()->addDays(5)->toDateString();
+    $preferredDate = now()->addDays(7)->toDateString();
 
     $application = Application::create([
         'user_id' => $customer->id,
@@ -483,7 +483,7 @@ test('customer cannot request reschedule for a taken technician slot', function 
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => $currentDate,
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => Installation::STATUS_SCHEDULED,
     ]);
 
@@ -492,7 +492,7 @@ test('customer cannot request reschedule for a taken technician slot', function 
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => $preferredDate,
-        'installation_time' => '10:00',
+        'installation_time' => '11:00',
         'status' => Installation::STATUS_SCHEDULED,
     ]);
 
@@ -501,7 +501,7 @@ test('customer cannot request reschedule for a taken technician slot', function 
         ->from(route('customer.application.show', absolute: false))
         ->patch(route('customer.application.reschedule', absolute: false), [
             'reschedule_preferred_date' => $preferredDate,
-            'reschedule_preferred_time' => '10:00',
+            'reschedule_preferred_time' => '11:00',
             'reschedule_reason' => 'Customer wants this unavailable slot.',
         ])
         ->assertRedirect(route('customer.application.show', absolute: false))
@@ -514,7 +514,7 @@ test('admin approves customer reschedule request and updates installation schedu
     $admin = User::factory()->create(['role' => 'admin']);
     $customer = User::factory()->create(['role' => 'customer']);
     $technician = User::factory()->create(['role' => 'technician']);
-    $newDate = now()->addDays(6)->toDateString();
+    $newDate = now()->addDays(8)->toDateString();
 
     $application = Application::create([
         'user_id' => $customer->id,
@@ -539,11 +539,11 @@ test('admin approves customer reschedule request and updates installation schedu
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => now()->addDays(3)->toDateString(),
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => Installation::STATUS_SCHEDULED,
         'reschedule_requested_at' => now(),
         'reschedule_preferred_date' => $newDate,
-        'reschedule_preferred_time' => '10:00',
+        'reschedule_preferred_time' => '11:00',
         'reschedule_request_reason' => 'Customer requested a morning visit.',
     ]);
 
@@ -555,7 +555,7 @@ test('admin approves customer reschedule request and updates installation schedu
             'decision' => 'approve',
             'technician_id' => $technician->id,
             'installation_date' => $newDate,
-            'installation_time' => '10:00',
+            'installation_time' => '11:00',
         ]);
 
     $response
@@ -565,7 +565,7 @@ test('admin approves customer reschedule request and updates installation schedu
     $installation->refresh();
 
     expect($installation->installation_date->format('Y-m-d'))->toBe($newDate)
-        ->and(Carbon::parse($installation->installation_time)->format('H:i'))->toBe('10:00')
+        ->and(Carbon::parse($installation->installation_time)->format('H:i'))->toBe('11:00')
         ->and($installation->reschedule_reviewed_at)->not->toBeNull()
         ->and($installation->reschedule_rejection_reason)->toBeNull()
         ->and($application->refresh()->status)->toBe(Application::STATUS_SCHEDULED)
@@ -601,11 +601,11 @@ test('admin rejection of customer reschedule request requires and stores reason'
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => $currentDate,
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => Installation::STATUS_SCHEDULED,
         'reschedule_requested_at' => now(),
         'reschedule_preferred_date' => now()->addDays(5)->toDateString(),
-        'reschedule_preferred_time' => '10:00',
+        'reschedule_preferred_time' => '11:00',
         'reschedule_request_reason' => 'Customer requested a different day.',
     ]);
 
@@ -672,7 +672,7 @@ test('different technician can use the same time slot on the same date', functio
         'technician_id' => $technicianA->id,
         'assigned_at' => now(),
         'installation_date' => '2026-04-29',
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => 'scheduled',
     ]);
 
@@ -700,7 +700,7 @@ test('different technician can use the same time slot on the same date', functio
         ->post(route('admin.applications.schedule', $application, false), [
             'technician_id' => $technicianB->id,
             'installation_date' => '2026-04-29',
-            'installation_time' => '09:00',
+            'installation_time' => '08:00',
         ]);
 
     $response
@@ -741,7 +741,7 @@ test('assigned technician can start an installation and move it to in progress',
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => '2026-05-02',
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => 'scheduled',
     ]);
 
@@ -794,7 +794,7 @@ test('assigned technician can complete an in-progress installation', function ()
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => '2026-05-03',
-        'installation_time' => '10:00',
+        'installation_time' => '11:00',
         'status' => 'in_progress',
     ]);
 
@@ -958,7 +958,7 @@ test('only the assigned technician can update installation workflow status', fun
         'technician_id' => $assignedTechnician->id,
         'assigned_at' => now(),
         'installation_date' => '2026-05-05',
-        'installation_time' => '13:00',
+        'installation_time' => '14:00',
         'status' => 'scheduled',
     ]);
 
@@ -1000,7 +1000,7 @@ test('admin can reassign a scheduled installation without changing scheduled sta
         'technician_id' => $oldTechnician->id,
         'assigned_at' => now(),
         'installation_date' => now()->addDays(3)->format('Y-m-d'),
-        'installation_time' => '09:00',
+        'installation_time' => '08:00',
         'status' => 'scheduled',
     ]);
 
@@ -1050,7 +1050,7 @@ test('scheduled customer cancellation requires admin approval', function () {
         'technician_id' => $technician->id,
         'assigned_at' => now(),
         'installation_date' => now()->addDays(3)->format('Y-m-d'),
-        'installation_time' => '10:00',
+        'installation_time' => '11:00',
         'status' => 'scheduled',
     ]);
 
@@ -1143,13 +1143,71 @@ test('technician can mark reschedule required and admin can reschedule', functio
             'customer_reschedule_reason' => 'Appointment moved at the customer request.',
             'technician_id' => $technician->id,
             'installation_date' => now()->addDays(4)->format('Y-m-d'),
-            'installation_time' => '13:00',
+            'installation_time' => '14:00',
         ])
         ->assertRedirect(route('admin.applications.show', $application, false))
         ->assertSessionHasNoErrors();
 
     expect($installation->refresh()->status)->toBe('scheduled')
-        ->and(\Carbon\Carbon::parse($installation->installation_time)->format('H:i'))->toBe('13:00')
+        ->and(\Carbon\Carbon::parse($installation->installation_time)->format('H:i'))->toBe('14:00')
         ->and($application->refresh()->status)->toBe('scheduled')
         ->and(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%Installation rescheduled by admin%')->exists())->toBeTrue();
+});
+
+
+test('in progress stop work request blocks completion and rejection restores exact state', function () {
+    Storage::fake('public');
+    $admin = User::factory()->create(['role' => 'admin']);
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = User::factory()->create(['role' => 'technician']);
+    $application = Application::create([
+        'user_id' => $customer->id,
+        'reference_no' => 'APP-STOP-WORK-1',
+        'first_name' => 'Ana',
+        'last_name' => 'Muñoz-Santos',
+        'email' => 'ana.stop@example.test',
+        'mobile_number' => '09170009991',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'plan_code' => 'S2S_50',
+        'status' => Application::STATUS_SCHEDULED,
+    ]);
+    $installation = Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $technician->id,
+        'assigned_at' => now(),
+        'installation_date' => today()->toDateString(),
+        'installation_time' => '08:00',
+        'status' => Installation::STATUS_IN_PROGRESS,
+    ]);
+
+    $this->actingAs($customer)->patch(route('customer.application.cancel'), [
+        'cancellation_reason' => 'Please stop work while I confirm the property approval.',
+    ])->assertSessionHasNoErrors();
+
+    expect($application->refresh()->status)->toBe(Application::STATUS_CANCELLATION_REQUESTED)
+        ->and($application->cancellation_previous_status)->toBe(Application::STATUS_SCHEDULED)
+        ->and($installation->refresh()->status)->toBe(Installation::STATUS_IN_PROGRESS)
+        ->and($installation->cancellation_previous_status)->toBe(Installation::STATUS_IN_PROGRESS)
+        ->and($installation->hasPendingStopWorkRequest())->toBeTrue();
+
+    $this->actingAs($technician)->patch(route('technician.installations.stop-work-notes', $installation), [
+        'stop_work_technician_notes' => 'Work paused before mounting the router.',
+    ])->assertSessionHasNoErrors();
+
+    $this->actingAs($technician)->post(route('technician.installations.complete', $installation), [
+        'technician_remarks' => 'Should remain blocked.',
+    ])->assertSessionHasErrors('status');
+
+    $this->actingAs($admin)->patch(route('admin.applications.cancellation', $application), [
+        'decision' => 'reject',
+        'cancellation_notes' => 'Property owner confirmed approval.',
+    ])->assertSessionHasNoErrors();
+
+    expect($application->refresh()->status)->toBe(Application::STATUS_SCHEDULED)
+        ->and($installation->refresh()->status)->toBe(Installation::STATUS_IN_PROGRESS)
+        ->and($installation->stop_work_technician_notes)->toBe('Work paused before mounting the router.')
+        ->and($installation->stop_work_reviewed_by)->toBe($admin->id)
+        ->and($installation->stop_work_reviewed_at)->not->toBeNull()
+        ->and($installation->stop_work_admin_notes)->toBe('Property owner confirmed approval.');
 });

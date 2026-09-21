@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Services\TicketAssignmentService;
 use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\PublicUpload;
@@ -71,7 +72,7 @@ class TicketController extends Controller
     private function storeWithinTransaction(Request $request)
     {
         $request->validate([
-            'subject' => 'required|in:' . implode(',', Ticket::subjectKeys()),
+            'subject' => 'required|in:'.implode(',', Ticket::subjectKeys()),
             'description' => 'required|string',
             'ticket_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'ticket_photos' => ['nullable', 'array', 'max:5'],
@@ -79,6 +80,8 @@ class TicketController extends Controller
         ]);
 
         $subjectKey = $request->subject;
+        $urgency = Ticket::resolveUrgencyForSubject($subjectKey);
+        $requiresAdminTriage = Ticket::subjectRequiresAdminTriage($subjectKey);
         $photoPaths = PublicUpload::storeFiles(
             PublicUpload::flattenFiles($request->file('ticket_photos', []), $request->file('ticket_photo')),
             'ticket-attachments'
@@ -89,16 +92,28 @@ class TicketController extends Controller
             'user_id' => Auth::id(),
             'subject' => Ticket::resolveSubjectLabel($subjectKey),
             'description' => $request->description,
-            'status' => Ticket::STATUS_OPEN,
-            'urgency' => Ticket::resolveUrgencyForSubject($subjectKey),
+            'status' => Ticket::STATUS_QUEUED,
+            'urgency' => $urgency ?: Ticket::URGENCY_MEDIUM,
+            'urgency_review_required' => $requiresAdminTriage,
+            'response_due_at' => $requiresAdminTriage
+                ? null
+                : Ticket::responseDueAtForUrgency($urgency),
             'photo_path' => $photoPath,
             'photo_paths' => $photoPaths,
         ]);
 
+        if (! $requiresAdminTriage) {
+            app(TicketAssignmentService::class)->assign($ticket, Auth::id());
+            $ticket->refresh();
+        }
+
         AppNotificationSender::sendToRole(
             'admin',
             'New support ticket submitted',
-            Auth::user()->name . ' opened ticket "' . $ticket->subject . '".',
+            Auth::user()->name.' opened ticket "'.$ticket->subject.'". '
+                .($requiresAdminTriage
+                    ? 'Urgency review is required before assignment.'
+                    : ($ticket->technician ? 'Automatically assigned to '.$ticket->technician->name.'.' : 'Waiting for an eligible on-shift technician.')),
             route('admin.tickets.show', $ticket),
             'ticket_submitted',
             [
@@ -110,12 +125,12 @@ class TicketController extends Controller
 
         system_log(
             'Ticket Created',
-            'Ticket ' . $ticket->publicReference() . ' was created by ' . Auth::user()->name . '.'
+            'Ticket '.$ticket->publicReference().' was created by '.Auth::user()->name.'.'
         );
 
         return redirect()
             ->route('customer.tickets.index')
-            ->with('success', 'Support ticket submitted successfully. Your tracking number is ' . $ticket->publicReference() . '.');
+            ->with('success', 'Support ticket submitted successfully. Your tracking number is '.$ticket->publicReference().'.');
     }
 
     public function show(Ticket $ticket)
@@ -186,7 +201,7 @@ class TicketController extends Controller
 
         system_log(
             'Ticket Cancelled',
-            'Ticket ' . $ticket->publicReference() . ' was cancelled by ' . Auth::user()->name . '.'
+            'Ticket '.$ticket->publicReference().' was cancelled by '.Auth::user()->name.'.'
         );
 
         return back()->with('success', 'Ticket cancelled.');
@@ -216,7 +231,7 @@ class TicketController extends Controller
         AppNotificationSender::sendToRole(
             'admin',
             'Ticket cancellation requested',
-            Auth::user()->name . ' requested cancellation for ticket "' . $ticket->subject . '".',
+            Auth::user()->name.' requested cancellation for ticket "'.$ticket->subject.'".',
             route('admin.tickets.show', $ticket),
             'ticket_cancellation_requested',
             ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference()],
@@ -225,7 +240,7 @@ class TicketController extends Controller
 
         system_log(
             'Ticket Cancellation Requested',
-            'Ticket ' . $ticket->publicReference() . ' cancellation was requested by ' . Auth::user()->name . '.'
+            'Ticket '.$ticket->publicReference().' cancellation was requested by '.Auth::user()->name.'.'
         );
 
         return back()->with('success', 'Cancellation request sent for admin review.');
@@ -256,7 +271,7 @@ class TicketController extends Controller
 
         system_log(
             'Ticket Closed',
-            'Ticket ' . $ticket->publicReference() . ' was closed by ' . Auth::user()->name . '.'
+            'Ticket '.$ticket->publicReference().' was closed by '.Auth::user()->name.'.'
         );
 
         return back()->with('success', 'Ticket closed.');
@@ -297,13 +312,13 @@ class TicketController extends Controller
 
         $ticket->messages()->create([
             'user_id' => Auth::id(),
-            'message' => 'Ticket reopened by customer and returned to the queue for a new appointment. Reason: ' . $validated['reason'],
+            'message' => 'Ticket reopened by customer and returned to the queue for a new appointment. Reason: '.$validated['reason'],
         ]);
 
         AppNotificationSender::sendToRole(
             'admin',
             'Ticket reopened by customer',
-            Auth::user()->name . ' reopened ticket "' . $ticket->subject . '".',
+            Auth::user()->name.' reopened ticket "'.$ticket->subject.'".',
             route('admin.tickets.show', $ticket),
             'ticket_reopened',
             ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
@@ -312,7 +327,7 @@ class TicketController extends Controller
 
         system_log(
             'Ticket Reopened',
-            'Ticket ' . $ticket->publicReference() . ' was reopened by ' . Auth::user()->name . '.'
+            'Ticket '.$ticket->publicReference().' was reopened by '.Auth::user()->name.'.'
         );
 
         return back()->with('success', 'Ticket reopened.');

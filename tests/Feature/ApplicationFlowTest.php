@@ -176,13 +176,16 @@ test('cancelled customer application can be submitted again with the same detail
         ->assertRedirect();
 
     $application->refresh();
+    $latestApplication = $user->refresh()->application;
 
-    expect(Application::where('user_id', $user->id)->count())->toBe(1)
+    expect(Application::where('user_id', $user->id)->count())->toBe(2)
         ->and($application->id)->toBe($originalId)
-        ->and($application->status)->toBe(Application::STATUS_SUBMITTED)
-        ->and($application->cancellation_reason)->toBeNull()
-        ->and($application->email)->toBe('jane@example.com')
-        ->and($application->mobile_number)->toBe('09154123872');
+        ->and($application->status)->toBe(Application::STATUS_CANCELLED)
+        ->and($application->cancellation_reason)->toBe('I need to correct my application details.')
+        ->and($latestApplication->id)->not->toBe($originalId)
+        ->and($latestApplication->status)->toBe(Application::STATUS_SUBMITTED)
+        ->and($latestApplication->email)->toBe('jane@example.com')
+        ->and($latestApplication->mobile_number)->toBe('09154123872');
 });
 
 test('admin can see customer cancellation reason on a cancelled application', function () {
@@ -290,7 +293,7 @@ test('rejected applications cannot be scheduled', function () {
         ->post(route('admin.applications.schedule', $application, false), [
             'technician_id' => $technician->id,
             'installation_date' => '2026-04-10',
-            'installation_time' => '09:00',
+            'installation_time' => '08:00',
         ]);
 
     $response
@@ -344,4 +347,44 @@ test('approved applications cannot be rejected afterward', function () {
         ->assertSessionHasErrors('status');
 
     expect($application->refresh()->status)->toBe('approved');
+});
+
+
+test('application names accept unicode letters punctuation and activated customers may reapply', function () {
+    Storage::fake('local');
+    $user = User::factory()->create(['role' => 'customer']);
+    $area = firstServiceArea();
+    Application::create([
+        'user_id' => $user->id,
+        'reference_no' => 'APP-ACTIVATED-HISTORY',
+        'first_name' => 'Ana María',
+        'last_name' => 'Muñoz-Santos',
+        'email' => 'ana@example.test',
+        'mobile_number' => '09170009992',
+        'region' => $area['region'],
+        'province' => $area['province'],
+        'municipality' => $area['municipality'],
+        'barangay' => $area['barangay'],
+        'plan_code' => 'S2S_50',
+        'status' => Application::STATUS_ACTIVATED,
+    ]);
+
+    $this->actingAs($user)->post(route('customer.apply.store'), [
+        'first_name' => 'Ana María',
+        'last_name' => "Muñoz-Santos Jr.",
+        'email' => 'ana@example.test',
+        'mobile_number' => '09170009992',
+        'region' => $area['region'],
+        'province' => $area['province'],
+        'municipality' => $area['municipality'],
+        'barangay' => $area['barangay'],
+        'lat' => 16.2,
+        'lng' => 121.0,
+        'plan_code' => 'S2S_100',
+        'id_selfie_image' => UploadedFile::fake()->image('holding.png'),
+    ])->assertSessionHasNoErrors();
+
+    expect($user->applications()->count())->toBe(2)
+        ->and($user->refresh()->application->status)->toBe(Application::STATUS_SUBMITTED)
+        ->and($user->application->last_name)->toBe('Muñoz-Santos Jr.');
 });

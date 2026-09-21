@@ -21,12 +21,13 @@ function overdueFixture(): array
     ]);
     $job = Installation::create([
         'application_id' => $application->id, 'technician_id' => $tech->id,
-        'installation_date' => today()->toDateString(), 'installation_time' => '09:00', 'status' => 'scheduled',
+        'installation_date' => today()->toDateString(), 'installation_time' => '08:00', 'status' => 'scheduled',
     ]);
     $ticket = Ticket::create([
         'user_id' => $customer->id, 'technician_id' => $tech->id, 'subject' => 'Repair', 'description' => 'Repair',
-        'appointment_date' => today()->toDateString(), 'appointment_time' => '10:00', 'status' => 'in_progress', 'urgency' => 'high',
+        'status' => 'in_progress', 'urgency' => 'high', 'response_due_at' => now()->subHour(),
     ]);
+
     return [$admin, $tech, $customer, $application, $job, $ticket];
 }
 
@@ -50,7 +51,8 @@ test('overdue alerts reach each active admin and only the assigned technician wi
         ->and([$job->fresh()->getAttributes(), $ticket->fresh()->getAttributes()])->toBe($before);
     foreach ([$admin, $secondAdmin, $tech] as $user) {
         foreach (AppNotification::where('user_id', $user->id)->get() as $notice) {
-            expect($notice->message)->toContain(config('app.timezone'), 'remains unfinished');
+            expect($notice->message)->toContain(config('app.timezone'))
+                ->and($notice->message)->toMatch('/remains (unfinished|unresolved)/');
             $this->actingAs($user)->get($notice->url)->assertOk();
         }
         $this->actingAs($user)->get(route('notifications.index'))->assertOk()->assertSee('Installation overdue')->assertSee('Ticket overdue');
@@ -62,12 +64,29 @@ test('overdue alerts reach each active admin and only the assigned technician wi
 test('appointments become overdue at slot end but not during or before their slot', function () {
     [, , , , $job, $ticket] = overdueFixture();
     $ticket->update(['status' => 'resolved']);
-    $this->travelTo(now()->setTime(8, 59, 59));
+    $this->travelTo(now()->setTime(7, 59, 59));
     expect(app(OverdueTaskAlerts::class)->run())->toBe(0);
-    $this->travelTo(now()->setTime(9, 59, 59));
+    $this->travelTo(now()->setTime(10, 59, 59));
     expect(app(OverdueTaskAlerts::class)->run())->toBe(0);
-    $this->travelTo(now()->setTime(10, 0, 0));
+    $this->travelTo(now()->setTime(11, 0, 0));
     expect(app(OverdueTaskAlerts::class)->run())->toBe(2);
+});
+
+test('ticket response deadlines trigger overdue alerts without appointment fields', function () {
+    [$admin, $tech, , , $job, $ticket] = overdueFixture();
+    $job->update(['status' => 'completed']);
+    $ticket->update([
+        'appointment_date' => null,
+        'appointment_time' => null,
+        'response_due_at' => now()->subMinute(),
+    ]);
+
+    expect(app(OverdueTaskAlerts::class)->run())->toBe(2)
+        ->and(AppNotification::where('user_id', $admin->id)->where('type', 'task_overdue')->count())->toBe(1)
+        ->and(AppNotification::where('user_id', $tech->id)->where('type', 'task_overdue')->count())->toBe(1);
+
+    $notice = AppNotification::where('user_id', $admin->id)->sole();
+    expect($notice->message)->toContain('response target', 'remains unresolved');
 });
 
 test('repeated checks and reading or deleting notifications never repeat the same appointment alert', function () {
@@ -109,7 +128,7 @@ test('pending customer cancellation or rescheduling pauses installation overdue 
 test('missing appointment dates and times do not invent deadlines', function () {
     [, , , , $job, $ticket] = overdueFixture();
     $job->update(['installation_time' => null]);
-    $ticket->update(['appointment_date' => null, 'appointment_time' => null]);
+    $ticket->update(['appointment_date' => null, 'appointment_time' => null, 'response_due_at' => null]);
     expect(app(OverdueTaskAlerts::class)->run())->toBe(0);
 });
 
@@ -126,7 +145,7 @@ test('rescheduling replaces the deadline and alerts again only when the new slot
     $alerts = app(OverdueTaskAlerts::class);
     expect($alerts->run())->toBe(4);
     $job->update(['installation_date' => today()->addDay()->toDateString()]);
-    $ticket->update(['appointment_date' => today()->addDay()->toDateString()]);
+    $ticket->update(['response_due_at' => now()->addDay()]);
     expect($alerts->run())->toBe(0);
     $this->travelTo(now()->addDay());
     expect($alerts->run())->toBe(4)->and($alerts->run())->toBe(0);
@@ -147,7 +166,9 @@ test('reassignment alerts the new technician and does not send another notice to
 test('a delivery failure rolls back the marker so the next check can retry', function () {
     overdueFixture();
     $event = 'eloquent.creating: '.AppNotification::class;
-    Event::listen($event, function () { throw new RuntimeException('Simulated notification write failure'); });
+    Event::listen($event, function () {
+        throw new RuntimeException('Simulated notification write failure');
+    });
     try {
         expect(fn () => app(OverdueTaskAlerts::class)->run())->toThrow(RuntimeException::class);
     } finally {

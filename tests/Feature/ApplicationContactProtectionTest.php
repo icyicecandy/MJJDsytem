@@ -75,7 +75,10 @@ test('owner may reapply using equivalent contact formats on their existing recor
     $this->post(route('customer.apply.store'), contactPayload(['mobile_number' => '+639171234567']) + [
         'id_selfie_image' => UploadedFile::fake()->image('holding.png'),
     ])->assertSessionHasNoErrors();
-    expect(Application::count())->toBe(1)->and($application->fresh()->status)->toBe('submitted');
+    expect(Application::count())->toBe(2)
+        ->and($application->fresh()->status)->toBe($status)
+        ->and($application->user->refresh()->application->status)->toBe('submitted')
+        ->and($application->user->application->id)->not->toBe($application->id);
 })->with(['rejected', 'cancelled']);
 
 test('malformed contact values are rejected instead of silently changing identity', function ($email, $phone, $field) {

@@ -560,7 +560,7 @@
             default => 'workflow-badge--scheduled',
         };
         $scheduledDateLabel = $installation->installation_date?->format('F d, Y') ?? 'Date to be confirmed';
-        $scheduledTimeLabel = $installation->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('h:i A') : 'Time to be confirmed';
+        $scheduledTimeLabel = $installation->installation_time ? \App\Models\Installation::slotLabel(\Carbon\Carbon::parse($installation->installation_time)->format('H:i')) : 'Time to be confirmed';
         $scheduledAtLabel = $scheduledDateLabel . ' - ' . $scheduledTimeLabel;
         $completedAtLabel = $installation->completed_at?->displayDateTime('F d, Y h:i A') ?? 'Not completed yet';
         $activationDateLabel = $installation->activation_date?->format('F d, Y') ?? 'Not activated yet';
@@ -595,7 +595,9 @@
                 </div>
             </div>
             <div class="workflow-header-actions">
-                @if($installation->status === 'scheduled')
+                @if($application?->status === \App\Models\Application::STATUS_CANCELLATION_REQUESTED)
+                    <button type="button" class="btn danger" disabled>Work Paused</button>
+                @elseif($installation->status === 'scheduled')
                     <form method="POST" action="{{ route('technician.installations.status', $installation->id) }}">
                         @csrf
                         @method('PATCH')
@@ -618,6 +620,22 @@
                 <a href="{{ route('technician.installations.index') }}" class="btn secondary">Back</a>
             </div>
         </section>
+
+        @if($application?->status === \App\Models\Application::STATUS_CANCELLATION_REQUESTED)
+            <section class="workflow-card application-alert-card is-danger">
+                <div class="workflow-card-head"><div><h2>Stop Work / Cancellation Request</h2><p>Do not complete or activate this job until the administrator decides the customer request.</p></div></div>
+                <p><strong>Customer reason:</strong> {{ $application->cancellation_reason ?: 'No reason recorded.' }}</p>
+                <form method="POST" action="{{ route('technician.installations.stop-work-notes', $installation) }}" class="apply-form-grid">
+                    @csrf @method('PATCH')
+                    <div class="apply-field full-span">
+                        <label for="stop_work_technician_notes">Technician notes for admin</label>
+                        <textarea id="stop_work_technician_notes" name="stop_work_technician_notes" rows="4" maxlength="1000" required>{{ old('stop_work_technician_notes', $installation->stop_work_technician_notes) }}</textarea>
+                        @error('stop_work_technician_notes')<span class="error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="form-actions full-span"><button type="submit" class="btn secondary">Save Stop Work Notes</button></div>
+                </form>
+            </section>
+        @endif
 
         @if($errors->any())
             <section class="workflow-errors">

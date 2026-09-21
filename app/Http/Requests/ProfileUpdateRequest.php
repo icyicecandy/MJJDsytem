@@ -17,7 +17,7 @@ class ProfileUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'min:2', 'max:255', 'regex:/^[A-Za-z][A-Za-z\s\'-]*$/'],
+            'name' => ['required', 'string', 'min:2', 'max:255', 'regex:/^[\p{L}][\p{L}\p{M}\s\'.-]*$/u'],
             'username' => [
                 'required',
                 'string',
@@ -39,7 +39,7 @@ class ProfileUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.regex' => 'Full name may only contain letters, spaces, hyphens, and apostrophes.',
+            'name.regex' => 'Full name may contain letters, spaces, apostrophes, periods, and hyphens.',
             'username.unique' => 'That username is already taken. Please choose another one.',
             'username.regex' => 'Username may only contain lowercase letters, numbers, dots, hyphens, or underscores.',
             'phone.regex' => 'Enter a valid phone number with 10 to 15 digits.',

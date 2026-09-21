@@ -23,20 +23,30 @@
             @csrf
             @method('put')
 
-            <div class="profile-field">
-                <label for="update_password_current_password">Current password <span class="field-badge {{ $canSetInitialPassword ? '' : 'required' }}">{{ $canSetInitialPassword ? 'Not required' : 'Required' }}</span></label>
-                <input id="update_password_current_password" name="current_password" type="password" autocomplete="current-password" {{ $canSetInitialPassword ? '' : 'required' }}>
-                @if($canSetInitialPassword)
-                    <p class="field-help">You signed up with Google, so you can set your first password without entering a current password.</p>
-                @endif
-                @error('current_password', 'updatePassword')
-                    <p class="field-error">{{ $message }}</p>
-                @enderror
-            </div>
+            @unless($canSetInitialPassword)
+                <div class="profile-field">
+                    <label for="update_password_current_password">Current password <span class="field-badge required">Required</span></label>
+                    <div class="profile-password-control">
+                        <input id="update_password_current_password" name="current_password" type="password" autocomplete="current-password" required>
+                        <button type="button" class="show-password profile-password-toggle" data-target="update_password_current_password" aria-label="Show password" title="Show password">Show</button>
+                    </div>
+                    @error('current_password', 'updatePassword')
+                        <p class="field-error">{{ $message }}</p>
+                    @enderror
+                </div>
+            @else
+                <div class="application-alert-card">
+                    <strong>Set your first password</strong>
+                    <p>Your Google account has no current MJJD password, so only the new password is required.</p>
+                </div>
+            @endunless
 
             <div class="profile-field">
                 <label for="update_password_password">New password <span class="field-badge required">Required</span></label>
-                <input id="update_password_password" name="password" type="password" autocomplete="new-password" required minlength="8" data-password-input>
+                <div class="profile-password-control">
+                    <input id="update_password_password" name="password" type="password" autocomplete="new-password" required minlength="8" data-password-input>
+                    <button type="button" class="show-password profile-password-toggle" data-target="update_password_password" aria-label="Show password" title="Show password">Show</button>
+                </div>
                 <div class="field-meta-row password-meta-row">
                     <p class="field-help">Use at least 8 characters with uppercase and lowercase letters, a number, and a symbol.</p>
                     <span class="password-strength" data-password-strength>Too weak</span>
@@ -48,7 +58,10 @@
 
             <div class="profile-field">
                 <label for="update_password_password_confirmation">Confirm new password <span class="field-badge required">Required</span></label>
-                <input id="update_password_password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" required data-password-confirm>
+                <div class="profile-password-control">
+                    <input id="update_password_password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" required data-password-confirm>
+                    <button type="button" class="show-password profile-password-toggle" data-target="update_password_password_confirmation" aria-label="Show password" title="Show password">Show</button>
+                </div>
                 <p class="field-help" data-password-match>Re-enter the new password exactly.</p>
             </div>
 

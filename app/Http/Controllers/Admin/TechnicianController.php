@@ -108,18 +108,25 @@ class TechnicianController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:100', "regex:/^[A-Za-z][A-Za-z\\s'\\-]*$/"],
-            'last_name' => ['required', 'string', 'max:100', "regex:/^[A-Za-z][A-Za-z\\s'\\-]*$/"],
+            'first_name' => ['required', 'string', 'max:100', 'regex:/^[\p{L}][\p{L}\p{M}\s\'.-]*$/u'],
+            'last_name' => ['required', 'string', 'max:100', 'regex:/^[\p{L}][\p{L}\p{M}\s\'.-]*$/u'],
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
             'phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
             'address' => ['required', 'string', 'max:255'],
             'technician_employment_type' => ['required', Rule::in(array_keys(User::technicianEmploymentTypeOptions()))],
             'part_time_days' => ['required_if:technician_employment_type,part_time', 'array', 'min:1', 'max:3'],
             'part_time_days.*' => ['string', 'distinct', Rule::in(array_keys(User::technicianWorkDayOptions()))],
+            'technician_shift_start' => ['nullable', 'date_format:H:i'],
+            'technician_shift_end' => ['nullable', 'date_format:H:i', 'after:technician_shift_start'],
+            'technician_break_start' => ['nullable', 'date_format:H:i', 'required_with:technician_break_end'],
+            'technician_break_end' => ['nullable', 'date_format:H:i', 'required_with:technician_break_start', 'after:technician_break_start'],
+            'technician_unavailable_dates' => ['nullable', 'array'],
+            'technician_unavailable_dates.*' => ['nullable', 'date_format:Y-m-d', 'distinct'],
+            'technician_max_active_tickets' => ['nullable', 'integer', 'min:1', 'max:20'],
             'temporary_password' => ['required', 'string', 'min:12', 'max:64'],
         ], [
-            'first_name.regex' => 'First name may only contain letters, spaces, hyphens, and apostrophes.',
-            'last_name.regex' => 'Last name may only contain letters, spaces, hyphens, and apostrophes.',
+            'first_name.regex' => 'First name may contain letters, spaces, apostrophes, periods, and hyphens.',
+            'last_name.regex' => 'Last name may contain letters, spaces, apostrophes, periods, and hyphens.',
             'phone.regex' => 'Enter a valid contact number with 10 to 15 digits.',
             'part_time_days.required_if' => 'Select at least one part-time work day.',
             'part_time_days.min' => 'Select at least one part-time work day.',
@@ -131,11 +138,21 @@ class TechnicianController extends Controller
             : User::TECHNICIAN_STANDARD_SHIFT;
 
         $technician = User::create([
-            'name' => trim($validated['first_name'] . ' ' . $validated['last_name']),
+            'name' => trim($validated['first_name'].' '.$validated['last_name']),
             'email' => $validated['email'],
             'phone' => $validated['phone'],
             'address' => $validated['address'],
             'technician_shift' => $technicianShift,
+            'technician_shift_start' => $validated['technician_shift_start'] ?? '08:00',
+            'technician_shift_end' => $validated['technician_shift_end'] ?? '17:00',
+            'technician_break_start' => $validated['technician_break_start'] ?? null,
+            'technician_break_end' => $validated['technician_break_end'] ?? null,
+            'technician_work_days' => $validated['technician_employment_type'] === 'part_time'
+                ? array_values($validated['part_time_days'])
+                : array_keys(User::technicianWorkDayOptions()),
+            'technician_unavailable_dates' => array_values(array_filter($validated['technician_unavailable_dates'] ?? [])),
+            'technician_max_active_tickets' => $validated['technician_max_active_tickets']
+                ?? config('ticket-routing.max_active_tickets_per_technician', 5),
             'technician_employment_type' => $validated['technician_employment_type'],
             'technician_status' => 'available',
             'role' => 'technician',
@@ -164,9 +181,53 @@ class TechnicianController extends Controller
 
         return redirect()
             ->route('admin.technicians.show', $technician)
-            ->with('success', 'Technician account created. Temporary key: ' . $validated['temporary_password'] . ($keyEmailSent
-                ? ' Account key email sent to ' . $technician->email . '.'
+            ->with('success', 'Technician account created. Temporary key: '.$validated['temporary_password'].($keyEmailSent
+                ? ' Account key email sent to '.$technician->email.'.'
                 : ' Account key email could not be sent. Share this key manually.'));
+    }
+
+
+    public function updateSchedule(Request $request, User $technician): RedirectResponse
+    {
+        abort_unless($technician->isTechnician(), 404);
+
+        $validated = $request->validate([
+            'technician_work_days' => ['required', 'array', 'min:1', 'max:5'],
+            'technician_work_days.*' => ['string', 'distinct', Rule::in(array_keys(User::technicianWorkDayOptions()))],
+            'technician_shift_start' => ['required', 'date_format:H:i'],
+            'technician_shift_end' => ['required', 'date_format:H:i', 'after:technician_shift_start'],
+            'technician_break_start' => ['nullable', 'date_format:H:i', 'required_with:technician_break_end'],
+            'technician_break_end' => ['nullable', 'date_format:H:i', 'required_with:technician_break_start', 'after:technician_break_start'],
+            'technician_unavailable_dates' => ['nullable', 'array'],
+            'technician_unavailable_dates.*' => ['nullable', 'date_format:Y-m-d', 'distinct'],
+            'technician_status' => ['required', Rule::in(['available', 'off_duty', 'on_leave'])],
+            'technician_max_active_tickets' => ['required', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        if (filled($validated['technician_break_start'] ?? null)
+            && ($validated['technician_break_start'] < $validated['technician_shift_start']
+                || $validated['technician_break_end'] > $validated['technician_shift_end'])) {
+            return back()->withErrors([
+                'technician_break_start' => 'The break period must be inside the technician shift.',
+            ])->withInput();
+        }
+
+        $days = array_values($validated['technician_work_days']);
+        $technician->forceFill([
+            'technician_work_days' => $days,
+            'technician_shift_start' => $validated['technician_shift_start'],
+            'technician_shift_end' => $validated['technician_shift_end'],
+            'technician_break_start' => $validated['technician_break_start'] ?? null,
+            'technician_break_end' => $validated['technician_break_end'] ?? null,
+            'technician_unavailable_dates' => array_values(array_filter($validated['technician_unavailable_dates'] ?? [])),
+            'technician_max_active_tickets' => $validated['technician_max_active_tickets'],
+            'technician_status' => $validated['technician_status'],
+            'technician_shift' => User::TECHNICIAN_WORKING_HOURS.', '.collect($days)
+                ->map(fn (string $day) => User::TECHNICIAN_WORK_DAYS[$day])
+                ->implode(' / '),
+        ])->save();
+
+        return back()->with('success', 'Technician schedule and workload settings updated.');
     }
 
     public function disableAccount(Request $request, User $technician): RedirectResponse

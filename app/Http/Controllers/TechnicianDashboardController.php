@@ -159,6 +159,44 @@ class TechnicianDashboardController extends Controller
         return back()->with('success', 'Installation started successfully.');
     }
 
+    public function addStopWorkNotes(Request $request, Installation $installation)
+    {
+        return WorkflowTransaction::installation($installation, function (Installation $installation) use ($request) {
+            abort_if($installation->technician_id !== auth()->id(), 403);
+
+            if (! $installation->hasPendingStopWorkRequest()
+                || $installation->application?->status !== Application::STATUS_CANCELLATION_REQUESTED) {
+                return back()->withErrors(['stop_work_notes' => 'There is no pending Stop Work request for this installation.']);
+            }
+
+            $validated = $request->validate([
+                'stop_work_technician_notes' => ['required', 'string', 'max:1000'],
+            ]);
+
+            $installation->update([
+                'stop_work_technician_notes' => trim($validated['stop_work_technician_notes']),
+            ]);
+
+            InstallationLog::create([
+                'installation_id' => $installation->id,
+                'user_id' => auth()->id(),
+                'notes' => 'Technician Stop Work notes: '.trim($validated['stop_work_technician_notes']),
+            ]);
+
+            AppNotificationSender::sendToRole(
+                'admin',
+                'Technician added Stop Work notes',
+                $installation->displayJobReference().' now has technician notes for the pending cancellation review.',
+                route('admin.applications.show', $installation->application),
+                'installation_stop_work_notes',
+                ['application_id' => $installation->application_id, 'installation_id' => $installation->id],
+                auth()->id()
+            );
+
+            return back()->with('success', 'Stop Work notes saved for admin review.');
+        });
+    }
+
     public function complete(Request $request, Installation $installation)
     {
         return WorkflowTransaction::installation($installation, function (Installation $installation) use ($request) {
@@ -169,6 +207,13 @@ class TechnicianDashboardController extends Controller
     private function completeWithinTransaction(Request $request, Installation $installation)
     {
         abort_if($installation->technician_id !== auth()->id(), 403);
+
+        if ($installation->application?->status === Application::STATUS_CANCELLATION_REQUESTED
+            || $installation->hasPendingStopWorkRequest()) {
+            return back()->withErrors([
+                'status' => 'Completion is blocked while the Stop Work / Cancellation Request is waiting for admin review.',
+            ]);
+        }
 
         if (! $installation->canTransitionTo('completed')) {
             return back()->withErrors([

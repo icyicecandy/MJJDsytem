@@ -33,10 +33,11 @@ final class ApplicationContact
         return $field === 'email' ? self::email($value) : ltrim(self::phone($value), '+');
     }
 
-    public static function duplicate(string $field, string $value, ?int $ignoreId = null): bool
+    public static function duplicate(string $field, string $value, ?int $ownerUserId = null): bool
     {
         return Application::query()->where($field.'_key', self::key($field, $value))
-            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))->exists();
+            ->when($ownerUserId, fn ($query) => $query->where('user_id', '!=', $ownerUserId))
+            ->exists();
     }
 
     public static function message(string $field): string
@@ -46,10 +47,10 @@ final class ApplicationContact
             : 'This mobile number is already used in another application.';
     }
 
-    public static function uniqueRule(string $field, ?int $ignoreId): Closure
+    public static function uniqueRule(string $field, ?int $ownerUserId): Closure
     {
-        return function (string $attribute, mixed $value, Closure $fail) use ($field, $ignoreId) {
-            if (is_string($value) && self::duplicate($field, $value, $ignoreId)) {
+        return function (string $attribute, mixed $value, Closure $fail) use ($field, $ownerUserId) {
+            if (is_string($value) && self::duplicate($field, $value, $ownerUserId)) {
                 $fail(self::message($field));
             }
         };

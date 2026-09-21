@@ -26,13 +26,11 @@
                 <li class="sidebar-item {{ request()->is('customer/apply*') ? 'active' : '' }}"><a href="{{ route('customer.apply') }}"><span class="nav-icon">{!! $icons['document'] !!}</span><span class="nav-label">Apply</span></a></li>
                 <li class="sidebar-item {{ request()->is('customer/tickets*') ? 'active' : '' }}"><a href="{{ route('customer.tickets.index') }}"><span class="nav-icon">{!! $icons['ticket'] !!}</span><span class="nav-label">Support Tickets</span></a></li>
                 <li class="sidebar-item {{ $chatActive ? 'active' : '' }}"><a href="{{ $chatIndexRoute }}"><span class="nav-icon">{!! $icons['chat'] !!}</span><span class="nav-label">Live Chat</span></a></li>
-                <li class="sidebar-item {{ request()->is('profile*') ? 'active' : '' }}"><a href="{{ route('profile.edit') }}"><span class="nav-icon">{!! $icons['user'] !!}</span><span class="nav-label">Profile</span></a></li>
             @elseif($role === 'technician')
                 <li class="sidebar-item {{ request()->is('technician/dashboard') ? 'active' : '' }}"><a href="{{ route('technician.dashboard') }}"><span class="nav-icon">{!! $icons['dashboard'] !!}</span><span class="nav-label">Dashboard</span></a></li>
                 <li class="sidebar-item {{ request()->is('technician/installations*') ? 'active' : '' }}"><a href="{{ route('technician.installations.index') }}"><span class="nav-icon">{!! $icons['tool'] !!}</span><span class="nav-label">Installations</span></a></li>
                 <li class="sidebar-item {{ request()->is('technician/tickets*') ? 'active' : '' }}"><a href="{{ route('technician.tickets.index') }}"><span class="nav-icon">{!! $icons['ticket'] !!}</span><span class="nav-label">Tickets</span></a></li>
                 <li class="sidebar-item {{ $chatActive ? 'active' : '' }}"><a href="{{ $chatIndexRoute }}"><span class="nav-icon">{!! $icons['chat'] !!}</span><span class="nav-label">Live Chat</span></a></li>
-                <li class="sidebar-item {{ request()->is('profile*') ? 'active' : '' }}"><a href="{{ route('profile.edit') }}"><span class="nav-icon">{!! $icons['user'] !!}</span><span class="nav-label">Profile</span></a></li>
             @elseif($role === 'admin')
                 <li class="sidebar-item {{ request()->is('admin/dashboard') ? 'active' : '' }}"><a href="{{ route('admin.dashboard') }}"><span class="nav-icon">{!! $icons['dashboard'] !!}</span><span class="nav-label">Dashboard</span></a></li>
                 <li class="sidebar-item {{ request()->is('admin/applications*') ? 'active' : '' }}"><a href="{{ route('admin.applications.index') }}"><span class="nav-icon">{!! $icons['document'] !!}</span><span class="nav-label">Applications</span></a></li>
@@ -42,8 +40,32 @@
                 <li class="sidebar-item {{ request()->is('admin/tickets*') ? 'active' : '' }}"><a href="{{ route('admin.tickets.index') }}"><span class="nav-icon">{!! $icons['ticket'] !!}</span><span class="nav-label">Tickets</span></a></li>
                 <li class="sidebar-item {{ request()->is('admin/system-logs*') ? 'active' : '' }}"><a href="{{ route('admin.system-logs.index') }}"><span class="nav-icon">{!! $icons['logs'] !!}</span><span class="nav-label">System Logs</span></a></li>
                 <li class="sidebar-item {{ $chatActive ? 'active' : '' }}"><a href="{{ $chatIndexRoute }}"><span class="nav-icon">{!! $icons['chat'] !!}</span><span class="nav-label">Live Chat</span></a></li>
-                <li class="sidebar-item {{ request()->is('profile*') ? 'active' : '' }}"><a href="{{ route('profile.edit') }}"><span class="nav-icon">{!! $icons['user'] !!}</span><span class="nav-label">Profile</span></a></li>
             @endif
         </ul>
     </nav>
+
+    <div class="sidebar-account">
+        <a href="{{ route('profile.edit') }}" class="sidebar-account__profile {{ request()->is('profile*') ? 'is-active' : '' }}">
+            <span class="sidebar-account__avatar">
+                @if(Auth::user()->avatar_url)
+                    <img src="{{ Auth::user()->avatar_url }}" alt="">
+                @else
+                    {{ Auth::user()->initials }}
+                @endif
+            </span>
+            <span class="sidebar-account__copy">
+                <strong>{{ Auth::user()->name }}</strong>
+                <small>{{ ucfirst(Auth::user()->role) }}</small>
+                <span>Profile settings</span>
+            </span>
+        </a>
+        <form method="POST" action="{{ route('logout') }}" class="sidebar-account__logout">
+            @csrf
+            <button type="submit" aria-label="Log out">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"></path>
+                </svg>
+            </button>
+        </form>
+    </div>
 </aside>

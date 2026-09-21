@@ -39,12 +39,12 @@
             <a href="{{ route('admin.tickets.index', array_filter(['status' => 'unassigned', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'unassigned' ? 'is-active' : '' }}">
                 <span class="ticket-queue-metric__label">Unassigned</span>
                 <strong class="ticket-queue-metric__value">{{ $queueSummary['unassigned'] }}</strong>
-                <span class="ticket-queue-metric__meta">Waiting for admin review or technician assignment</span>
+                <span class="ticket-queue-metric__meta">Waiting for urgency review or an eligible on-shift technician</span>
             </a>
             <a href="{{ route('admin.tickets.index', array_filter(['status' => 'open', 'search' => $search])) }}" class="ticket-queue-metric {{ in_array($selectedStatus, ['open', 'queued'], true) ? 'is-active' : '' }}">
                 <span class="ticket-queue-metric__label">Open</span>
                 <strong class="ticket-queue-metric__value">{{ $queueSummary['open'] }}</strong>
-                <span class="ticket-queue-metric__meta">Assigned tickets waiting for technician work to begin</span>
+                <span class="ticket-queue-metric__meta">Priority-ordered tickets waiting for technician work to begin</span>
             </a>
             <a href="{{ route('admin.tickets.index', array_filter(['status' => 'in_progress', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'in_progress' ? 'is-active' : '' }}">
                 <span class="ticket-queue-metric__label">In Progress</span>
@@ -91,7 +91,7 @@
                         <th>Status</th>
                         <th>Technician</th>
                         <th>Submitted</th>
-                        <th class="mobile-table-only">Schedule</th>
+                        <th class="mobile-table-only">Response Target</th>
                         <th class="col-actions">Action</th>
                     </tr>
                 </thead>
@@ -112,7 +112,7 @@
                         </td>
                         <td>{{ $ticket->created_at->displayDateTime() }}</td>
                         <td class="mobile-table-only">
-                            {{ $ticket->scheduledStartAt()?->displayDateTime('M d, Y h:i A') ?? 'Not scheduled' }}
+                            {{ $ticket->responseTargetLabel() }}
                         </td>
                         <td class="actions-cell">
                             <button
@@ -126,8 +126,8 @@
                                 data-ticket-status="{{ $ticket->displayStatusLabel() }}"
                                 data-ticket-status-value="{{ $ticket->status }}"
                                 data-ticket-urgency="{{ $ticket->displayUrgencyLabel() }}"
-                                data-ticket-appointment-date="{{ $ticket->appointment_date?->format('Y-m-d') }}"
-                                data-ticket-appointment-time="{{ $ticket->scheduledStartAt()?->format('H:i') }}"
+                                data-ticket-urgency-value="{{ $ticket->urgency }}"
+                                data-ticket-triage-required="{{ $ticket->urgency_review_required ? '1' : '0' }}"
                                 data-ticket-technician-id="{{ $ticket->technician_id ?? '' }}"
                                 data-ticket-technician-name="{{ optional($ticket->technician)->name ?? 'Unassigned Queue' }}"
                                 data-ticket-update-url="{{ route('admin.tickets.update', $ticket) }}"
@@ -167,22 +167,29 @@
                 <div class="tracking-meta"><strong>Assigned To</strong><span data-overlay-technician>-</span></div>
             </div>
 
-            <form method="POST" class="admin-ticket-modal__form" data-overlay-assign-form data-ticket-appointment-form>
+            <form method="POST" class="admin-ticket-modal__form" data-overlay-assign-form>
                 @csrf
                 @method('PATCH')
                 <input type="hidden" name="admin_action" value="save">
-                <label for="overlayTechnicianId">Assign Technician</label>
+                <input type="hidden" name="ticket_id" value="" data-overlay-ticket-id>
+                <label for="overlayUrgency">Urgency</label>
+                <select id="overlayUrgency" name="urgency" data-overlay-urgency-select required>
+                    @foreach(\App\Models\Ticket::URGENCY_LEVELS as $urgency)
+                        <option value="{{ $urgency }}">{{ ucfirst($urgency) }}</option>
+                    @endforeach
+                </select>
+                <p class="ticket-sidebar-note" data-overlay-triage-note hidden>This &ldquo;Other&rdquo; concern requires an admin urgency decision before automatic assignment.</p>
+                <label for="overlayTechnicianId">Technician override <span class="field-badge optional">Optional</span></label>
                 <select id="overlayTechnicianId" name="technician_id" class="technician-load-select" data-overlay-technician-select>
-                    <option value="">Unassigned Queue</option>
+                    <option value="">Automatic priority queue</option>
                     @foreach($technicians as $tech)
                         <option value="{{ $tech->id }}">
                             {{ $tech->name }} ({{ $tech->active_ticket_load }} active)
                         </option>
                     @endforeach
                 </select>
-                @include('admin.tickets.appointment-fields', ['appointmentPrefix' => 'overlayAppointment', 'appointmentTicket' => null])
                 <div class="admin-ticket-modal__actions">
-                    <button type="submit" class="btn" data-overlay-assign-submit>Save Assignment</button>
+                    <button type="submit" class="btn" data-overlay-assign-submit>Save Priority & Assignment</button>
                     <a href="#" class="btn secondary" data-overlay-detail-link>Open Full Ticket</a>
                 </div>
             </form>
@@ -212,6 +219,9 @@
         const assignForm = overlay.querySelector('[data-overlay-assign-form]');
         const closeForm = overlay.querySelector('[data-overlay-close-form]');
         const technicianSelect = overlay.querySelector('[data-overlay-technician-select]');
+        const urgencySelect = overlay.querySelector('[data-overlay-urgency-select]');
+        const triageNote = overlay.querySelector('[data-overlay-triage-note]');
+        const ticketIdInput = overlay.querySelector('[data-overlay-ticket-id]');
         const detailLink = overlay.querySelector('[data-overlay-detail-link]');
         const assignSubmit = overlay.querySelector('[data-overlay-assign-submit]');
         const closeTechnicianInput = overlay.querySelector('[data-overlay-close-technician-id]');
@@ -240,10 +250,9 @@
                 option.disabled = true; option.dataset.unavailableTechnician = 'true'; technicianSelect.add(option);
             }
             technicianSelect.value = selectedId;
-            assignForm.querySelector('[name=appointment_ticket_id]').value = button.dataset.ticketId;
-            assignForm.querySelector('[name=appointment_change_reason]').value = '';
-            assignForm.querySelector('[name=appointment_date]').value = button.dataset.ticketAppointmentDate || '';
-            assignForm.querySelector('[name=appointment_time]').value = button.dataset.ticketAppointmentTime || '';
+            ticketIdInput.value = button.dataset.ticketId;
+            urgencySelect.value = button.dataset.ticketUrgencyValue || 'medium';
+            triageNote.hidden = button.dataset.ticketTriageRequired !== '1';
             detailLink.href = button.dataset.ticketShowUrl || '#';
             closeTechnicianInput.value = button.dataset.ticketTechnicianId || '';
 
@@ -254,16 +263,17 @@
             setSummary('status', button.dataset.ticketStatus);
             setSummary('technician', button.dataset.ticketTechnicianName);
 
-            assignSubmit.textContent = button.dataset.ticketTechnicianId ? 'Save Reassignment' : 'Assign Technician';
+            assignSubmit.textContent = button.dataset.ticketTechnicianId
+                ? 'Save Priority & Reassignment'
+                : 'Save Priority & Assignment';
 
             const isReadOnly = button.dataset.ticketStatusValue === 'closed' || button.dataset.ticketStatusValue === 'cancelled';
             const isCancellationRequested = button.dataset.ticketStatusValue === 'cancellation_requested';
             const isResolved = button.dataset.ticketStatusValue === 'resolved';
 
             technicianSelect.disabled = isReadOnly || isCancellationRequested || isResolved;
+            urgencySelect.disabled = isReadOnly || isCancellationRequested || isResolved;
             assignSubmit.hidden = isReadOnly || isCancellationRequested || isResolved;
-            assignForm.dispatchEvent(new Event('appointment:refresh'));
-
             if (isResolved) {
                 closeForm.hidden = false;
                 closeForm.action = button.dataset.ticketUpdateUrl;
@@ -278,15 +288,12 @@
         };
 
         window.addEventListener('load', () => {
-            const previousId = @json(old('appointment_ticket_id'));
+            const previousId = @json(old('ticket_id'));
             const button = Array.from(document.querySelectorAll('[data-ticket-overlay-open]')).find(item => item.dataset.ticketId === String(previousId));
             if (!previousId || !button) return;
             openOverlay(button);
             technicianSelect.value = @json(old('technician_id', ''));
-            assignForm.querySelector('[name=appointment_date]').value = @json(old('appointment_date', ''));
-            assignForm.querySelector('[name=appointment_time]').value = @json(old('appointment_time', ''));
-            assignForm.querySelector('[name=appointment_change_reason]').value = @json(old('appointment_change_reason', ''));
-            assignForm.dispatchEvent(new Event('appointment:refresh'));
+            urgencySelect.value = @json(old('urgency', 'medium'));
         });
 
         const closeOverlay = () => {

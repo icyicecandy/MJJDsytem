@@ -396,7 +396,7 @@
         let latestContactRequest = 0;
         let latestGeocodeRequest = 0;
         let contactCheckPromise = null;
-        const namePattern = /^[A-Za-z][A-Za-z\s'-]*$/;
+        const namePattern = /^[\p{L}][\p{L}\p{M}\s'.-]*$/u;
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const mobileCharactersPattern = /^\+?[0-9]*$/;
         const mobilePattern = /^\+?[0-9]{10,15}$/;
@@ -431,7 +431,7 @@
             }
 
             if (!namePattern.test(value)) {
-                setLiveError(field, errorEl, `${label} may only contain letters, spaces, hyphens, and apostrophes.`);
+                setLiveError(field, errorEl, `${label} may contain letters, spaces, apostrophes, periods, and hyphens.`);
                 return false;
             }
 

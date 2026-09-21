@@ -175,7 +175,7 @@
                     <div class="tracking-meta"><strong>Status</strong><span>{{ $installation->displayStatusLabel() }}</span></div>
                     <div class="tracking-meta"><strong>Assigned At</strong><span>{{ $installation->assigned_at?->format('M d, Y h:i A') ?? 'Not recorded' }}</span></div>
                     <div class="tracking-meta"><strong>Schedule Date</strong><span>{{ $installation->installation_date?->format('M d, Y') ?? 'Not scheduled' }}</span></div>
-                    <div class="tracking-meta"><strong>Schedule Time</strong><span>{{ $installation->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('h:i A') : 'Time to be confirmed' }}</span></div>
+                    <div class="tracking-meta"><strong>Schedule Time</strong><span>{{ $installation->installation_time ? \App\Models\Installation::slotLabel(\Carbon\Carbon::parse($installation->installation_time)->format('H:i')) : 'Time to be confirmed' }}</span></div>
                     <div class="tracking-meta"><strong>Completed At</strong><span>{{ $installation->completed_at?->format('M d, Y h:i A') ?? 'Not completed' }}</span></div>
                     <div class="tracking-meta"><strong>Activation Date</strong><span>{{ $installation->activation_date?->format('M d, Y') ?? 'Not activated' }}</span></div>
                     <div class="tracking-meta"><strong>Remarks</strong><span>{{ $installation->technician_remarks ?: 'No technician remarks recorded' }}</span></div>

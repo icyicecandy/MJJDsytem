@@ -195,7 +195,15 @@
         }
         .admin-app-field {
             display: grid;
+            min-width: 0;
+            align-content: start;
             gap: 0.45rem;
+        }
+        .admin-app-scheduling-form .admin-app-form-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .admin-app-scheduling-form .admin-app-field--full {
+            grid-column: auto;
         }
         .admin-app-field--full {
             grid-column: 1 / -1;
@@ -860,18 +868,6 @@
             'installed' => ['label' => 'Installed', 'description' => 'Job completed'],
             'activated' => ['label' => 'Activated', 'description' => 'Service active'],
         ];
-        $activeScheduleMatrix = ($activeSchedules ?? collect())
-            ->groupBy('technician_id')
-            ->map(fn ($technicianSchedules) => $technicianSchedules
-                ->groupBy(fn ($schedule) => $schedule->scheduledStartAt()?->format('Y-m-d'))
-                ->map(fn ($daySchedules) => $daySchedules
-                    ->map(fn ($schedule) => [
-                        'time' => $schedule->scheduledStartAt()?->format('H:i'),
-                        'status' => $schedule->status,
-                    ])
-                    ->values()
-                )
-            );
         $reviewSummaryRows = [
             'Serviceability' => ucfirst(str_replace('_', ' ', $application->serviceability_status ?? 'pending')),
             'Slot availability' => ucfirst(str_replace('_', ' ', $application->slot_availability_status ?? 'pending')),
@@ -882,7 +878,7 @@
         $technicianName = $installation?->technician?->name ?? 'Not assigned';
         $technicianEmail = $installation?->technician?->email ?? 'Not recorded';
         $scheduleDateLabel = $installation?->installation_date?->format('F d, Y') ?? 'Not scheduled';
-        $scheduleTimeLabel = $installation?->installation_time ? \Carbon\Carbon::parse($installation->installation_time)->format('g:i A') : 'Time not set';
+        $scheduleTimeLabel = $installation?->installation_time ? \App\Models\Installation::slotLabel(\Carbon\Carbon::parse($installation->installation_time)->format('H:i')) : 'Time not set';
         $scheduleLabel = $installation && ($installation->installation_date || $installation->installation_time)
             ? $scheduleDateLabel . ' - ' . $scheduleTimeLabel
             : 'Not scheduled';
@@ -891,7 +887,7 @@
         $selectedRescheduleDate = old('installation_date', $installation?->reschedule_preferred_date?->format('Y-m-d') ?: $selectedInstallationDate);
         $selectedRescheduleTime = old('installation_time', $installation?->reschedule_preferred_time ? \Carbon\Carbon::parse($installation->reschedule_preferred_time)->format('H:i') : $selectedInstallationTime);
         $reschedulePreferredLabel = $installation?->reschedule_preferred_date
-            ? $installation->reschedule_preferred_date->format('F d, Y') . ' - ' . ($installation->reschedule_preferred_time ? \Carbon\Carbon::parse($installation->reschedule_preferred_time)->format('g:i A') : 'Time not set')
+            ? $installation->reschedule_preferred_date->format('F d, Y') . ' - ' . ($installation->reschedule_preferred_time ? \App\Models\Installation::slotLabel(\Carbon\Carbon::parse($installation->reschedule_preferred_time)->format('H:i')) : 'Time not set')
             : 'No preferred schedule recorded';
     @endphp
 
@@ -1229,7 +1225,7 @@
                                 </div>
                             </form>
                         @elseif($isApprovedState)
-                            <form method="POST" action="{{ route('admin.applications.schedule', $application) }}" class="admin-app-form">
+                            <form method="POST" action="{{ route('admin.applications.schedule', $application) }}" class="admin-app-form admin-app-scheduling-form">
                                 @csrf
 
                                 <div class="admin-app-form-grid">
@@ -1251,7 +1247,7 @@
 
                                     <div class="admin-app-field">
                                         <label for="installation_date">Installation date</label>
-                                        <input id="installation_date" type="date" name="installation_date" min="{{ now()->toDateString() }}" value="{{ $selectedInstallationDate }}" required>
+                                        @include('admin.applications.partials.schedule-date-select', ['selectedDate' => $selectedInstallationDate, 'required' => true])
                                         @error('installation_date')
                                             <span class="error">{{ $message }}</span>
                                         @enderror
@@ -1260,9 +1256,9 @@
                                     <div class="admin-app-field">
                                         <label for="installation_time">Installation time</label>
                                         <select id="installation_time" name="installation_time" required>
-                                            <option value="">Select time slot</option>
+                                            <option value="">Select installation time</option>
                                             @foreach($availableTimeSlots as $timeSlot)
-                                                <option value="{{ $timeSlot }}" @selected($selectedInstallationTime === $timeSlot)>{{ \Carbon\Carbon::createFromFormat('H:i', $timeSlot)->format('g:i A') }}</option>
+                                                <option value="{{ $timeSlot }}" @selected($selectedInstallationTime === $timeSlot)>{{ \App\Models\Installation::slotLabel($timeSlot) }}</option>
                                             @endforeach
                                         </select>
                                         @error('installation_time')
@@ -1271,7 +1267,7 @@
                                     </div>
                                 </div>
 
-                                <p class="admin-app-helper" id="installationTimeHint">Choose a technician and date to load available one-hour slots.</p>
+                                <p class="admin-app-helper" id="installationTimeHint">Choose a technician or date to filter the available installation times.</p>
 
                                 @error('schedule')
                                     <span class="error">{{ $message }}</span>
@@ -1282,7 +1278,7 @@
                                 </div>
                             </form>
                         @elseif($hasPendingCustomerRescheduleRequest && $installation)
-                            <form method="POST" action="{{ route('admin.applications.reschedule', $application) }}" class="admin-app-form">
+                            <form method="POST" action="{{ route('admin.applications.reschedule', $application) }}" class="admin-app-form admin-app-scheduling-form">
                                 @csrf
                                 @method('PATCH')
 
@@ -1322,7 +1318,7 @@
 
                                     <div class="admin-app-field">
                                         <label for="installation_date">Installation date</label>
-                                        <input id="installation_date" type="date" name="installation_date" min="{{ now()->toDateString() }}" value="{{ $selectedRescheduleDate }}">
+                                        @include('admin.applications.partials.schedule-date-select', ['selectedDate' => $selectedRescheduleDate, 'required' => false])
                                         @error('installation_date')
                                             <span class="error">{{ $message }}</span>
                                         @enderror
@@ -1331,9 +1327,9 @@
                                     <div class="admin-app-field">
                                         <label for="installation_time">Installation time</label>
                                         <select id="installation_time" name="installation_time">
-                                            <option value="">Select time slot</option>
+                                            <option value="">Select installation time</option>
                                             @foreach($availableTimeSlots as $timeSlot)
-                                                <option value="{{ $timeSlot }}" @selected($selectedRescheduleTime === $timeSlot)>{{ \Carbon\Carbon::createFromFormat('H:i', $timeSlot)->format('g:i A') }}</option>
+                                                <option value="{{ $timeSlot }}" @selected($selectedRescheduleTime === $timeSlot)>{{ \App\Models\Installation::slotLabel($timeSlot) }}</option>
                                             @endforeach
                                         </select>
                                         @error('installation_time')
@@ -1356,7 +1352,7 @@
                                     </div>
                                 </div>
 
-                                <p class="admin-app-helper" id="installationTimeHint">Choose a technician and date to load available one-hour slots.</p>
+                                <p class="admin-app-helper" id="installationTimeHint">Choose a technician or date to filter the available installation times.</p>
 
                                 @error('reschedule')
                                     <span class="error">{{ $message }}</span>
@@ -1377,6 +1373,16 @@
                                         <span class="admin-app-label">Customer cancellation reason</span>
                                         <div class="admin-app-value">{{ $cancellationReason ?: 'No reason recorded.' }}</div>
                                     </div>
+                                    @if($installation)
+                                        <div class="admin-app-detail">
+                                            <span class="admin-app-label">State to restore if rejected</span>
+                                            <div class="admin-app-value">Application: {{ ucfirst(str_replace('_', ' ', $application->cancellation_previous_status ?: 'scheduled')) }}; Installation: {{ ucfirst(str_replace('_', ' ', $installation->cancellation_previous_status ?: 'scheduled')) }}</div>
+                                        </div>
+                                        <div class="admin-app-detail">
+                                            <span class="admin-app-label">Technician Stop Work notes</span>
+                                            <div class="admin-app-value">{{ $installation->stop_work_technician_notes ?: 'The technician has not added notes yet.' }}</div>
+                                        </div>
+                                    @endif
                                 </div>
 
                                 <div class="admin-app-field">
@@ -1392,12 +1398,12 @@
                                 @enderror
 
                                 <div class="admin-app-actions">
-                                    <button type="submit" name="decision" value="approve" class="btn danger">Approve Cancellation</button>
+                                    <button type="submit" name="decision" value="approve" class="btn danger">Approve Stop Work / Cancellation</button>
                                     <button type="submit" name="decision" value="reject" class="btn secondary">Reject Request</button>
                                 </div>
                             </form>
                         @elseif($isRescheduleRequiredState && $installation)
-                            <form method="POST" action="{{ route('admin.installations.reschedule', $installation) }}" class="admin-app-form">
+                            <form method="POST" action="{{ route('admin.installations.reschedule', $installation) }}" class="admin-app-form admin-app-scheduling-form">
                                 @csrf
                                 @method('PATCH')
 
@@ -1419,7 +1425,7 @@
 
                                     <div class="admin-app-field">
                                         <label for="installation_date">Installation date</label>
-                                        <input id="installation_date" type="date" name="installation_date" min="{{ now()->toDateString() }}" value="{{ $selectedInstallationDate }}" required>
+                                        @include('admin.applications.partials.schedule-date-select', ['selectedDate' => $selectedInstallationDate, 'required' => true])
                                         @error('installation_date')
                                             <span class="error">{{ $message }}</span>
                                         @enderror
@@ -1428,9 +1434,9 @@
                                     <div class="admin-app-field">
                                         <label for="installation_time">Installation time</label>
                                         <select id="installation_time" name="installation_time" required>
-                                            <option value="">Select time slot</option>
+                                            <option value="">Select installation time</option>
                                             @foreach($availableTimeSlots as $timeSlot)
-                                                <option value="{{ $timeSlot }}" @selected($selectedInstallationTime === $timeSlot)>{{ \Carbon\Carbon::createFromFormat('H:i', $timeSlot)->format('g:i A') }}</option>
+                                                <option value="{{ $timeSlot }}" @selected($selectedInstallationTime === $timeSlot)>{{ \App\Models\Installation::slotLabel($timeSlot) }}</option>
                                             @endforeach
                                         </select>
                                         @error('installation_time')
@@ -1445,7 +1451,7 @@
                                     </div>
                                 </div>
 
-                                <p class="admin-app-helper" id="installationTimeHint">Choose a technician and date to load available one-hour slots.</p>
+                                <p class="admin-app-helper" id="installationTimeHint">Choose a technician or date to filter the available installation times.</p>
 
                                 @error('reschedule')
                                     <span class="error">{{ $message }}</span>
@@ -1702,99 +1708,130 @@
             const installationTimeSelect = document.getElementById('installation_time');
             const installationTimeHint = document.getElementById('installationTimeHint');
             const schedulingConfig = {
-                today: @json(now()->toDateString()),
-                nowTime: @json(now()->format('H:i')),
-                duration: {{ \App\Models\Installation::SLOT_DURATION_MINUTES }},
-                slots: @json($availableTimeSlots),
-                bookings: @json($activeScheduleMatrix),
+                availability: @json($scheduleAvailability ?? []),
             };
 
-            const timeToMinutes = function (timeValue) {
-                const [hours, minutes] = String(timeValue || '0:0').split(':').map(Number);
-                return (hours * 60) + minutes;
+            const daySlots = function (dateValue) {
+                return schedulingConfig.availability?.[dateValue]?.slots || [];
             };
 
-            const formatSlotLabel = function (timeValue) {
-                const [hours, minutes] = String(timeValue).split(':').map(Number);
-                const period = hours >= 12 ? 'PM' : 'AM';
-                const displayHours = hours % 12 || 12;
-                return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`;
+            const slotFor = function (dateValue, timeValue) {
+                return daySlots(dateValue).find(function (slot) {
+                    return slot.value === timeValue;
+                });
             };
 
-            const slotConflicts = function (slotTime, existingTime) {
-                const newStart = timeToMinutes(slotTime);
-                const newEnd = newStart + schedulingConfig.duration;
-                const existingStart = timeToMinutes(existingTime);
-                const existingEnd = existingStart + schedulingConfig.duration;
-
-                return newStart < existingEnd && newEnd > existingStart;
+            const technicianCanUseSlot = function (slot, technicianId) {
+                return !technicianId || (slot?.technician_ids || []).map(String).includes(String(technicianId));
             };
 
-            const refreshInstallationSlots = function () {
-                if (!installationTimeSelect) {
+            const matchingDateCount = function (technicianId, timeValue) {
+                return Object.entries(schedulingConfig.availability).filter(function ([, dateAvailability]) {
+                    return (dateAvailability.slots || []).some(function (slot) {
+                        return technicianCanUseSlot(slot, technicianId)
+                            && (!timeValue || slot.value === timeValue);
+                    });
+                }).length;
+            };
+
+            const refreshInstallationAvailability = function () {
+                if (!technicianSelect || !installationDateInput || !installationTimeSelect) {
                     return;
                 }
 
-                const technicianId = technicianSelect ? technicianSelect.value : '';
-                const installationDate = installationDateInput ? installationDateInput.value : '';
-                const selectedValue = installationTimeSelect.value;
-                const dayBookings = technicianId && installationDate
-                    ? (schedulingConfig.bookings?.[technicianId]?.[installationDate] || [])
-                    : [];
+                let technicianId = technicianSelect.value;
+                const dateValue = installationDateInput.value;
+                let timeValue = installationTimeSelect.value;
+                const dateAvailability = dateValue
+                    ? schedulingConfig.availability?.[dateValue]
+                    : null;
 
-                let availableCount = 0;
+                let dateError = '';
+                if (dateValue && !dateAvailability) {
+                    dateError = 'Choose an available Monday-Friday date within the next 90 days.';
+                }
 
+                installationDateInput.setCustomValidity(dateError);
+                installationDateInput.setAttribute('aria-invalid', dateError ? 'true' : 'false');
+
+                let availableSlotCount = 0;
                 Array.from(installationTimeSelect.options).forEach(function (option, index) {
                     if (index === 0) {
                         option.hidden = false;
                         option.disabled = false;
-                        option.textContent = 'Select time slot';
+                        option.textContent = 'Select installation time';
                         return;
                     }
 
-                    const slotValue = option.value;
-                    const past = installationDate < schedulingConfig.today
-                        || (installationDate === schedulingConfig.today && slotValue <= schedulingConfig.nowTime);
-                    const blocked = (installationDate && past) || dayBookings.some(function (booking) {
-                        return slotConflicts(slotValue, booking.time);
-                    });
+                    const slot = dateAvailability ? slotFor(dateValue, option.value) : null;
+                    const available = Boolean(slot) && technicianCanUseSlot(slot, technicianId);
+                    option.hidden = !available;
+                    option.disabled = !available;
+                    option.textContent = slot?.label || option.textContent;
 
-                    option.textContent = blocked
-                        ? `${formatSlotLabel(slotValue)} (Unavailable)`
-                        : formatSlotLabel(slotValue);
-                    option.disabled = blocked;
-                    option.hidden = blocked;
-
-                    if (!blocked) {
-                        availableCount += 1;
+                    if (available) {
+                        availableSlotCount += 1;
                     }
                 });
 
-                if (selectedValue) {
-                    const currentOption = Array.from(installationTimeSelect.options).find(function (option) {
-                        return option.value === selectedValue;
-                    });
+                const selectedTimeOption = installationTimeSelect.selectedOptions[0];
+                if (timeValue && selectedTimeOption?.disabled) {
+                    installationTimeSelect.value = '';
+                    timeValue = '';
+                }
 
-                    if (!currentOption || currentOption.disabled) {
-                        installationTimeSelect.value = '';
+                const availableTechnicianIds = new Set();
+                if (dateAvailability) {
+                    daySlots(dateValue)
+                        .filter(function (slot) {
+                            return !timeValue || slot.value === timeValue;
+                        })
+                        .forEach(function (slot) {
+                            (slot.technician_ids || []).forEach(function (id) {
+                                availableTechnicianIds.add(String(id));
+                            });
+                        });
+                }
+
+                Array.from(technicianSelect.options).forEach(function (option, index) {
+                    if (index === 0) {
+                        option.hidden = false;
+                        option.disabled = false;
+                        return;
                     }
+
+                    const available = !dateValue
+                        || (Boolean(dateAvailability) && availableTechnicianIds.has(String(option.value)));
+                    option.hidden = !available;
+                    option.disabled = !available;
+                });
+
+                const selectedTechnicianOption = technicianSelect.selectedOptions[0];
+                if (technicianId && selectedTechnicianOption?.disabled) {
+                    technicianSelect.value = '';
+                    technicianId = '';
+                    refreshInstallationAvailability();
+                    return;
                 }
 
                 if (!installationTimeHint) {
                     return;
                 }
 
-                if (!technicianId || !installationDate) {
-                    installationTimeHint.textContent = 'Choose a technician and date to load available one-hour slots.';
-                    return;
+                const dateCount = matchingDateCount(technicianId, timeValue);
+                if (dateError) {
+                    installationTimeHint.textContent = dateError;
+                } else if (!dateValue) {
+                    installationTimeHint.textContent = dateCount + ' available weekday'
+                        + (dateCount === 1 ? '' : 's')
+                        + ' in the next 90 days. Select one from the calendar.';
+                } else if (availableSlotCount === 0) {
+                    installationTimeHint.textContent = 'No installation times are available for this selection.';
+                } else {
+                    installationTimeHint.textContent = availableSlotCount + ' available installation time'
+                        + (availableSlotCount === 1 ? '' : 's')
+                        + ' for this selection.';
                 }
-
-                if (availableCount === 0) {
-                    installationTimeHint.textContent = 'No available one-hour slots for this technician on the selected date.';
-                    return;
-                }
-
-                installationTimeHint.textContent = `${availableCount} available one-hour slot${availableCount === 1 ? '' : 's'} for this technician on the selected date.`;
             };
 
             initReadonlyMaps();
@@ -1864,9 +1901,10 @@
             }
 
             if (technicianSelect && installationDateInput && installationTimeSelect) {
-                technicianSelect.addEventListener('change', refreshInstallationSlots);
-                installationDateInput.addEventListener('change', refreshInstallationSlots);
-                refreshInstallationSlots();
+                technicianSelect.addEventListener('change', refreshInstallationAvailability);
+                installationDateInput.addEventListener('change', refreshInstallationAvailability);
+                installationTimeSelect.addEventListener('change', refreshInstallationAvailability);
+                refreshInstallationAvailability();
             }
 
             if (decisionForm && rejectionReasonField && rejectionReasonWrap && statusButtons.length) {

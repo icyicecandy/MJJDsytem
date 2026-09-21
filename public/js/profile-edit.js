@@ -8,7 +8,7 @@
     }
 
     function isValidPersonName(value) {
-        return /^[A-Za-z][A-Za-z\s'-]*$/.test(value);
+        return /^[\p{L}][\p{L}\p{M}\s'.-]*$/u.test(value);
     }
 
     function getPasswordStrength(value) {
@@ -126,7 +126,7 @@
                     } else if (value.length < 2) {
                         message = 'Full name must be at least 2 characters.';
                     } else if (!isValidPersonName(value)) {
-                        message = 'Full name may only contain letters, spaces, hyphens, and apostrophes.';
+                        message = 'Full name may contain letters, spaces, apostrophes, periods, and hyphens.';
                     }
                     break;
                 case 'email':

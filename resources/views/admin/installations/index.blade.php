@@ -163,7 +163,7 @@
                             $contactEmail = $application?->email;
                             $scheduleDate = $installation->installation_date?->format('M d, Y');
                             $scheduleTime = $installation->installation_time
-                                ? \Carbon\Carbon::parse($installation->installation_time)->format('h:i A')
+                                ? \App\Models\Installation::slotLabel(\Carbon\Carbon::parse($installation->installation_time)->format('H:i'))
                                 : null;
                             $statusLabel = ucfirst(str_replace('_', ' ', $installation->status));
                         @endphp

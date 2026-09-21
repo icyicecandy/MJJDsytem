@@ -9,11 +9,17 @@ use Illuminate\Database\Eloquent\Model;
 class Installation extends Model
 {
     public const STATUS_SCHEDULED = 'scheduled';
+
     public const STATUS_ASSIGNED = 'assigned';
+
     public const STATUS_IN_PROGRESS = 'in_progress';
+
     public const STATUS_RESCHEDULE_REQUIRED = 'reschedule_required';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_ACTIVATED = 'activated';
+
     public const STATUS_CANCELLED = 'cancelled';
 
     public const ACTIVE_SCHEDULING_STATUSES = [
@@ -32,16 +38,13 @@ class Installation extends Model
 
     public const AVAILABLE_TIME_SLOTS = [
         '08:00',
-        '09:00',
-        '10:00',
         '11:00',
-        '13:00',
         '14:00',
-        '15:00',
-        '16:00',
     ];
 
-    public const SLOT_DURATION_MINUTES = 60;
+    public const SLOT_DURATION_MINUTES = 180;
+
+    public const MAX_DAILY_INSTALLATIONS = 3;
 
     protected $fillable = [
         'application_id',
@@ -50,6 +53,13 @@ class Installation extends Model
         'installation_date',
         'installation_time',
         'status',
+        'cancellation_previous_status',
+        'stop_work_requested_at',
+        'stop_work_reviewed_at',
+        'stop_work_reviewed_by',
+        'stopped_at',
+        'stop_work_technician_notes',
+        'stop_work_admin_notes',
         'completed_at',
         'activation_date',
         'activation_status',
@@ -81,6 +91,9 @@ class Installation extends Model
     {
         return [
             'assigned_at' => 'datetime',
+            'stop_work_requested_at' => 'datetime',
+            'stop_work_reviewed_at' => 'datetime',
+            'stopped_at' => 'datetime',
             'customer_rescheduled_at' => 'datetime',
             'installation_date' => 'date',
             'reschedule_requested_at' => 'datetime',
@@ -100,6 +113,16 @@ class Installation extends Model
     public function technician()
     {
         return $this->belongsTo(\App\Models\User::class, 'technician_id');
+    }
+
+    public function stopWorkReviewer()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'stop_work_reviewed_by');
+    }
+
+    public function hasPendingStopWorkRequest(): bool
+    {
+        return filled($this->stop_work_requested_at) && blank($this->stop_work_reviewed_at);
     }
 
     public function logs()
@@ -148,7 +171,8 @@ class Installation extends Model
 
     public function customerRescheduleMessage(): string
     {
-        return 'Your installation has been rescheduled to '.$this->scheduledStartAt()->format('F d, Y g:i A')
+        return 'Your installation has been rescheduled to '.$this->installation_date?->format('F d, Y')
+            .' at '.self::slotLabel(Carbon::parse($this->installation_time)->format('H:i'))
             .' ('.config('app.timezone').'). Reason: '.$this->customer_reschedule_reason;
     }
 
@@ -174,12 +198,17 @@ class Installation extends Model
             return null;
         }
 
-        return Carbon::parse($this->installation_date->format('Y-m-d') . ' ' . $this->installation_time);
+        return Carbon::parse($this->installation_date->format('Y-m-d').' '.$this->installation_time);
     }
 
     public function scheduledEndAt(): ?Carbon
     {
         return $this->scheduledStartAt()?->copy()->addMinutes(self::SLOT_DURATION_MINUTES);
+    }
+
+    public static function slotLabel(string $time): string
+    {
+        return Carbon::createFromFormat('H:i', $time)->format('g:i A');
     }
 
     public static function activeSchedulingStatuses(): array
@@ -201,7 +230,7 @@ class Installation extends Model
             'Installation Status' => $this->displayStatusLabel(),
             'Assigned At' => $this->assigned_at?->displayDateTime('F d, Y h:i A'),
             'Scheduled Date' => $this->installation_date?->format('F d, Y'),
-            'Scheduled Time' => $this->installation_time ? \Carbon\Carbon::parse($this->installation_time)->format('h:i A') : null,
+            'Scheduled Time' => $this->installation_time ? self::slotLabel(Carbon::parse($this->installation_time)->format('H:i')) : null,
             'Completed At' => $this->completed_at?->displayDateTime('F d, Y h:i A'),
             'Activation Date' => $this->activation_date?->format('F d, Y'),
         ];
@@ -227,7 +256,7 @@ class Installation extends Model
         $installationPhotos = collect(PublicUpload::normalizePaths($this->installation_photo_paths))
             ->when(empty(PublicUpload::normalizePaths($this->installation_photo_paths)) && filled($this->installation_photo_path), fn ($photos) => $photos->push($this->installation_photo_path))
             ->values()
-            ->mapWithKeys(fn ($path, $index) => ['Installation Photo ' . ($index + 1) => $path])
+            ->mapWithKeys(fn ($path, $index) => ['Installation Photo '.($index + 1) => $path])
             ->all();
 
         return $installationPhotos + [

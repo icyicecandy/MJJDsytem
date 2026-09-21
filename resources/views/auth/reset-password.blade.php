@@ -26,12 +26,18 @@
                     </div>
                     <div class="form-group">
                         <label for="password">New Password</label>
-                        <input id="password" type="password" name="password" required autocomplete="new-password">
+                        <div class="password-group">
+                            <input id="password" type="password" name="password" required autocomplete="new-password">
+                            <button type="button" class="show-password" data-target="password" aria-label="Show password" title="Show password">Show</button>
+                        </div>
                         @error('password')<span class="error">{{ $message }}</span>@enderror
                     </div>
                     <div class="form-group">
                         <label for="password_confirmation">Confirm Password</label>
-                        <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password">
+                        <div class="password-group">
+                            <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password">
+                            <button type="button" class="show-password" data-target="password_confirmation" aria-label="Show password" title="Show password">Show</button>
+                        </div>
                         @error('password_confirmation')<span class="error">{{ $message }}</span>@enderror
                     </div>
                     <div class="form-group login-submit-row">

@@ -208,7 +208,7 @@
                                 ])->filter()->implode(', ')
                                 : null;
                             $scheduleTime = $installation->installation_time
-                                ? \Carbon\Carbon::parse($installation->installation_time)->format('h:i A')
+                                ? \App\Models\Installation::slotLabel(\Carbon\Carbon::parse($installation->installation_time)->format('H:i'))
                                 : null;
                             $contactNumber = $application?->mobile_number;
                             $statusLabel = ucfirst(str_replace('_', ' ', $installation->status));

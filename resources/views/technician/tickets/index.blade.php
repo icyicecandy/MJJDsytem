@@ -80,7 +80,7 @@
                             <th>Urgency</th>
                             <th>Status</th>
                             <th>Submitted</th>
-                            <th class="mobile-table-only">Schedule</th>
+                            <th class="mobile-table-only">Response Target</th>
                             <th class="col-actions">Action</th>
                         </tr>
                     </thead>
@@ -96,7 +96,7 @@
                             <td><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></td>
                             <td>{{ $ticket->created_at->displayDateTime() }}</td>
                             <td class="mobile-table-only">
-                                {{ $ticket->scheduledStartAt()?->displayDateTime('M d, Y h:i A') ?? 'Not scheduled' }}
+                                {{ $ticket->responseTargetLabel() }}
                             </td>
                             <td class="actions-cell">
                                 <button

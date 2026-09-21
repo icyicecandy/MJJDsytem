@@ -14,3 +14,5 @@ Artisan::command('applications:prune-drafts', function () {
 Illuminate\Support\Facades\Schedule::command('applications:prune-drafts')->daily()->withoutOverlapping();
 
 Illuminate\Support\Facades\Schedule::command('tasks:alert-overdue')->everyFiveMinutes()->withoutOverlapping(10);
+
+Illuminate\Support\Facades\Schedule::command('tickets:dispatch-queue')->everyFiveMinutes()->withoutOverlapping(10);

@@ -5,9 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Installation;
 use App\Models\InstallationLog;
-use App\Models\User;
-use App\Services\WorkflowTransaction;
 use App\Services\TechnicianSchedule;
+use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -145,18 +144,15 @@ class InstallationController extends Controller
         if (! $installation->scheduledStartAt()) {
             return back()->withErrors(['technician_id' => 'Set a future appointment before reassigning this installation.']);
         }
-        TechnicianSchedule::assertFuture($installation->installation_date->format('Y-m-d'), $installation->installation_time, 'technician_id', 'technician_id');
-
-        if ($installation->installation_date && $installation->installation_time && $this->technicianHasScheduleConflict(
-            technicianId: (int) $technician->id,
-            installationDate: $installation->installation_date->format('Y-m-d'),
-            installationTime: Carbon::parse($installation->installation_time)->format('H:i'),
-            ignoreInstallationId: $installation->id,
-        )) {
-            return back()
-                ->withErrors(['technician_id' => TechnicianSchedule::CONFLICT_MESSAGE])
-                ->withInput();
-        }
+        TechnicianSchedule::assertInstallationAvailable(
+            $technician,
+            $installation->application,
+            $installation->installation_date->format('Y-m-d'),
+            Carbon::parse($installation->installation_time)->format('H:i'),
+            $installation->id,
+            'technician_id',
+            'technician_id'
+        );
 
         $oldTechnicianName = $installation->technician?->name ?? 'Unassigned';
         $reason = trim((string) ($validated['reassignment_reason'] ?? ''));
@@ -171,18 +167,18 @@ class InstallationController extends Controller
         InstallationLog::create([
             'installation_id' => $installation->id,
             'user_id' => auth()->id(),
-            'notes' => 'Technician reassigned due to unavailability. Previous technician: ' . $oldTechnicianName . '. New technician: ' . $technician->name . ($reason !== '' ? '. Reason: ' . $reason : ''),
+            'notes' => 'Technician reassigned due to unavailability. Previous technician: '.$oldTechnicianName.'. New technician: '.$technician->name.($reason !== '' ? '. Reason: '.$reason : ''),
         ]);
 
         system_log(
             'Reassigned Technician',
-            'Reassigned ' . $installation->displayJobReference() . ' from ' . $oldTechnicianName . ' to ' . $technician->name . '.'
+            'Reassigned '.$installation->displayJobReference().' from '.$oldTechnicianName.' to '.$technician->name.'.'
         );
 
         AppNotificationSender::send(
             $technician,
             'Installation reassigned to you',
-            'You were assigned installation ' . $installation->displayJobReference() . '.',
+            'You were assigned installation '.$installation->displayJobReference().'.',
             route('technician.installations.show', $installation),
             'installation_reassigned',
             ['installation_id' => $installation->id, 'application_id' => $installation->application_id],
@@ -228,18 +224,13 @@ class InstallationController extends Controller
 
         $technician = TechnicianSchedule::eligibleTechnician((int) $validated['technician_id']);
 
-        TechnicianSchedule::assertFuture($validated['installation_date'], $validated['installation_time']);
-
-        if ($this->technicianHasScheduleConflict(
-            technicianId: (int) $technician->id,
-            installationDate: $validated['installation_date'],
-            installationTime: $validated['installation_time'],
-            ignoreInstallationId: $installation->id,
-        )) {
-            return back()
-                ->withErrors(['installation_time' => TechnicianSchedule::CONFLICT_MESSAGE])
-                ->withInput();
-        }
+        TechnicianSchedule::assertInstallationAvailable(
+            $technician,
+            $installation->application,
+            $validated['installation_date'],
+            $validated['installation_time'],
+            $installation->id
+        );
 
         $technicianChanged = (int) $installation->technician_id !== (int) $technician->id;
 
@@ -260,18 +251,18 @@ class InstallationController extends Controller
         InstallationLog::create([
             'installation_id' => $installation->id,
             'user_id' => auth()->id(),
-            'notes' => 'Installation rescheduled by admin for ' . $installation->installation_date?->format('F d, Y') . ' at ' . Carbon::parse($installation->installation_time)->format('g:i A') . '. Reason shown to customer: ' . $installation->customer_reschedule_reason,
+            'notes' => 'Installation rescheduled by admin for '.$installation->installation_date?->format('F d, Y').' at '.Carbon::parse($installation->installation_time)->format('g:i A').'. Reason shown to customer: '.$installation->customer_reschedule_reason,
         ]);
 
         system_log(
             'Installation Rescheduled',
-            'Rescheduled ' . $installation->displayJobReference() . ' for ' . $installation->installation_date?->format('M d, Y') . ' at ' . Carbon::parse($installation->installation_time)->format('h:i A') . '.'
+            'Rescheduled '.$installation->displayJobReference().' for '.$installation->installation_date?->format('M d, Y').' at '.Carbon::parse($installation->installation_time)->format('h:i A').'.'
         );
 
         AppNotificationSender::send(
             $technician,
             'Installation rescheduled',
-            'Installation ' . $installation->displayJobReference() . ' has a new schedule.',
+            'Installation '.$installation->displayJobReference().' has a new schedule.',
             route('technician.installations.show', $installation),
             'installation_rescheduled',
             ['installation_id' => $installation->id, 'application_id' => $installation->application_id],
@@ -291,10 +282,5 @@ class InstallationController extends Controller
         }
 
         return back()->with('success', 'Installation rescheduled successfully.');
-    }
-
-    private function technicianHasScheduleConflict(int $technicianId, string $installationDate, string $installationTime, ?int $ignoreInstallationId = null): bool
-    {
-        return TechnicianSchedule::conflicts($technicianId, $installationDate, $installationTime, $ignoreInstallationId);
     }
 }

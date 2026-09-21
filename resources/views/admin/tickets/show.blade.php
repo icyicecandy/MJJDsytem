@@ -160,28 +160,36 @@
                         <dd>{{ $assignedStaff }}</dd>
                     </div>
                     <div>
-                        <dt>Appointment ({{ config('app.timezone') }})</dt>
-                        <dd>{{ $ticket->appointmentLabel() }}</dd>
+                        <dt>Response target ({{ config('app.timezone') }})</dt>
+                        <dd>{{ $ticket->responseTargetLabel() }}</dd>
                     </div>
-                    @if(filled($ticket->appointment_change_reason))
-                        <div>
-                            <dt>Reason for appointment change</dt>
-                            <dd style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ $ticket->appointment_change_reason }}</dd>
-                        </div>
-                    @endif
+                    <div>
+                        <dt>Assignment source</dt>
+                        <dd>{{ $ticket->assignment_source ? ucfirst(str_replace('_', ' ', $ticket->assignment_source)) : 'Waiting in priority queue' }}</dd>
+                    </div>
                 </dl>
             </section>
 
             <section class="ticket-detail-card ticket-sidebar-card">
                 <h2>Assignment</h2>
                 @if(! $isReadOnly && ! $isCancellationRequested && ! $isResolved)
-                    <form method="post" action="{{ route('admin.tickets.update', $ticket) }}" class="ticket-action-form" data-ticket-appointment-form>
+                    <form method="post" action="{{ route('admin.tickets.update', $ticket) }}" class="ticket-action-form">
                         @csrf
                         @method('PATCH')
                         <input type="hidden" name="admin_action" value="save">
-                        <label for="technician_id">Technician</label>
+                        <label for="ticket_urgency">Urgency</label>
+                        <select id="ticket_urgency" name="urgency" required>
+                            @foreach(\App\Models\Ticket::URGENCY_LEVELS as $urgency)
+                                <option value="{{ $urgency }}" @selected(old('urgency', $ticket->urgency) === $urgency)>{{ ucfirst($urgency) }}</option>
+                            @endforeach
+                        </select>
+                        @if($ticket->urgency_review_required)
+                            <p class="ticket-sidebar-note">Admin urgency review is required because the customer selected &ldquo;Other Technical Concern.&rdquo;</p>
+                        @endif
+                        @error('urgency') <span class="error">{{ $message }}</span> @enderror
+                        <label for="technician_id">Technician override <span class="field-badge optional">Optional</span></label>
                         <select id="technician_id" name="technician_id" class="technician-load-select">
-                            <option value="">Unassigned Queue</option>
+                            <option value="">Automatic priority queue</option>
                             @if($ticket->technician_id && ! $technicians->contains('id', $ticket->technician_id))
                                 <option value="{{ $ticket->technician_id }}" selected disabled>Current technician unavailable - choose another</option>
                             @endif
@@ -192,8 +200,7 @@
                             @endforeach
                         </select>
                         @error('technician_id') <span class="error">{{ $message }}</span> @enderror
-                        @include('admin.tickets.appointment-fields', ['appointmentPrefix' => 'ticketAppointment', 'appointmentTicket' => $ticket])
-                        <button class="btn">{{ $ticket->technician_id ? 'Update Assignment' : 'Assign Technician' }}</button>
+                        <button class="btn">Save Priority & Assignment</button>
                     </form>
                 @else
                     <p class="ticket-sidebar-note">Assignment is locked for this ticket status.</p>

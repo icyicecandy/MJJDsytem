@@ -7285,3 +7285,130 @@ body.login-modal-open {
 .admin-ticket-modal .ticket-appointment-fields .ticket-sidebar-note {
     color: rgba(236, 242, 252, 0.82);
 }
+
+
+/* Authenticated account controls live in the sidebar footer. */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+}
+.sidebar-nav {
+    flex: 1 1 auto;
+}
+.sidebar-account {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px;
+    gap: .55rem;
+    align-items: center;
+    margin-top: 1rem;
+    padding: .7rem;
+    border: 1px solid rgba(191, 219, 254, .2);
+    border-radius: 14px;
+    background: rgba(0, 24, 64, .58);
+    backdrop-filter: blur(10px);
+}
+.sidebar-account__profile {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    color: #fff;
+    text-decoration: none;
+}
+.sidebar-account__profile.is-active {
+    color: #ffdc5f;
+}
+.sidebar-account__avatar {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background: #dbeafe;
+    color: #102a71;
+    font-weight: 800;
+}
+.sidebar-account__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.sidebar-account__copy {
+    min-width: 0;
+    display: grid;
+    line-height: 1.2;
+}
+.sidebar-account__copy strong,
+.sidebar-account__copy small,
+.sidebar-account__copy span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sidebar-account__copy strong { font-size: .84rem; }
+.sidebar-account__copy small { color: #bfdbfe; font-size: .7rem; text-transform: uppercase; }
+.sidebar-account__copy span { color: #fde68a; font-size: .72rem; }
+.sidebar-account__logout button {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 11px;
+    background: rgba(255,255,255,.1);
+    color: #fff;
+    cursor: pointer;
+}
+.sidebar-account__logout button:hover,
+.sidebar-account__logout button:focus-visible { background: rgba(239,68,68,.25); outline: 2px solid #fecaca; }
+.sidebar-account__logout svg { width: 20px; height: 20px; }
+
+.profile-password-control {
+    position: relative;
+}
+.profile-password-control input {
+    width: 100%;
+    padding-right: 4.5rem;
+}
+.profile-password-toggle {
+    position: absolute;
+    right: .45rem;
+    top: 50%;
+    transform: translateY(-50%);
+    min-width: 3.4rem;
+    padding: .4rem .55rem;
+    border: 0;
+    border-radius: 8px;
+    background: #e8eefc;
+    color: #102a71;
+    font: inherit;
+    font-size: .78rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+.profile-password-toggle.is-visible::after { content: ''; }
+.validation-toast-stack {
+    position: sticky;
+    top: 84px;
+    z-index: 70;
+}
+.validation-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: .7rem;
+    max-width: 760px;
+}
+.validation-toast-icon {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #b91c1c;
+    color: #fff;
+    font-weight: 900;
+}
+.technician-day-picker{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem}.technician-day-chip{position:relative}.technician-day-chip input{position:absolute;inset:0;opacity:0}.technician-day-chip span{display:flex;justify-content:center;padding:.65rem;border:1px solid #cbd5e1;border-radius:999px;background:#fff;font-weight:800}.technician-day-chip input:checked+span{border-color:#2563eb;background:#dbeafe;color:#1d4ed8}.technician-day-chip input:focus-visible+span{outline:3px solid rgba(37,99,235,.22)}@media(max-width:640px){.technician-day-picker{grid-template-columns:repeat(3,minmax(0,1fr))}}

@@ -161,23 +161,15 @@
                         <dd>{{ $assignedStaff }}</dd>
                     </div>
                     <div>
-                        <dt>Appointment ({{ config('app.timezone') }})</dt>
-                        <dd>{{ $ticket->appointmentLabel() }}</dd>
+                        <dt>Response target ({{ config('app.timezone') }})</dt>
+                        <dd>{{ $ticket->responseTargetLabel() }}</dd>
                     </div>
-                    @if(filled($ticket->appointment_change_reason))
-                        <div>
-                            <dt>Reason for appointment change</dt>
-                            <dd style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ $ticket->appointment_change_reason }}</dd>
-                        </div>
-                    @endif
                 </dl>
             </section>
 
             <section class="ticket-detail-card ticket-sidebar-card">
                 <h2>Work Action</h2>
-                @if($isOpen && ! $ticket->scheduledStartAt())
-                    <p class="ticket-sidebar-note">An admin must set an appointment before you can start this ticket.</p>
-                @elseif($isOpen)
+                @if($isOpen)
                     <form method="POST" action="{{ route('technician.tickets.start', $ticket) }}" class="ticket-action-form">
                         @csrf
                         @method('PATCH')

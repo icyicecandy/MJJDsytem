@@ -7,7 +7,7 @@
     <label for="{{ $appointmentPrefix }}Time">Appointment time</label>
     <select id="{{ $appointmentPrefix }}Time" name="appointment_time">
         <option value="">Select a one-hour slot</option>
-        @foreach(\App\Models\Installation::AVAILABLE_TIME_SLOTS as $slot)
+        @foreach(\App\Models\Ticket::AVAILABLE_TIME_SLOTS as $slot)
             <option value="{{ $slot }}" @selected(old('appointment_time', $appointmentTicket?->scheduledStartAt()?->format('H:i')) === $slot)>
                 {{ \Carbon\Carbon::parse($slot)->format('g:i A') }}
             </option>

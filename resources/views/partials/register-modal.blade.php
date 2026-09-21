@@ -165,7 +165,7 @@
                 const emailError = document.getElementById('registerEmailLiveError');
                 const emailCheckUrl = @json(route('register.email-check'));
                 const hasServerErrors = @json($registerErrors->any());
-                const namePattern = /^[A-Za-z][A-Za-z\s'\-]*$/;
+                const namePattern = /^[\p{L}][\p{L}\p{M}\s'.-]*$/u;
                 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 let emailCheckTimer = null;
                 let latestEmailRequest = 0;
@@ -197,7 +197,7 @@
                     }
 
                     if (!namePattern.test(value)) {
-                        setLiveError(field, errorElement, `${label} may only contain letters, spaces, hyphens, and apostrophes.`);
+                        setLiveError(field, errorElement, `${label} may contain letters, spaces, apostrophes, periods, and hyphens.`);
                         return false;
                     }
 

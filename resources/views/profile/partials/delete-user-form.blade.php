@@ -19,7 +19,10 @@
                     @method('delete')
                     <div class="profile-field">
                         <label for="delete_account_password">Current password <span class="field-badge required">Required</span></label>
-                        <input id="delete_account_password" name="password" type="password" autocomplete="current-password" required>
+                        <div class="profile-password-control">
+                            <input id="delete_account_password" name="password" type="password" autocomplete="current-password" required>
+                            <button type="button" class="show-password profile-password-toggle" data-target="delete_account_password" aria-label="Show password" title="Show password">Show</button>
+                        </div>
                         @error('password', 'userDeletion')
                             <p class="field-error">{{ $message }}</p>
                         @enderror

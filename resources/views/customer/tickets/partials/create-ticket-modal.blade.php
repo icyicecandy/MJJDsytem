@@ -29,6 +29,7 @@
                             <option
                                 value="{{ $key }}"
                                 data-urgency="{{ $option['urgency'] }}"
+                                data-requires-triage="{{ ($option['requires_admin_triage'] ?? false) ? '1' : '0' }}"
                                 {{ old('subject') === $key ? 'selected' : '' }}
                             >
                                 {{ $option['label'] }}
@@ -96,6 +97,12 @@
 
                 const selected = subjectSelect.options[subjectSelect.selectedIndex];
                 const urgency = selected?.dataset?.urgency;
+                const requiresTriage = selected?.dataset?.requiresTriage === '1';
+
+                if (requiresTriage) {
+                    urgencyHint.textContent = 'An administrator will review this concern and set its urgency before assignment.';
+                    return;
+                }
 
                 if (!urgency) {
                     urgencyHint.textContent = 'Urgency will be identified automatically after you choose the ticket subject.';

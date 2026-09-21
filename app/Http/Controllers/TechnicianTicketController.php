@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Services\TicketAssignmentService;
 use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
@@ -23,14 +24,14 @@ class TechnicianTicketController extends Controller
         $ticketsQuery = Ticket::with('user')
             ->assignedTo(Auth::user())
             ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 WHEN status IN ('open', 'queued') THEN 1 ELSE 3 END")
-            ->oldest('created_at');
+            ->priorityOrdered();
 
         if ($search !== '') {
             $ticketsQuery->where(function ($query) use ($search) {
-                $query->where('tracking_number', 'like', '%' . $search . '%')
-                    ->orWhere('subject', 'like', '%' . $search . '%')
+                $query->where('tracking_number', 'like', '%'.$search.'%')
+                    ->orWhere('subject', 'like', '%'.$search.'%')
                     ->orWhereHas('user', function ($userQuery) use ($search) {
-                        $userQuery->where('name', 'like', '%' . $search . '%');
+                        $userQuery->where('name', 'like', '%'.$search.'%');
                     });
             });
         }
@@ -65,11 +66,6 @@ class TechnicianTicketController extends Controller
     {
         abort_unless($ticket->technician_id === Auth::id(), 403);
         abort_unless($ticket->isOpenForWork(), 422, 'Only open tickets can be started.');
-        if (! $ticket->scheduledStartAt()) {
-            return back()->withErrors(['appointment' => 'Ask an admin to schedule this ticket before starting work.']);
-        }
-
-
         $ticket->forceFill(array_merge([
             'status' => Ticket::STATUS_IN_PROGRESS,
         ], $ticket->lifecycleAttributes([
@@ -83,7 +79,7 @@ class TechnicianTicketController extends Controller
 
         system_log(
             'Ticket Status Changed',
-            'Ticket ' . $ticket->publicReference() . ' status changed to In progress by ' . Auth::user()->name . '.'
+            'Ticket '.$ticket->publicReference().' status changed to In progress by '.Auth::user()->name.'.'
         );
 
         return back()->with('success', 'Ticket work started.');
@@ -131,7 +127,7 @@ class TechnicianTicketController extends Controller
 
         $ticket->messages()->create([
             'user_id' => Auth::id(),
-            'message' => 'Technician marked this ticket as resolved. Notes: ' . $validated['resolution_notes'],
+            'message' => 'Technician marked this ticket as resolved. Notes: '.$validated['resolution_notes'],
         ]);
 
         $ticket->refresh();
@@ -140,7 +136,7 @@ class TechnicianTicketController extends Controller
             AppNotificationSender::send(
                 $ticket->user,
                 'Support ticket resolved',
-                'Your ticket "' . $ticket->subject . '" has been marked as resolved.',
+                'Your ticket "'.$ticket->subject.'" has been marked as resolved.',
                 route('customer.tickets.show', $ticket),
                 'ticket_resolved',
                 ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
@@ -153,7 +149,7 @@ class TechnicianTicketController extends Controller
         AppNotificationSender::sendToRole(
             'admin',
             'Ticket resolved by technician',
-            Auth::user()->name . ' resolved ticket "' . $ticket->subject . '".',
+            Auth::user()->name.' resolved ticket "'.$ticket->subject.'".',
             route('admin.tickets.show', $ticket),
             'ticket_resolved_admin',
             ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
@@ -162,8 +158,10 @@ class TechnicianTicketController extends Controller
 
         system_log(
             'Ticket Resolved',
-            'Ticket ' . $ticket->publicReference() . ' was resolved by ' . Auth::user()->name . '.'
+            'Ticket '.$ticket->publicReference().' was resolved by '.Auth::user()->name.'.'
         );
+
+        app(TicketAssignmentService::class)->dispatchQueued(1);
 
         return redirect()
             ->route('technician.tickets.index')

@@ -541,6 +541,23 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        const validationSummary = document.querySelector('[data-validation-summary]');
+        if (validationSummary) {
+            const firstError = document.querySelector('.field-error, .error, [aria-invalid="true"]');
+            let firstField = firstError?.matches?.('input, select, textarea, button') ? firstError : null;
+            if (!firstField && firstError) {
+                const container = firstError.closest('.apply-field, .profile-field, .technician-create-field, .form-group');
+                firstField = container?.querySelector('input:not([type="hidden"]), select, textarea, button');
+            }
+            if (firstField) {
+                firstField.setAttribute('aria-invalid', 'true');
+                window.setTimeout(() => {
+                    firstField.focus({ preventScroll: true });
+                    firstField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 120);
+            }
+        }
+
         const sidebar = document.getElementById('sidebar');
         const toggle = document.getElementById('sidebarToggle');
         const hamburger = document.querySelector('.hamburger');

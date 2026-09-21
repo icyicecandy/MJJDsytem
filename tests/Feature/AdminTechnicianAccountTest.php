@@ -164,6 +164,9 @@ test('admin can create a technician account with a generated key', function () {
         ->and($technician->phone)->toBe('09171234567')
         ->and($technician->address)->toBe('Nibalew Sur, Bautista, Pangasinan')
         ->and($technician->technician_shift)->toBe(User::TECHNICIAN_STANDARD_SHIFT)
+        ->and($technician->technicianShiftStart())->toBe('08:00')
+        ->and($technician->technicianShiftEnd())->toBe('17:00')
+        ->and($technician->technicianWorkDays())->toBe(['mon', 'tue', 'wed', 'thu', 'fri'])
         ->and($technician->technician_employment_type)->toBe('full_time')
         ->and($technician->technician_status)->toBe('available')
         ->and(Hash::check($temporaryPassword, $technician->password))->toBeTrue();
@@ -201,7 +204,10 @@ test('admin can create a part time technician with selected work days', function
 
     expect($technician)->not->toBeNull()
         ->and($technician->technician_employment_type)->toBe('part_time')
-        ->and($technician->technician_shift)->toBe('8:00 AM - 5:00 PM, Mon / Wed / Fri');
+        ->and($technician->technician_shift)->toBe('8:00 AM - 5:00 PM, Mon / Wed / Fri')
+        ->and($technician->technicianShiftStart())->toBe('08:00')
+        ->and($technician->technicianShiftEnd())->toBe('17:00')
+        ->and($technician->technicianWorkDays())->toBe(['mon', 'wed', 'fri']);
 
     $response
         ->assertRedirect(route('admin.technicians.show', $technician, false))

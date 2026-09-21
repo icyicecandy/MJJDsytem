@@ -2,27 +2,29 @@
 
 namespace App\Models;
 
-use App\Models\AppNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
     public const TECHNICIAN_STANDARD_SHIFT = '8:00 AM - 5:00 PM, Mon - Fri';
+
     public const TECHNICIAN_WORKING_HOURS = '8:00 AM - 5:00 PM';
+
     public const TECHNICIAN_SHIFT_OPTIONS = [
         '8:00 AM - 5:00 PM, Mon - Fri' => '8:00 AM - 5:00 PM, Mon - Fri',
         '9:00 AM - 6:00 PM, Mon - Fri' => '9:00 AM - 6:00 PM, Mon - Fri',
         '10:00 AM - 7:00 PM, Mon - Fri' => '10:00 AM - 7:00 PM, Mon - Fri',
         'Rotating / On-call' => 'Rotating / On-call',
     ];
+
     public const TECHNICIAN_WORK_DAYS = [
         'mon' => 'Mon',
         'tue' => 'Tue',
@@ -30,12 +32,16 @@ class User extends Authenticatable
         'thu' => 'Thu',
         'fri' => 'Fri',
     ];
+
     public const TECHNICIAN_EMPLOYMENT_TYPES = [
         'full_time' => 'Full Time',
         'part_time' => 'Part Time',
     ];
+
     public const DISABLED_ACCOUNT_MESSAGE = 'This account has been disabled. Please contact an administrator.';
+
     public const CUSTOMER_ID_PREFIX = 'CUS';
+
     public const TECHNICIAN_ID_PREFIX = 'TECH';
 
     protected $fillable = [
@@ -50,6 +56,13 @@ class User extends Authenticatable
         'phone_verified_at',
         'address',
         'technician_shift',
+        'technician_shift_start',
+        'technician_shift_end',
+        'technician_break_start',
+        'technician_break_end',
+        'technician_work_days',
+        'technician_unavailable_dates',
+        'technician_max_active_tickets',
         'technician_employment_type',
         'technician_status',
         'date_of_birth',
@@ -127,6 +140,9 @@ class User extends Authenticatable
             'last_seen' => 'datetime',
             'is_online' => 'boolean',
             'chat_available' => 'boolean',
+            'technician_work_days' => 'array',
+            'technician_unavailable_dates' => 'array',
+            'technician_max_active_tickets' => 'integer',
             'email_notifications' => 'boolean',
             'push_notifications' => 'boolean',
             'sms_notifications' => 'boolean',
@@ -169,12 +185,12 @@ class User extends Authenticatable
 
     public function application()
     {
-        return $this->hasOne(\App\Models\Application::class);
+        return $this->hasOne(\App\Models\Application::class)->latestOfMany();
     }
 
     public function applications()
     {
-        return $this->application();
+        return $this->hasMany(\App\Models\Application::class);
     }
 
     public function latestApplication()
@@ -246,6 +262,84 @@ class User extends Authenticatable
         return $this->technician_shift ?: self::TECHNICIAN_STANDARD_SHIFT;
     }
 
+    public function technicianWorkDays(): array
+    {
+        $storedDays = collect($this->technician_work_days ?? [])
+            ->filter(fn ($day) => is_string($day) && array_key_exists($day, self::TECHNICIAN_WORK_DAYS))
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($storedDays !== []) {
+            return $storedDays;
+        }
+
+        if ($this->technician_employment_type === 'part_time' && filled($this->technician_shift)) {
+            $dayLabels = collect(self::TECHNICIAN_WORK_DAYS)->flip();
+            $scheduleDays = str_contains($this->technician_shift, ',')
+                ? trim(substr($this->technician_shift, strpos($this->technician_shift, ',') + 1))
+                : '';
+
+            $parsedDays = collect(preg_split('/\s*\/\s*/', $scheduleDays, -1, PREG_SPLIT_NO_EMPTY))
+                ->map(fn (string $label) => $dayLabels->get(trim($label)))
+                ->filter()
+                ->values()
+                ->all();
+
+            if ($parsedDays !== []) {
+                return $parsedDays;
+            }
+        }
+
+        return array_keys(self::TECHNICIAN_WORK_DAYS);
+    }
+
+    public function technicianShiftStart(): string
+    {
+        return $this->technician_shift_start
+            ? \Carbon\Carbon::parse($this->technician_shift_start)->format('H:i')
+            : '08:00';
+    }
+
+    public function technicianShiftEnd(): string
+    {
+        return $this->technician_shift_end
+            ? \Carbon\Carbon::parse($this->technician_shift_end)->format('H:i')
+            : '17:00';
+    }
+
+    public function worksOnDate(\Carbon\CarbonInterface|string $date): bool
+    {
+        $calendarDate = \Carbon\Carbon::parse($date);
+        $dayKey = strtolower($calendarDate->format('D'));
+        $unavailableDates = collect($this->technician_unavailable_dates ?? [])
+            ->filter(fn ($value) => is_string($value))
+            ->map(fn (string $value) => \Carbon\Carbon::parse($value)->toDateString());
+
+        return in_array($dayKey, $this->technicianWorkDays(), true)
+            && ! $unavailableDates->contains($calendarDate->toDateString());
+    }
+
+    public function technicianBreakStart(): ?string
+    {
+        return $this->technician_break_start
+            ? \Carbon\Carbon::parse($this->technician_break_start)->format('H:i')
+            : null;
+    }
+
+    public function technicianBreakEnd(): ?string
+    {
+        return $this->technician_break_end
+            ? \Carbon\Carbon::parse($this->technician_break_end)->format('H:i')
+            : null;
+    }
+
+    public function maximumActiveTicketWorkload(): int
+    {
+        return max(1, (int) ($this->technician_max_active_tickets
+            ?: config('ticket-routing.max_active_tickets_per_technician', 5)));
+    }
+
     public function displayTechnicianEmploymentType(): string
     {
         return self::TECHNICIAN_EMPLOYMENT_TYPES[$this->technician_employment_type] ?? 'Not set';
@@ -274,7 +368,7 @@ class User extends Authenticatable
             ->values()
             ->implode(' / ');
 
-        return self::TECHNICIAN_WORKING_HOURS . ', ' . $labels;
+        return self::TECHNICIAN_WORKING_HOURS.', '.$labels;
     }
 
     public function ticketMessages()

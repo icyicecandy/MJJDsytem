@@ -40,8 +40,8 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validator = Validator::make($request->all(), [
-            'first_name' => ['required', 'string', 'max:255', "regex:/^[A-Za-z][A-Za-z\\s'\\-]*$/"],
-            'last_name' => ['required', 'string', 'max:255', "regex:/^[A-Za-z][A-Za-z\\s'\\-]*$/"],
+            'first_name' => ['required', 'string', 'max:255', 'regex:/^[\p{L}][\p{L}\p{M}\s\'.-]*$/u'],
+            'last_name' => ['required', 'string', 'max:255', 'regex:/^[\p{L}][\p{L}\p{M}\s\'.-]*$/u'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'agreed_to_terms' => ['accepted'],
@@ -49,8 +49,8 @@ class RegisteredUserController extends Controller
             'terms_version' => ['nullable', 'string', 'max:50'],
             'privacy_version' => ['nullable', 'string', 'max:50'],
         ], [
-            'first_name.regex' => 'First name may only contain letters, spaces, hyphens, and apostrophes.',
-            'last_name.regex' => 'Last name may only contain letters, spaces, hyphens, and apostrophes.',
+            'first_name.regex' => 'First name may contain letters, spaces, apostrophes, periods, and hyphens.',
+            'last_name.regex' => 'Last name may contain letters, spaces, apostrophes, periods, and hyphens.',
             'email.unique' => 'This email address is already registered. Please sign in instead.',
             'agreed_to_terms.accepted' => config('legal.validation_message'),
             'agreed_to_privacy.accepted' => config('legal.validation_message'),

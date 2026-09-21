@@ -21,7 +21,8 @@ function reasonFixture(): array
         'installation_date' => now()->subDay()->toDateString(), 'installation_time' => '09:00',
         'status' => 'scheduled', 'technician_remarks' => 'Private staff-only note',
     ]);
-    $payload = ['technician_id' => $tech->id, 'installation_date' => now()->addDays(3)->toDateString(), 'installation_time' => '10:00'];
+    $payload = ['technician_id' => $tech->id, 'installation_date' => now()->addDays(3)->toDateString(), 'installation_time' => '11:00'];
+
     return [$admin, $tech, $customer, $application, $job, $payload];
 }
 
@@ -40,7 +41,7 @@ test('admin reschedule saves the public reason notifies the customer and escapes
         ->assertSessionHasNoErrors();
     expect($job->fresh()->customer_reschedule_reason)->toBe($reason)->and($job->fresh()->customer_rescheduled_at)->not->toBeNull();
     $notification = AppNotification::where('user_id', $customer->id)->where('type', 'installation_rescheduled_customer')->sole();
-    expect($notification->message)->toContain($reason, '10:00 AM')->not->toContain('Private staff-only note');
+    expect($notification->message)->toContain($reason, '11:00 AM')->not->toContain('Private staff-only note');
     $this->actingAs($customer)->get(route('customer.application.show'))->assertOk()->assertSee('Reason for the latest reschedule')
         ->assertSee($reason)->assertDontSee('<script>alert(1)</script>', false)->assertDontSee('Private staff-only note');
     $other = User::factory()->create(['role' => 'customer']);
@@ -62,26 +63,59 @@ test('customer-request approval includes the reviewed reason and rejection does 
 test('conflicting reschedule preserves the previous explanation and sends no notification', function () {
     [$admin, $tech, $customer, , $job, $payload] = reasonFixture();
     $job->update(['customer_reschedule_reason' => 'Previous explanation']);
-    Ticket::create(['user_id' => $customer->id, 'technician_id' => $tech->id, 'subject' => 'Repair', 'description' => 'Repair',
-        'status' => 'open', 'urgency' => 'high', 'appointment_date' => $payload['installation_date'], 'appointment_time' => $payload['installation_time']]);
+    $blockingApplication = Application::create([
+        'user_id' => User::factory()->create(['role' => 'customer'])->id,
+        'reference_no' => 'APP-BLOCKING-'.uniqid(),
+        'first_name' => 'Blocking', 'last_name' => 'Customer', 'email' => 'blocking'.uniqid().'@example.test',
+        'mobile_number' => '0917'.random_int(1000000, 9999999),
+        'municipality' => 'Agno', 'barangay' => 'Allabon', 'plan_code' => 'S2S_50', 'status' => 'scheduled',
+    ]);
+    Installation::create([
+        'application_id' => $blockingApplication->id,
+        'technician_id' => $tech->id,
+        'installation_date' => $payload['installation_date'],
+        'installation_time' => $payload['installation_time'],
+        'status' => 'scheduled',
+    ]);
     $this->actingAs($admin)->patch(route('admin.installations.reschedule', $job), $payload + ['customer_reschedule_reason' => 'New explanation'])
         ->assertSessionHasErrors('installation_time');
     expect($job->fresh()->customer_reschedule_reason)->toBe('Previous explanation')->and(AppNotification::count())->toBe(0);
 });
 
-test('ticket appointment changes require a reason and show it in notifications and customer details', function () {
+test('ticket priority changes notify the customer and replace legacy appointments with queue handling', function () {
     [$admin, $tech, $customer] = reasonFixture();
-    $ticket = Ticket::create(['user_id' => $customer->id, 'technician_id' => $tech->id, 'subject' => 'Repair', 'description' => 'Repair',
-        'status' => 'open', 'urgency' => 'high', 'appointment_date' => now()->addDays(3)->toDateString(), 'appointment_time' => '09:00']);
-    $payload = ['technician_id' => $tech->id, 'appointment_date' => now()->addDays(3)->toDateString(), 'appointment_time' => '11:00'];
-    $this->actingAs($admin)->patch(route('admin.tickets.update', $ticket), $payload)->assertSessionHasErrors('appointment_change_reason');
-    expect($ticket->fresh()->appointment_time)->toStartWith('09:00')->and(AppNotification::count())->toBe(0);
-    $this->patch(route('admin.tickets.update', $ticket), $payload + ['appointment_change_reason' => 'Replacement equipment arrives later.'])->assertSessionHasNoErrors();
-    expect($ticket->fresh()->appointment_change_reason)->toBe('Replacement equipment arrives later.');
-    $notice = AppNotification::where('user_id', $customer->id)->where('type', 'ticket_appointment_updated')->sole();
-    expect($notice->message)->toContain('Replacement equipment arrives later.', '11:00 AM');
-    $this->actingAs($customer)->get(route('customer.tickets.show', $ticket))->assertOk()->assertSee('Replacement equipment arrives later.');
-    $ticket->update(['status' => 'resolved']);
-    $this->patch(route('customer.tickets.reopen', $ticket), ['reason' => 'Issue returned'])->assertSessionHasNoErrors();
-    expect($ticket->fresh()->appointment_change_reason)->toBeNull();
+    $ticket = Ticket::create([
+        'user_id' => $customer->id,
+        'technician_id' => $tech->id,
+        'subject' => 'Repair',
+        'description' => 'Repair',
+        'status' => 'open',
+        'urgency' => 'medium',
+        'appointment_date' => now()->addDays(3)->toDateString(),
+        'appointment_time' => '09:00',
+    ]);
+
+    $this->actingAs($admin)->patch(route('admin.tickets.update', $ticket), [
+        'technician_id' => $tech->id,
+        'urgency' => 'critical',
+    ])->assertSessionHasNoErrors();
+
+    $ticket->refresh();
+
+    expect($ticket->urgency)->toBe('critical')
+        ->and($ticket->appointment_date)->toBeNull()
+        ->and($ticket->appointment_time)->toBeNull()
+        ->and($ticket->response_due_at)->not->toBeNull();
+
+    $notice = AppNotification::where('user_id', $customer->id)
+        ->where('type', 'ticket_queue_updated')
+        ->sole();
+
+    expect($notice->message)->toContain('Critical', $tech->name);
+
+    $this->actingAs($customer)
+        ->get(route('customer.tickets.show', $ticket))
+        ->assertOk()
+        ->assertSee('Response target')
+        ->assertDontSee('Appointment');
 });

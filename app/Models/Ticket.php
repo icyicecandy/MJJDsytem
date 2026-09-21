@@ -2,25 +2,55 @@
 
 namespace App\Models;
 
+use App\Support\PublicUpload;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\User;
-use App\Support\PublicUpload;
 use Illuminate\Support\Facades\Schema;
 
 class Ticket extends Model
 {
     public const STATUS_OPEN = 'open';
+
     public const STATUS_QUEUED = 'queued';
+
     public const STATUS_IN_PROGRESS = 'in_progress';
+
     public const STATUS_CANCELLATION_REQUESTED = 'cancellation_requested';
+
     public const STATUS_RESOLVED = 'resolved';
+
     public const STATUS_CLOSED = 'closed';
+
     public const STATUS_CANCELLED = 'cancelled';
+
     public const URGENCY_LOW = 'low';
+
     public const URGENCY_MEDIUM = 'medium';
+
     public const URGENCY_HIGH = 'high';
+
     public const URGENCY_CRITICAL = 'critical';
+
+    public const URGENCY_LEVELS = [
+        self::URGENCY_CRITICAL,
+        self::URGENCY_HIGH,
+        self::URGENCY_MEDIUM,
+        self::URGENCY_LOW,
+    ];
+
+    public const AVAILABLE_TIME_SLOTS = [
+        '08:00',
+        '09:00',
+        '10:00',
+        '11:00',
+        '13:00',
+        '14:00',
+        '15:00',
+        '16:00',
+    ];
+
+    public const APPOINTMENT_DURATION_MINUTES = 60;
 
     public const SUBJECT_CATALOG = [
         'no_internet_connection' => [
@@ -61,13 +91,17 @@ class Ticket extends Model
         ],
         'other_technical_concern' => [
             'label' => 'Other Technical Concern',
-            'urgency' => self::URGENCY_MEDIUM,
+            'urgency' => null,
+            'requires_admin_triage' => true,
         ],
     ];
 
     protected $fillable = [
         'user_id',
         'technician_id',
+        'assigned_at',
+        'assignment_source',
+        'response_due_at',
         'appointment_date',
         'appointment_time',
         'appointment_change_reason',
@@ -77,6 +111,9 @@ class Ticket extends Model
         'description',
         'status',
         'urgency',
+        'urgency_review_required',
+        'triaged_at',
+        'triaged_by',
         'photo_path',
         'photo_paths',
         'reopen_requested_at',
@@ -98,7 +135,7 @@ class Ticket extends Model
 
     public function scheduledEndAt(): ?\Carbon\Carbon
     {
-        return $this->scheduledStartAt()?->addMinutes(Installation::SLOT_DURATION_MINUTES);
+        return $this->scheduledStartAt()?->addMinutes(self::APPOINTMENT_DURATION_MINUTES);
     }
 
     public function appointmentLabel(): string
@@ -113,6 +150,10 @@ class Ticket extends Model
         return [
             'appointment_date' => 'date',
             'appointment_changed_at' => 'datetime',
+            'assigned_at' => 'datetime',
+            'response_due_at' => 'datetime',
+            'urgency_review_required' => 'boolean',
+            'triaged_at' => 'datetime',
             'reopen_requested_at' => 'datetime',
             'reopen_reviewed_at' => 'datetime',
             'photo_paths' => 'array',
@@ -166,12 +207,19 @@ class Ticket extends Model
         return $this->hasMany(TicketMessage::class);
     }
 
+    public function scopePriorityOrdered($query)
+    {
+        return $query
+            ->orderByRaw("CASE urgency WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END")
+            ->oldest('created_at');
+    }
+
     public function scopeQueueOrdered($query)
     {
         return $query
             ->orderByRaw("CASE WHEN technician_id IS NULL AND status IN ('open', 'queued') THEN 0 ELSE 1 END")
-            ->orderByRaw("CASE WHEN technician_id IS NULL AND status IN ('open', 'queued') THEN created_at END ASC")
-            ->latest('updated_at');
+            ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 WHEN status IN ('open', 'queued') THEN 1 ELSE 2 END")
+            ->priorityOrdered();
     }
 
     public function scopeAssignedTo($query, User $user)
@@ -259,26 +307,70 @@ class Ticket extends Model
         return self::SUBJECT_CATALOG[$subjectKeyOrLabel]['label'] ?? $subjectKeyOrLabel;
     }
 
-    public static function resolveUrgencyForSubject(string $subjectKeyOrLabel): string
+    public static function resolveUrgencyForSubject(string $subjectKeyOrLabel): ?string
     {
-        if (isset(self::SUBJECT_CATALOG[$subjectKeyOrLabel])) {
+        if (array_key_exists($subjectKeyOrLabel, self::SUBJECT_CATALOG)) {
             return self::SUBJECT_CATALOG[$subjectKeyOrLabel]['urgency'];
         }
 
         $matched = collect(self::SUBJECT_CATALOG)
             ->firstWhere('label', $subjectKeyOrLabel);
 
-        return $matched['urgency'] ?? self::URGENCY_MEDIUM;
+        return $matched ? $matched['urgency'] : self::URGENCY_MEDIUM;
+    }
+
+    public static function subjectRequiresAdminTriage(string $subjectKeyOrLabel): bool
+    {
+        if (array_key_exists($subjectKeyOrLabel, self::SUBJECT_CATALOG)) {
+            return (bool) (self::SUBJECT_CATALOG[$subjectKeyOrLabel]['requires_admin_triage'] ?? false);
+        }
+
+        $matched = collect(self::SUBJECT_CATALOG)
+            ->firstWhere('label', $subjectKeyOrLabel);
+
+        return (bool) ($matched['requires_admin_triage'] ?? false);
+    }
+
+    public static function activeWorkStatuses(): array
+    {
+        return [self::STATUS_OPEN, self::STATUS_QUEUED, self::STATUS_IN_PROGRESS];
+    }
+
+    public static function responseDueAtForUrgency(?string $urgency, CarbonInterface|string|null $from = null): ?Carbon
+    {
+        if (! $urgency) {
+            return null;
+        }
+
+        $hours = (int) config('ticket-routing.response_hours.'.$urgency, 8);
+        $start = $from instanceof CarbonInterface
+            ? Carbon::instance($from)
+            : ($from ? Carbon::parse($from) : now());
+
+        return $start->copy()->addHours($hours);
     }
 
     public function displayUrgencyLabel(): string
     {
-        return ucfirst($this->urgency ?: self::resolveUrgencyForSubject($this->subject));
+        if ($this->urgency_review_required) {
+            return 'Pending Review';
+        }
+
+        return ucfirst($this->urgency ?: self::URGENCY_MEDIUM);
     }
 
     public function displayUrgencyClass(): string
     {
-        return $this->urgency ?: self::resolveUrgencyForSubject($this->subject);
+        return $this->urgency_review_required
+            ? 'medium'
+            : ($this->urgency ?: self::URGENCY_MEDIUM);
+    }
+
+    public function responseTargetLabel(): string
+    {
+        return $this->response_due_at
+            ? $this->response_due_at->displayDateTime('M d, Y h:i A')
+            : 'Pending urgency review';
     }
 
     public function photoUrl(): ?string
@@ -300,7 +392,7 @@ class Ticket extends Model
     public function photoGalleryItems(): array
     {
         return collect($this->photoPaths())
-            ->mapWithKeys(fn ($path, $index) => ['Ticket photo ' . ($index + 1) => $path])
+            ->mapWithKeys(fn ($path, $index) => ['Ticket photo '.($index + 1) => $path])
             ->all();
     }
 
@@ -309,14 +401,12 @@ class Ticket extends Model
         $technicianId = $technicianId ?: null;
         $status = $status ?: $this->status;
 
-        if ($technicianId === null) {
-            if ($status === self::STATUS_IN_PROGRESS) {
-                $status = self::STATUS_OPEN;
-            }
-
-            if ($status === self::STATUS_QUEUED) {
-                $status = self::STATUS_OPEN;
-            }
+        if ($technicianId === null && in_array($status, [
+            self::STATUS_OPEN,
+            self::STATUS_QUEUED,
+            self::STATUS_IN_PROGRESS,
+        ], true)) {
+            $status = self::STATUS_QUEUED;
         } elseif ($status === self::STATUS_QUEUED) {
             $status = self::STATUS_OPEN;
         }

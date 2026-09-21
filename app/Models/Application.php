@@ -45,6 +45,7 @@ class Application extends Model
         'privacy_version',
         'rejection_reason',
         'cancellation_reason',
+        'cancellation_previous_status',
         'serviceability_status',
         'slot_availability_status',
         'assessment_notes',
@@ -108,6 +109,7 @@ class Application extends Model
         return in_array($this->status, [
             self::STATUS_REJECTED,
             self::STATUS_CANCELLED,
+            self::STATUS_ACTIVATED,
         ], true);
     }
 

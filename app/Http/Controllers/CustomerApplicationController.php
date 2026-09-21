@@ -7,11 +7,11 @@ use App\Models\ApplicationDraft;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\User;
-use App\Services\WorkflowTransaction;
 use App\Services\TechnicianSchedule;
-use App\Support\AppNotificationSender;
-use App\Support\ApplicationIdUpload;
+use App\Services\WorkflowTransaction;
 use App\Support\ApplicationContact;
+use App\Support\ApplicationIdUpload;
+use App\Support\AppNotificationSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,7 +37,7 @@ class CustomerApplicationController extends Controller
 
         if ($this->hasActiveApplication($application)) {
             return redirect()->route('customer.dashboard')
-                ->with('error', 'You already have an active application (status: ' . $application->status . ').');
+                ->with('error', 'You already have an active application (status: '.$application->status.').');
         }
 
         $mapBounds = self::SERVICE_BOUNDS;
@@ -53,16 +53,18 @@ class CustomerApplicationController extends Controller
         $obsoleteDraftPhoto = null;
         $response = WorkflowTransaction::customerApplication(auth()->user(), function (User $user) use ($request, &$obsoleteDraftPhoto) {
             $obsoleteDraftPhoto = null;
+
             return $this->storeWithinTransaction($request, $user, $obsoleteDraftPhoto);
         }, protectContacts: true);
         ApplicationDraft::deletePhoto($obsoleteDraftPhoto);
+
         return $response;
     }
 
     private function storeWithinTransaction(Request $request, User $user, ?string &$obsoleteDraftPhoto)
     {
         $existing = $user->application;
-        $existingId = $existing?->id;
+        $ownerUserId = $user->id;
 
         if ($this->hasActiveApplication($existing)) {
             return redirect()->route('customer.dashboard')
@@ -82,15 +84,15 @@ class CustomerApplicationController extends Controller
         ]);
 
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z][A-Za-z\s\'-]*$/'],
-            'last_name' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z][A-Za-z\s\'-]*$/'],
+            'first_name' => ['required', 'string', 'max:100', 'regex:/^[\p{L}][\p{L}\p{M}\s\'.-]*$/u'],
+            'last_name' => ['required', 'string', 'max:100', 'regex:/^[\p{L}][\p{L}\p{M}\s\'.-]*$/u'],
             'email' => [
                 'bail',
                 'required',
                 'string',
                 'email',
                 'max:255',
-                ApplicationContact::uniqueRule('email', $existingId),
+                ApplicationContact::uniqueRule('email', $ownerUserId),
             ],
             'mobile_number' => [
                 'bail',
@@ -98,7 +100,7 @@ class CustomerApplicationController extends Controller
                 'string',
                 'max:16',
                 'regex:/^\+?[0-9]{10,15}$/',
-                ApplicationContact::uniqueRule('mobile_number', $existingId),
+                ApplicationContact::uniqueRule('mobile_number', $ownerUserId),
             ],
             'region' => ['required', 'string', 'max:100'],
             'province' => ['required', 'string', 'max:100'],
@@ -110,8 +112,8 @@ class CustomerApplicationController extends Controller
             'plan_code' => ['required', 'in:S2S_50,S2S_100'],
             'id_selfie_image' => [$draft?->hasPhoto() ? 'nullable' : 'required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [
-            'first_name.regex' => 'First name may only contain letters, spaces, hyphens, and apostrophes.',
-            'last_name.regex' => 'Last name may only contain letters, spaces, hyphens, and apostrophes.',
+            'first_name.regex' => 'First name may contain letters, spaces, apostrophes, periods, and hyphens.',
+            'last_name.regex' => 'Last name may contain letters, spaces, apostrophes, periods, and hyphens.',
             'email.unique' => 'This email address is already used in another application.',
             'mobile_number.regex' => 'Enter a valid contact number with 10 to 15 digits.',
             'mobile_number.unique' => 'This mobile number is already used in another application.',
@@ -178,19 +180,14 @@ class CustomerApplicationController extends Controller
             'assessed_at' => null,
         ];
 
-        if ($existing && $existing->isTerminalForNewApplication()) {
-            $existing->update($payload);
-            $application = $existing;
-        } else {
-            $application = Application::create($payload + [
-                'user_id' => Auth::id(),
-            ]);
-        }
+        $application = Application::create($payload + [
+            'user_id' => $user->id,
+        ]);
 
         AppNotificationSender::sendToRole(
             'admin',
             'New customer application submitted',
-            $application->first_name . ' ' . $application->last_name . ' submitted application ' . $application->reference_no . '.',
+            $application->first_name.' '.$application->last_name.' submitted application '.$application->reference_no.'.',
             route('admin.applications.show', $application),
             'application_submitted',
             ['application_id' => $application->id, 'reference_no' => $application->reference_no],
@@ -199,7 +196,7 @@ class CustomerApplicationController extends Controller
 
         system_log(
             'Application Submitted',
-            'Application ' . $application->reference_no . ' was submitted by ' . $user->name . '.'
+            'Application '.$application->reference_no.' was submitted by '.$user->name.'.'
         );
 
         if ($draft) {
@@ -213,7 +210,7 @@ class CustomerApplicationController extends Controller
     public function contactCheck(Request $request)
     {
         $user = Auth::user();
-        $existingId = $user->application?->id;
+        $ownerUserId = $user->id;
 
         $request->merge([
             'email' => $this->normalizeEmailInput($request->input('email')),
@@ -230,8 +227,8 @@ class CustomerApplicationController extends Controller
         $email = trim((string) ($validated['email'] ?? ''));
         $mobileNumber = trim((string) ($validated['mobile_number'] ?? ''));
 
-        $emailExists = $email !== '' && ApplicationContact::duplicate('email', $email, $existingId);
-        $mobileExists = $mobileNumber !== '' && ApplicationContact::duplicate('mobile_number', $mobileNumber, $existingId);
+        $emailExists = $email !== '' && ApplicationContact::duplicate('email', $email, $ownerUserId);
+        $mobileExists = $mobileNumber !== '' && ApplicationContact::duplicate('mobile_number', $mobileNumber, $ownerUserId);
 
         return response()->json([
             'email' => [
@@ -254,12 +251,13 @@ class CustomerApplicationController extends Controller
 
     public function show()
     {
-        $application = Auth::user()->application()->with('installation.logs.user')->first();
+        $applications = Auth::user()->applications()->with('installation.logs.user')->latest()->get();
+        $application = $applications->first();
         $rescheduleAvailability = $application?->installation
             ? $this->customerRescheduleAvailability($application->installation)
             : [];
 
-        return view('customer.application', compact('application', 'rescheduleAvailability'));
+        return view('customer.application', compact('application', 'applications', 'rescheduleAvailability'));
     }
 
     public function requestReschedule(Request $request)
@@ -282,6 +280,13 @@ class CustomerApplicationController extends Controller
         ]);
 
         $application = $user->application;
+
+        TechnicianSchedule::assertInstallationWindow(
+            $validated['reschedule_preferred_date'],
+            $validated['reschedule_preferred_time'],
+            'reschedule_preferred_date',
+            'reschedule_preferred_time'
+        );
 
         if (! $application || ! $application->installation) {
             return back()
@@ -350,19 +355,19 @@ class CustomerApplicationController extends Controller
         ]);
 
         $preferredSchedule = \Carbon\Carbon::parse($validated['reschedule_preferred_date'])->format('F d, Y')
-            . ' at '
-            . \Carbon\Carbon::parse($validated['reschedule_preferred_time'])->format('g:i A');
+            .' at '
+            .\Carbon\Carbon::parse($validated['reschedule_preferred_time'])->format('g:i A');
 
         InstallationLog::create([
             'installation_id' => $installation->id,
             'user_id' => Auth::id(),
-            'notes' => 'Customer requested reschedule. Preferred schedule: ' . $preferredSchedule . '. Reason: ' . $reason,
+            'notes' => 'Customer requested reschedule. Preferred schedule: '.$preferredSchedule.'. Reason: '.$reason,
         ]);
 
         AppNotificationSender::sendToRole(
             'admin',
             'Customer requested installation reschedule',
-            $application->reference_no . ' requested ' . $preferredSchedule . '.',
+            $application->reference_no.' requested '.$preferredSchedule.'.',
             route('admin.applications.show', $application),
             'installation_reschedule_requested',
             ['application_id' => $application->id, 'installation_id' => $installation->id],
@@ -371,7 +376,7 @@ class CustomerApplicationController extends Controller
 
         system_log(
             'Installation Reschedule Requested',
-            'Customer requested reschedule for Application ' . $application->reference_no . ' to ' . $preferredSchedule . '.'
+            'Customer requested reschedule for Application '.$application->reference_no.' to '.$preferredSchedule.'.'
         );
 
         return back()->with('success', 'Your reschedule request was sent for admin review.');
@@ -401,7 +406,7 @@ class CustomerApplicationController extends Controller
         }
 
         $reason = trim((string) $request->input('cancellation_reason', ''));
-        $reasonSuffix = $reason !== '' ? ' Reason: ' . $reason : '';
+        $reasonSuffix = $reason !== '' ? ' Reason: '.$reason : '';
 
         if (in_array($application->status, [Application::STATUS_SUBMITTED, Application::STATUS_UNDER_REVIEW], true)
             || ($application->status === Application::STATUS_APPROVED && ! $this->hasScheduledInstallation($application))) {
@@ -413,7 +418,7 @@ class CustomerApplicationController extends Controller
             AppNotificationSender::sendToRole(
                 'admin',
                 'Application cancelled by customer',
-                $application->reference_no . ' was cancelled before installation scheduling.',
+                $application->reference_no.' was cancelled before installation scheduling.',
                 route('admin.applications.show', $application),
                 'application_cancelled_by_customer',
                 ['application_id' => $application->id],
@@ -422,44 +427,72 @@ class CustomerApplicationController extends Controller
 
             system_log(
                 'Application Cancelled',
-                'Application ' . $application->reference_no . ' was cancelled by ' . Auth::user()->name . '.' . $reasonSuffix
+                'Application '.$application->reference_no.' was cancelled by '.Auth::user()->name.'.'.$reasonSuffix
             );
 
             return back()->with('success', 'Your application has been cancelled.');
         }
 
-        if ($application->status === Application::STATUS_SCHEDULED && $this->hasScheduledInstallation($application)) {
+        if ($application->status === Application::STATUS_SCHEDULED && $application->installation
+            && in_array($application->installation->status, [
+                Installation::STATUS_SCHEDULED,
+                Installation::STATUS_ASSIGNED,
+                Installation::STATUS_IN_PROGRESS,
+                Installation::STATUS_RESCHEDULE_REQUIRED,
+            ], true)) {
             $installation = $application->installation;
             $scheduledStart = $installation->scheduledStartAt();
 
-            if ($scheduledStart && $scheduledStart->lte(now()->addDay())) {
+            if ($installation->status === Installation::STATUS_SCHEDULED
+                && $scheduledStart && $scheduledStart->lte(now()->addDay())) {
                 return back()->withErrors([
-                    'cancellation' => 'Cancellation requests for scheduled installations must be made more than 24 hours before the visit.',
+                    'cancellation' => 'Scheduled cancellations must be requested more than 24 hours before the visit. If work has already started, use this form as a Stop Work request.',
                 ]);
             }
 
             $application->update([
                 'status' => Application::STATUS_CANCELLATION_REQUESTED,
                 'cancellation_reason' => $reason,
+                'cancellation_previous_status' => $application->status,
+            ]);
+
+            $installation->update([
+                'cancellation_previous_status' => $installation->status,
+                'stop_work_requested_at' => now(),
+                'stop_work_reviewed_at' => null,
+                'stop_work_reviewed_by' => null,
+                'stop_work_admin_notes' => null,
             ]);
 
             InstallationLog::create([
                 'installation_id' => $installation->id,
                 'user_id' => Auth::id(),
-                'notes' => 'Customer requested cancellation.' . $reasonSuffix,
+                'notes' => 'Customer submitted a Stop Work / Cancellation Request.'.$reasonSuffix,
             ]);
 
             AppNotificationSender::sendToRole(
                 'admin',
-                'Installation cancellation requested',
-                $application->reference_no . ' is waiting for admin cancellation review.',
+                'Stop Work / Cancellation Request',
+                $application->reference_no.' is waiting for admin review.',
                 route('admin.applications.show', $application),
                 'installation_cancellation_requested',
                 ['application_id' => $application->id, 'installation_id' => $installation->id],
                 Auth::id()
             );
 
-            return back()->with('success', 'Your cancellation request was sent for admin review.');
+            if ($installation->technician) {
+                AppNotificationSender::send(
+                    $installation->technician,
+                    'Stop Work request received',
+                    $application->reference_no.' is paused while an admin reviews the customer request.',
+                    route('technician.installations.show', $installation),
+                    'installation_stop_work_requested',
+                    ['application_id' => $application->id, 'installation_id' => $installation->id],
+                    Auth::id()
+                );
+            }
+
+            return back()->with('success', 'Your Stop Work / Cancellation Request was sent for admin review.');
         }
 
         return back()->withErrors([
@@ -498,82 +531,37 @@ class CustomerApplicationController extends Controller
 
     private function customerRescheduleAvailability(Installation $currentInstallation): array
     {
-        $technicianIds = User::query()
+        $technicians = User::query()
             ->where('role', 'technician')
             ->whereNull('disabled_at')
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->values();
+            ->where(function ($query) {
+                $query->whereNull('technician_status')
+                    ->orWhere('technician_status', '!=', 'on_leave');
+            })
+            ->get();
 
-        if ($technicianIds->isEmpty()) {
+        if ($technicians->isEmpty()) {
             return [];
         }
 
         $startDate = now()->addDay()->startOfDay();
         $endDate = $startDate->copy()->addDays(self::RESCHEDULE_AVAILABILITY_DAYS - 1);
-
-        $activeSchedules = TechnicianSchedule::bookings($technicianIds->all(), $currentInstallation->id);
-        $currentDateKey = $currentInstallation->installation_date?->format('Y-m-d');
+        $currentDate = $currentInstallation->installation_date?->format('Y-m-d');
         $currentTime = $currentInstallation->installation_time
             ? Carbon::parse($currentInstallation->installation_time)->format('H:i')
             : null;
 
-        $availability = [];
+        $currentInstallation->loadMissing('application');
 
-        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
-            $dateKey = $date->toDateString();
-            $daySchedules = $activeSchedules
-                ->filter(fn ($schedule) => $schedule->scheduledStartAt()?->format('Y-m-d') === $dateKey);
-
-            $slots = collect(Installation::AVAILABLE_TIME_SLOTS)
-                ->map(function (string $slot) use ($dateKey, $daySchedules, $technicianIds, $currentDateKey, $currentTime) {
-                    if ($dateKey === $currentDateKey && $slot === $currentTime) {
-                        return null;
-                    }
-
-                    $slotStart = Carbon::parse($dateKey . ' ' . $slot);
-                    $slotEnd = $slotStart->copy()->addMinutes(Installation::SLOT_DURATION_MINUTES);
-
-                    $takenTechnicians = $daySchedules
-                        ->filter(function ($schedule) use ($slotStart, $slotEnd) {
-                            $existingStart = $schedule->scheduledStartAt();
-                            $existingEnd = $schedule->scheduledEndAt();
-
-                            if (! $existingStart || ! $existingEnd) {
-                                return false;
-                            }
-
-                            return $slotStart->lt($existingEnd) && $slotEnd->gt($existingStart);
-                        })
-                        ->pluck('technician_id')
-                        ->unique()
-                        ->count();
-
-                    $availableCount = $technicianIds->count() - $takenTechnicians;
-
-                    if ($availableCount <= 0) {
-                        return null;
-                    }
-
-                    return [
-                        'value' => $slot,
-                        'label' => Carbon::createFromFormat('H:i', $slot)->format('g:i A'),
-                        'available_count' => $availableCount,
-                    ];
-                })
-                ->filter()
-                ->values()
-                ->all();
-
-            if ($slots !== []) {
-                $availability[$dateKey] = [
-                    'label' => $date->format('F j, Y'),
-                    'slots' => $slots,
-                ];
-            }
-        }
-
-        return $availability;
+        return TechnicianSchedule::installationAvailabilityGrid(
+            $technicians,
+            $currentInstallation->application,
+            $startDate,
+            $endDate,
+            $currentInstallation->id,
+            $currentDate,
+            $currentTime
+        );
     }
 
     private function coordinatesAreWithinServiceArea(float $lat, float $lng): bool

@@ -48,6 +48,8 @@
                     default => 'Your application is being processed.',
                 };
                 $canRequestCancellation = in_array($status, ['submitted', 'under_review', 'approved', 'scheduled'], true);
+                $isActiveInstallation = $status === 'scheduled'
+                    && in_array($installation?->status, ['assigned', 'in_progress', 'reschedule_required'], true);
                 $rescheduleAvailability = $rescheduleAvailability ?? [];
                 $hasRescheduleAvailability = $rescheduleAvailability !== [];
                 $hasPendingRescheduleRequest = $installation?->hasPendingCustomerRescheduleRequest() ?? false;
@@ -111,7 +113,7 @@
                         </div>
                         <div class="tracking-meta">
                             <strong>Installation Time</strong>
-                            {{ \Illuminate\Support\Carbon::parse($installation->installation_time)->format('g:i A') }}
+                            {{ \App\Models\Installation::slotLabel(\Illuminate\Support\Carbon::parse($installation->installation_time)->format('H:i')) }}
                         </div>
                         <div class="tracking-meta">
                             <strong>Activation Date</strong>
@@ -149,7 +151,7 @@
                             Preferred schedule:
                             {{ $installation->reschedule_preferred_date?->format('F j, Y') ?? 'Date not set' }}
                             at
-                            {{ $installation->reschedule_preferred_time ? \Illuminate\Support\Carbon::parse($installation->reschedule_preferred_time)->format('g:i A') : 'time not set' }}.
+                            {{ $installation->reschedule_preferred_time ? \App\Models\Installation::slotLabel(\Illuminate\Support\Carbon::parse($installation->reschedule_preferred_time)->format('H:i')) : 'time not set' }}.
                             Admin review is required before your installation schedule changes.
                         </p>
                     </div>
@@ -283,14 +285,14 @@
                             @csrf
                             @method('PATCH')
 
-                            <strong>Request Cancellation</strong>
-                            <p>Scheduled installation cancellations are sent to admin for review.</p>
+                            <strong>{{ $isActiveInstallation ? 'Stop Work / Cancellation Request' : 'Request Cancellation' }}</strong>
+                            <p>{{ $isActiveInstallation ? 'Work will be paused while the assigned technician and administrator review your request.' : 'Scheduled installation cancellations are sent to admin for review.' }}</p>
                             <textarea name="cancellation_reason" rows="3" placeholder="Reason for cancellation" required>{{ old('cancellation_reason') }}</textarea>
                             @error('cancellation_reason')
                                 <span class="error">{{ $message }}</span>
                             @enderror
                             <div>
-                                <button type="submit" class="btn danger">Request Cancellation</button>
+                                <button type="submit" class="btn danger">{{ $isActiveInstallation ? 'Request Stop Work' : 'Request Cancellation' }}</button>
                             </div>
                         </form>
                     @endif
@@ -300,6 +302,22 @@
             <div class="empty-state">No application found.</div>
         @endif
     </section>
+
+    @if(($applications ?? collect())->count() > 1)
+        <section class="card table-card">
+            <div class="panel-header"><div><h2>Application History</h2><p>Previous applications and installation records are preserved.</p></div></div>
+            <div class="table-wrap"><table class="telecom-table" data-mobile-cards>
+                <thead><tr><th>Reference</th><th>Submitted</th><th>Plan</th><th>Status</th><th>Installation</th></tr></thead>
+                <tbody>@foreach($applications as $historyApplication)<tr>
+                    <td><span class="record-strong">{{ $historyApplication->reference_no }}</span></td>
+                    <td>{{ $historyApplication->created_at->format('M d, Y') }}</td>
+                    <td>{{ $historyApplication->plan_code }}</td>
+                    <td><span class="badge {{ $historyApplication->status }}">{{ ucfirst(str_replace('_', ' ', $historyApplication->status)) }}</span></td>
+                    <td>{{ $historyApplication->installation?->displayStatusLabel() ?? 'Not scheduled' }}</td>
+                </tr>@endforeach</tbody>
+            </table></div>
+        </section>
+    @endif
 
     <section class="card">
         <a href="{{ route('customer.dashboard') }}" class="btn secondary">Back</a>

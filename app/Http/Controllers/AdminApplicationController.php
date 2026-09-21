@@ -6,8 +6,8 @@ use App\Models\Application;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\User;
-use App\Services\WorkflowTransaction;
 use App\Services\TechnicianSchedule;
+use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
 use Carbon\Carbon;
@@ -33,14 +33,14 @@ class AdminApplicationController extends Controller
         if ($search !== '') {
             $query->where(function ($builder) use ($search) {
                 $builder
-                    ->where('reference_no', 'like', '%' . $search . '%')
-                    ->orWhere('first_name', 'like', '%' . $search . '%')
-                    ->orWhere('last_name', 'like', '%' . $search . '%')
-                    ->orWhere('email', 'like', '%' . $search . '%')
-                    ->orWhere('mobile_number', 'like', '%' . $search . '%')
-                    ->orWhere('plan_code', 'like', '%' . $search . '%')
+                    ->where('reference_no', 'like', '%'.$search.'%')
+                    ->orWhere('first_name', 'like', '%'.$search.'%')
+                    ->orWhere('last_name', 'like', '%'.$search.'%')
+                    ->orWhere('email', 'like', '%'.$search.'%')
+                    ->orWhere('mobile_number', 'like', '%'.$search.'%')
+                    ->orWhere('plan_code', 'like', '%'.$search.'%')
                     ->orWhereHas('user', function ($userQuery) use ($search) {
-                        $userQuery->where('name', 'like', '%' . $search . '%');
+                        $userQuery->where('name', 'like', '%'.$search.'%');
                     });
             });
         }
@@ -53,10 +53,28 @@ class AdminApplicationController extends Controller
     public function show(Application $application)
     {
         $application->load(['installation.technician', 'installation.logs.user', 'assessor']);
-        $technicians = User::where('role', 'technician')->whereNull('disabled_at')->orderBy('name')->get();
-        $activeSchedules = TechnicianSchedule::bookings(ignoreInstallationId: $application->installation?->id);
+        $technicians = User::query()
+            ->where('role', 'technician')
+            ->whereNull('disabled_at')
+            ->where(function ($query) {
+                $query->whereNull('technician_status')
+                    ->orWhere('technician_status', '!=', 'on_leave');
+            })
+            ->orderBy('name')
+            ->get();
+        $scheduleAvailability = TechnicianSchedule::installationAvailabilityGrid(
+            $technicians,
+            $application,
+            now()->startOfDay(),
+            now()->addDays(89)->startOfDay(),
+            $application->installation?->id
+        );
 
-        return view('admin.applications.show', compact('application', 'technicians', 'activeSchedules'));
+        return view('admin.applications.show', compact(
+            'application',
+            'technicians',
+            'scheduleAvailability'
+        ));
     }
 
     public function updateStatus(Request $request, Application $application)
@@ -155,7 +173,7 @@ class AdminApplicationController extends Controller
 
             AppNotificationSender::send(
                 $application->user,
-                'Application status updated: ' . $statusLabel,
+                'Application status updated: '.$statusLabel,
                 $message,
                 route('customer.application.show'),
                 'application_status',
@@ -169,7 +187,7 @@ class AdminApplicationController extends Controller
 
             system_log(
                 'Application Approved',
-                'Application ' . $application->reference_no . ' was approved by ' . auth()->user()->name . '.'
+                'Application '.$application->reference_no.' was approved by '.auth()->user()->name.'.'
             );
         }
 
@@ -178,7 +196,7 @@ class AdminApplicationController extends Controller
 
             system_log(
                 'Application Rejected',
-                'Application ' . $application->reference_no . ' was rejected by ' . auth()->user()->name . '.'
+                'Application '.$application->reference_no.' was rejected by '.auth()->user()->name.'.'
             );
         }
 
@@ -219,18 +237,13 @@ class AdminApplicationController extends Controller
             ]);
         }
 
-        TechnicianSchedule::assertFuture($validated['installation_date'], $validated['installation_time']);
-
-        if ($this->technicianHasScheduleConflict(
-            technicianId: (int) $validated['technician_id'],
-            installationDate: $validated['installation_date'],
-            installationTime: $validated['installation_time'],
-            ignoreInstallationId: $installation?->id,
-        )) {
-            return back()
-                ->withErrors(['installation_time' => TechnicianSchedule::CONFLICT_MESSAGE])
-                ->withInput();
-        }
+        TechnicianSchedule::assertInstallationAvailable(
+            $technician,
+            $application,
+            $validated['installation_date'],
+            $validated['installation_time'],
+            $installation?->id
+        );
 
         $installation = Installation::updateOrCreate(
             ['application_id' => $application->id],
@@ -250,23 +263,23 @@ class AdminApplicationController extends Controller
         InstallationLog::create([
             'installation_id' => $installation->id,
             'user_id' => auth()->id(),
-            'notes' => 'Installation scheduled for ' . $installation->installation_date?->format('F d, Y') . ' at ' . Carbon::parse($installation->installation_time)->format('g:i A') . '.',
+            'notes' => 'Installation scheduled for '.$installation->installation_date?->format('F d, Y').' at '.Carbon::parse($installation->installation_time)->format('g:i A').'.',
         ]);
 
         system_log(
             'Assigned Technician',
-            'Assigned technician ' . $technician->name . ' to Application ' . $application->reference_no . '.'
+            'Assigned technician '.$technician->name.' to Application '.$application->reference_no.'.'
         );
 
         system_log(
             'Installation Scheduled',
-            'Scheduled installation for Application ' . $application->reference_no . ' on ' . $installation->installation_date?->format('M d, Y') . ' at ' . Carbon::parse($installation->installation_time)->format('h:i A') . '.'
+            'Scheduled installation for Application '.$application->reference_no.' on '.$installation->installation_date?->format('M d, Y').' at '.Carbon::parse($installation->installation_time)->format('h:i A').'.'
         );
 
         AppNotificationSender::send(
             $technician,
             'New installation assigned',
-            'You were assigned an installation scheduled for ' . $installation->installation_date?->format('F d, Y') . '.',
+            'You were assigned an installation scheduled for '.$installation->installation_date?->format('F d, Y').'.',
             route('technician.installations.show', $installation),
             'installation_assigned',
             ['installation_id' => $installation->id, 'application_id' => $application->id],
@@ -314,19 +327,27 @@ class AdminApplicationController extends Controller
         $application->loadMissing(['installation', 'user']);
         $installation = $application->installation;
         $notesSuffix = filled($validated['cancellation_notes'] ?? null)
-            ? ' Notes: ' . $validated['cancellation_notes']
+            ? ' Notes: '.$validated['cancellation_notes']
             : '';
 
         if ($validated['decision'] === 'approve') {
-            $application->update(['status' => Application::STATUS_CANCELLED]);
+            $application->update([
+                'status' => Application::STATUS_CANCELLED,
+            ]);
 
             if ($installation) {
-                $installation->update(['status' => Installation::STATUS_CANCELLED]);
+                $installation->update([
+                    'status' => Installation::STATUS_CANCELLED,
+                    'stop_work_reviewed_at' => now(),
+                    'stop_work_reviewed_by' => auth()->id(),
+                    'stopped_at' => now(),
+                    'stop_work_admin_notes' => $validated['cancellation_notes'] ?? null,
+                ]);
 
                 InstallationLog::create([
                     'installation_id' => $installation->id,
                     'user_id' => auth()->id(),
-                    'notes' => 'Cancellation request approved by admin.' . $notesSuffix,
+                    'notes' => 'Cancellation request approved by admin.'.$notesSuffix,
                 ]);
             }
 
@@ -342,31 +363,67 @@ class AdminApplicationController extends Controller
                 );
             }
 
+            if ($installation?->technician) {
+                AppNotificationSender::send(
+                    $installation->technician,
+                    'Stop Work request approved',
+                    $application->reference_no.' was cancelled by the administrator. Work is closed.',
+                    route('technician.installations.show', $installation),
+                    'installation_stop_work_approved',
+                    ['application_id' => $application->id, 'installation_id' => $installation->id],
+                    auth()->id()
+                );
+            }
+
             system_log(
                 'Application Cancelled',
-                'Application ' . $application->reference_no . ' cancellation request was approved by ' . auth()->user()->name . '.'
+                'Application '.$application->reference_no.' cancellation request was approved by '.auth()->user()->name.'.'
             );
 
             return back()->with('success', 'Cancellation request approved.');
         }
 
+        $restoredApplicationStatus = $application->cancellation_previous_status
+            ?: ($installation ? Application::STATUS_SCHEDULED : Application::STATUS_APPROVED);
         $application->update([
-            'status' => $installation ? Application::STATUS_SCHEDULED : Application::STATUS_APPROVED,
+            'status' => $restoredApplicationStatus,
         ]);
 
         if ($installation) {
+            $restoredInstallationStatus = $installation->cancellation_previous_status
+                ?: Installation::STATUS_SCHEDULED;
+            $installation->update([
+                'status' => $restoredInstallationStatus,
+                'stop_work_reviewed_at' => now(),
+                'stop_work_reviewed_by' => auth()->id(),
+                'stop_work_admin_notes' => $validated['cancellation_notes'] ?? null,
+            ]);
+
             InstallationLog::create([
                 'installation_id' => $installation->id,
                 'user_id' => auth()->id(),
-                'notes' => 'Cancellation request rejected by admin. Installation remains scheduled.' . $notesSuffix,
+                'notes' => 'Stop Work / Cancellation Request rejected by admin. Restored application status to '
+                    .$restoredApplicationStatus.' and installation status to '.$restoredInstallationStatus.'.'.$notesSuffix,
             ]);
+        }
+
+        if ($installation?->technician) {
+            AppNotificationSender::send(
+                $installation->technician,
+                'Stop Work request rejected',
+                $application->reference_no.' was restored to '.str_replace('_', ' ', $restoredInstallationStatus).'.',
+                route('technician.installations.show', $installation),
+                'installation_stop_work_rejected',
+                ['application_id' => $application->id, 'installation_id' => $installation->id],
+                auth()->id()
+            );
         }
 
         if ($application->user) {
             AppNotificationSender::send(
                 $application->user,
                 'Cancellation request rejected',
-                'Your installation schedule remains active.',
+                'Your Stop Work / Cancellation Request was rejected and the previous work status was restored.',
                 route('customer.application.show'),
                 'application_cancellation_rejected',
                 ['application_id' => $application->id, 'installation_id' => $installation?->id],
@@ -374,7 +431,7 @@ class AdminApplicationController extends Controller
             );
         }
 
-        return back()->with('success', 'Cancellation request rejected. Installation remains scheduled.');
+        return back()->with('success', 'Request rejected. The exact previous application and installation states were restored.');
     }
 
     public function rescheduleDecision(Request $request, Application $application)
@@ -433,14 +490,14 @@ class AdminApplicationController extends Controller
             InstallationLog::create([
                 'installation_id' => $installation->id,
                 'user_id' => auth()->id(),
-                'notes' => 'Customer reschedule request rejected by admin. Reason: ' . $reason,
+                'notes' => 'Customer reschedule request rejected by admin. Reason: '.$reason,
             ]);
 
             if ($application->user) {
                 AppNotificationSender::send(
                     $application->user,
                     'Reschedule request rejected',
-                    'Your installation schedule remains active. Reason: ' . $reason,
+                    'Your installation schedule remains active. Reason: '.$reason,
                     route('customer.application.show'),
                     'installation_reschedule_rejected',
                     ['application_id' => $application->id, 'installation_id' => $installation->id],
@@ -450,7 +507,7 @@ class AdminApplicationController extends Controller
 
             system_log(
                 'Installation Reschedule Rejected',
-                'Rejected customer reschedule request for Application ' . $application->reference_no . '.'
+                'Rejected customer reschedule request for Application '.$application->reference_no.'.'
             );
 
             return back()->with('success', 'Reschedule request rejected. The original schedule remains active.');
@@ -458,18 +515,13 @@ class AdminApplicationController extends Controller
 
         $technician = TechnicianSchedule::eligibleTechnician((int) $validated['technician_id']);
 
-        TechnicianSchedule::assertFuture($validated['installation_date'], $validated['installation_time']);
-
-        if ($this->technicianHasScheduleConflict(
-            technicianId: (int) $technician->id,
-            installationDate: $validated['installation_date'],
-            installationTime: $validated['installation_time'],
-            ignoreInstallationId: $installation->id,
-        )) {
-            return back()
-                ->withErrors(['installation_time' => TechnicianSchedule::CONFLICT_MESSAGE])
-                ->withInput();
-        }
+        TechnicianSchedule::assertInstallationAvailable(
+            $technician,
+            $application,
+            $validated['installation_date'],
+            $validated['installation_time'],
+            $installation->id
+        );
 
         $technicianChanged = (int) $installation->technician_id !== (int) $technician->id;
 
@@ -488,24 +540,24 @@ class AdminApplicationController extends Controller
         $application->update(['status' => Application::STATUS_SCHEDULED]);
 
         $scheduleLabel = $installation->fresh()->installation_date?->format('F d, Y')
-            . ' at '
-            . Carbon::parse($validated['installation_time'])->format('g:i A');
+            .' at '
+            .Carbon::parse($validated['installation_time'])->format('g:i A');
 
         InstallationLog::create([
             'installation_id' => $installation->id,
             'user_id' => auth()->id(),
-            'notes' => 'Customer reschedule request approved by admin. New schedule: ' . $scheduleLabel . '. Reason shown to customer: ' . $installation->customer_reschedule_reason,
+            'notes' => 'Customer reschedule request approved by admin. New schedule: '.$scheduleLabel.'. Reason shown to customer: '.$installation->customer_reschedule_reason,
         ]);
 
         system_log(
             'Installation Reschedule Approved',
-            'Approved customer reschedule request for Application ' . $application->reference_no . ' to ' . $scheduleLabel . '.'
+            'Approved customer reschedule request for Application '.$application->reference_no.' to '.$scheduleLabel.'.'
         );
 
         AppNotificationSender::send(
             $technician,
             'Installation rescheduled',
-            'Installation ' . $installation->displayJobReference() . ' has a new schedule.',
+            'Installation '.$installation->displayJobReference().' has a new schedule.',
             route('technician.installations.show', $installation),
             'installation_rescheduled',
             ['installation_id' => $installation->id, 'application_id' => $application->id],
@@ -534,10 +586,5 @@ class AdminApplicationController extends Controller
             && Schema::hasColumn('applications', 'assessment_notes')
             && Schema::hasColumn('applications', 'assessed_by')
             && Schema::hasColumn('applications', 'assessed_at');
-    }
-
-    private function technicianHasScheduleConflict(int $technicianId, string $installationDate, string $installationTime, ?int $ignoreInstallationId = null): bool
-    {
-        return TechnicianSchedule::conflicts($technicianId, $installationDate, $installationTime, $ignoreInstallationId);
     }
 }

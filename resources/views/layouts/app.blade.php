@@ -63,15 +63,6 @@
 
         <div class="navbar-right">
             @auth
-                @php
-                    $chatUrl = filled(Auth::user()->role)
-                        ? (Auth::user()->role === 'customer' ? route('chat.index') : route('role.chat.index', ['role' => Auth::user()->role]))
-                        : route('chat.index');
-                @endphp
-                <span class="user-meta">
-                    <strong>{{ Auth::user()->name }}</strong>
-                    <span class="user-role">{{ ucfirst(Auth::user()->role) }}</span>
-                </span>
                 <div class="notif-shell">
                     <button id="notifToggle" class="icon-btn notif-toggle" aria-label="Notifications" aria-expanded="false" aria-controls="notifDropdown notificationsOverlay">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -105,26 +96,6 @@
                             </form>
                             <button type="button" class="notif-view-all" data-open-notifications-overlay>View all</button>
                         </div>
-                    </div>
-                </div>
-                <button id="chatToggle" class="icon-btn" aria-label="Chat" data-chat-url="{{ $chatUrl }}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                </button>
-                <div class="profile-dropdown">
-                    <button id="profileToggle" class="icon-btn profile-toggle" aria-label="Profile menu">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M20 21a8 8 0 0 0-16 0"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                    </button>
-                    <div id="profileDropdown" class="dropdown-content">
-                        <a href="{{ route('profile.edit') }}">Profile</a>
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button type="submit" class="btn-link">Logout</button>
-                        </form>
                     </div>
                 </div>
             @else
@@ -173,7 +144,12 @@
 
         @auth
             @if ($errors->any())
-                <div class="flash-stack"><div class="alert alert-error">{{ $errors->first() }}</div></div>
+                <div class="flash-stack validation-toast-stack" data-validation-summary>
+                    <div class="alert alert-error validation-toast" role="alert">
+                        <span class="validation-toast-icon" aria-hidden="true">!</span>
+                        <span><strong>Please check the highlighted field.</strong> {{ $errors->first() }}</span>
+                    </div>
+                </div>
             @endif
         @endauth
 

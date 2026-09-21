@@ -163,15 +163,9 @@
                         <dd>{{ $assignedStaff }}</dd>
                     </div>
                     <div>
-                        <dt>Appointment ({{ config('app.timezone') }})</dt>
-                        <dd>{{ $ticket->appointmentLabel() }}</dd>
+                        <dt>Response target ({{ config('app.timezone') }})</dt>
+                        <dd>{{ $ticket->responseTargetLabel() }}</dd>
                     </div>
-                    @if(filled($ticket->appointment_change_reason))
-                        <div>
-                            <dt>Reason for appointment change</dt>
-                            <dd style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ $ticket->appointment_change_reason }}</dd>
-                        </div>
-                    @endif
                 </dl>
             </section>
 
