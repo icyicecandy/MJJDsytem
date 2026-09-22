@@ -88,7 +88,7 @@
         </article>
     </section>
 
-    <section class="panel-grid">
+    <section class="panel-grid panel-grid--single">
         <div class="panel-card">
             <div class="panel-header">
                 <div class="panel-title-wrap">
@@ -127,27 +127,6 @@
             </div>
         </div>
 
-        <div class="panel-card">
-            <div class="panel-header">
-                <div class="panel-title-wrap">
-                    <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></span>
-                    <div>
-                        <div class="panel-title">Quick Actions</div>
-                        <div class="panel-subtitle">Open the main admin modules</div>
-                    </div>
-                </div>
-            </div>
-            <div class="panel-body">
-                <div class="quick-link-grid">
-                    <a href="{{ route('admin.applications.index') }}" class="quick-link"><strong>Applications</strong><span>Review, approve, and schedule requests.</span></a>
-                    <a href="{{ route('admin.installations.index') }}" class="quick-link"><strong>Installations</strong><span>Track field schedules and completions.</span></a>
-                    <a href="{{ route('admin.customers.index') }}" class="quick-link"><strong>Customers</strong><span>Review customer details, service status, and support history.</span></a>
-                    <a href="{{ route('admin.technicians.index') }}" class="quick-link"><strong>Technicians</strong><span>Review technician details, workload, and upcoming schedules.</span></a>
-                    <a href="{{ route('admin.tickets.index') }}" class="quick-link"><strong>Tickets</strong><span>Manage customer issues and assignments.</span></a>
-                    <a href="{{ route('admin.system-logs.index') }}" class="quick-link"><strong>System Logs</strong><span>View the latest recorded system activity.</span></a>
-                </div>
-            </div>
-        </div>
     </section>
 
 </div>

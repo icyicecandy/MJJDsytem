@@ -56,7 +56,7 @@
         </article>
     </section>
 
-    <section class="panel-grid">
+    <section class="panel-grid panel-grid--single">
         <div class="panel-card">
             <div class="panel-header">
                 <div class="panel-title-wrap">
@@ -92,24 +92,6 @@
             </div>
         </div>
 
-        <div class="panel-card">
-            <div class="panel-header">
-                <div class="panel-title-wrap">
-                    <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></span>
-                    <div>
-                        <div class="panel-title">Quick Actions</div>
-                        <div class="panel-subtitle">Navigate the core customer modules</div>
-                    </div>
-                </div>
-            </div>
-            <div class="panel-body">
-                <div class="quick-link-grid">
-                    <a href="{{ route('customer.apply') }}" class="quick-link"><strong>Apply for Service</strong><span>Submit a new request if your previous application was rejected.</span></a>
-                    <a href="{{ route('customer.tickets.index') }}" class="quick-link"><strong>Tickets</strong><span>Open a support conversation and view updates.</span></a>
-                    <a href="{{ route('chat.index') }}" class="quick-link"><strong>Live Chat</strong><span>Connect with support staff or the AI assistant when staff are unavailable.</span></a>
-                </div>
-            </div>
-        </div>
     </section>
 </div>
 @include('customer.tickets.partials.create-ticket-modal')

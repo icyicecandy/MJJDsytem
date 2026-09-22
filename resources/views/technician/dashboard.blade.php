@@ -121,7 +121,7 @@
         <article class="metric-card"><div class="metric-head"><div><div class="metric-label">Open Tickets</div><div class="metric-value">{{ $assignedTickets }}</div><div class="metric-meta">Assigned service concerns still open</div></div><div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 0 0 4v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2 2 0 0 0 0-4z"></path><path d="M13 5v14"></path></svg></div></div></article>
     </section>
 
-    <section class="panel-grid">
+    <section class="panel-grid panel-grid--single">
         <div class="panel-card">
             <div class="panel-header">
                 <div class="panel-title-wrap">
@@ -155,24 +155,6 @@
             </div>
         </div>
 
-        <div class="panel-card">
-            <div class="panel-header">
-                <div class="panel-title-wrap">
-                    <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></span>
-                    <div>
-                        <div class="panel-title">Quick Actions</div>
-                        <div class="panel-subtitle">Open the core technician modules</div>
-                    </div>
-                </div>
-            </div>
-            <div class="panel-body">
-                <div class="quick-link-grid">
-                    <a href="{{ route('technician.installations.index') }}" class="quick-link"><strong>Installations</strong><span>Review assigned jobs and complete installation records.</span></a>
-                    <a href="{{ route('technician.tickets.index') }}" class="quick-link"><strong>Support Tickets</strong><span>Respond to assigned service concerns.</span></a>
-                    <a href="{{ route('role.chat.index', ['role' => 'technician']) }}" class="quick-link"><strong>Live Chat</strong><span>Coordinate with support staff and customers.</span></a>
-                </div>
-            </div>
-        </div>
     </section>
 
     <div class="panel-card">

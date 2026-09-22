@@ -13,64 +13,95 @@
 
     <section class="card ticket-queue-overview">
         <div class="ticket-queue-overview__head">
-            <form method="GET" action="{{ route('admin.tickets.index') }}" class="toolbar-row" data-mobile-filter>
-                @if($selectedStatus !== 'all')
-                    <input type="hidden" name="status" value="{{ $selectedStatus }}">
-                @endif
-                <div class="toolbar-field grow">
+            <form method="GET" action="{{ route('admin.tickets.index') }}" class="toolbar-row ticket-filter-toolbar ticket-filter-toolbar--admin" data-mobile-filter>
+                <div class="toolbar-field grow ticket-filter-search">
                     <label for="admin_ticket_search">Search Tickets</label>
                     <input
                         id="admin_ticket_search"
-                        type="text"
+                        type="search"
                         name="search"
                         value="{{ $search }}"
                         placeholder="Tracking number, customer name, or subject"
                     >
                 </div>
+                <div class="toolbar-field">
+                    <label for="admin_ticket_status">Status</label>
+                    <select id="admin_ticket_status" name="status">
+                        <option value="all" @selected($selectedStatus === 'all')>All statuses</option>
+                        <option value="unassigned" @selected($selectedStatus === 'unassigned')>Unassigned</option>
+                        <option value="open" @selected(in_array($selectedStatus, ['open', 'queued'], true))>Open</option>
+                        <option value="in_progress" @selected($selectedStatus === 'in_progress')>In progress</option>
+                        <option value="resolved" @selected($selectedStatus === 'resolved')>Resolved</option>
+                        <option value="closed" @selected($selectedStatus === 'closed')>Closed</option>
+                        <option value="cancelled" @selected($selectedStatus === 'cancelled')>Cancelled</option>
+                    </select>
+                </div>
+                <div class="toolbar-field">
+                    <label for="admin_ticket_urgency">Urgency</label>
+                    <select id="admin_ticket_urgency" name="urgency">
+                        <option value="all">All urgency levels</option>
+                        @foreach(\App\Models\Ticket::URGENCY_LEVELS as $urgency)
+                            <option value="{{ $urgency }}" @selected($selectedUrgency === $urgency)>{{ ucfirst($urgency) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="toolbar-field">
+                    <label for="admin_ticket_technician">Technician</label>
+                    <select id="admin_ticket_technician" name="technician">
+                        <option value="all">All technicians</option>
+                        <option value="unassigned" @selected($selectedTechnician === 'unassigned')>Unassigned</option>
+                        @foreach($filterTechnicians as $filterTechnician)
+                            <option value="{{ $filterTechnician->id }}" @selected($selectedTechnician === (string) $filterTechnician->id)>
+                                {{ $filterTechnician->name }}{{ $filterTechnician->disabled_at ? ' (Disabled)' : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
                 <div class="toolbar-actions">
-                    <button type="submit" class="btn">Search</button>
-                    @if($search !== '' || $selectedStatus !== 'all')
+                    <button type="submit" class="btn">Apply</button>
+                    @if($search !== '' || $selectedStatus !== 'all' || $selectedUrgency !== 'all' || $selectedTechnician !== 'all')
                         <a href="{{ route('admin.tickets.index') }}" class="btn secondary">Reset</a>
                     @endif
                 </div>
             </form>
         </div>
-        <div class="ticket-queue-overview__grid">
-            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'unassigned', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'unassigned' ? 'is-active' : '' }}">
+        @php
+            $queueFilterParams = array_filter([
+                'search' => $search,
+                'urgency' => $selectedUrgency,
+                'technician' => $selectedTechnician,
+            ], fn ($value) => $value !== '' && $value !== 'all');
+        @endphp
+        <nav class="ticket-queue-overview__grid" aria-label="Filter tickets by status">
+            <a href="{{ route('admin.tickets.index', array_merge($queueFilterParams, ['status' => 'unassigned'])) }}" class="ticket-queue-metric {{ $selectedStatus === 'unassigned' ? 'is-active' : '' }}" @if($selectedStatus === 'unassigned') aria-current="page" @endif>
                 <span class="ticket-queue-metric__label">Unassigned</span>
                 <strong class="ticket-queue-metric__value">{{ $queueSummary['unassigned'] }}</strong>
-                <span class="ticket-queue-metric__meta">Waiting for urgency review or an eligible on-shift technician</span>
             </a>
-            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'open', 'search' => $search])) }}" class="ticket-queue-metric {{ in_array($selectedStatus, ['open', 'queued'], true) ? 'is-active' : '' }}">
+            <a href="{{ route('admin.tickets.index', array_merge($queueFilterParams, ['status' => 'open'])) }}" class="ticket-queue-metric {{ in_array($selectedStatus, ['open', 'queued'], true) ? 'is-active' : '' }}" @if(in_array($selectedStatus, ['open', 'queued'], true)) aria-current="page" @endif>
                 <span class="ticket-queue-metric__label">Open</span>
                 <strong class="ticket-queue-metric__value">{{ $queueSummary['open'] }}</strong>
-                <span class="ticket-queue-metric__meta">Priority-ordered tickets waiting for technician work to begin</span>
             </a>
-            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'in_progress', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'in_progress' ? 'is-active' : '' }}">
+            <a href="{{ route('admin.tickets.index', array_merge($queueFilterParams, ['status' => 'in_progress'])) }}" class="ticket-queue-metric {{ $selectedStatus === 'in_progress' ? 'is-active' : '' }}" @if($selectedStatus === 'in_progress') aria-current="page" @endif>
                 <span class="ticket-queue-metric__label">In Progress</span>
                 <strong class="ticket-queue-metric__value">{{ $queueSummary['in_progress'] }}</strong>
-                <span class="ticket-queue-metric__meta">Currently being worked by assigned technicians</span>
             </a>
-            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'resolved', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'resolved' ? 'is-active' : '' }}">
+            <a href="{{ route('admin.tickets.index', array_merge($queueFilterParams, ['status' => 'resolved'])) }}" class="ticket-queue-metric {{ $selectedStatus === 'resolved' ? 'is-active' : '' }}" @if($selectedStatus === 'resolved') aria-current="page" @endif>
                 <span class="ticket-queue-metric__label">Resolved</span>
                 <strong class="ticket-queue-metric__value">{{ $queueSummary['resolved'] }}</strong>
-                <span class="ticket-queue-metric__meta">Completed and waiting for final closure if needed</span>
             </a>
-            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'closed', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'closed' ? 'is-active' : '' }}">
+            <a href="{{ route('admin.tickets.index', array_merge($queueFilterParams, ['status' => 'closed'])) }}" class="ticket-queue-metric {{ $selectedStatus === 'closed' ? 'is-active' : '' }}" @if($selectedStatus === 'closed') aria-current="page" @endif>
                 <span class="ticket-queue-metric__label">Closed</span>
                 <strong class="ticket-queue-metric__value">{{ $queueSummary['closed'] }}</strong>
-                <span class="ticket-queue-metric__meta">Finished tickets kept for record history</span>
             </a>
-            <a href="{{ route('admin.tickets.index', array_filter(['status' => 'cancelled', 'search' => $search])) }}" class="ticket-queue-metric {{ $selectedStatus === 'cancelled' ? 'is-active' : '' }}">
+            <a href="{{ route('admin.tickets.index', array_merge($queueFilterParams, ['status' => 'cancelled'])) }}" class="ticket-queue-metric {{ $selectedStatus === 'cancelled' ? 'is-active' : '' }}" @if($selectedStatus === 'cancelled') aria-current="page" @endif>
                 <span class="ticket-queue-metric__label">Cancelled</span>
                 <strong class="ticket-queue-metric__value">{{ $queueSummary['cancelled'] }}</strong>
-                <span class="ticket-queue-metric__meta">Cancelled tickets kept for history</span>
             </a>
-        </div>
+        </nav>
     </section>
 
-    <section class="card table-card">
-        <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
+    <section class="card table-card ticket-table-card">
+        <div class="table-wrap ticket-table-wrap" tabindex="0" role="region" aria-label="Support ticket records">
             <table class="telecom-table ticket-list-table ticket-list-table--admin" data-mobile-cards>
                     <colgroup>
                         <col class="ticket-col-reference">
@@ -110,7 +141,10 @@
                                 <span class="ticket-queue-pill">Unassigned Queue</span>
                             @endif
                         </td>
-                        <td>{{ $ticket->created_at->displayDateTime() }}</td>
+                        <td class="ticket-submitted-cell">
+                            <span>{{ $ticket->created_at->displayDateTime('M d, Y') }}</span>
+                            <small>{{ $ticket->created_at->displayTime() }}</small>
+                        </td>
                         <td class="mobile-table-only">
                             {{ $ticket->responseTargetLabel() }}
                         </td>

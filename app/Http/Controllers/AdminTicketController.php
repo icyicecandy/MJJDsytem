@@ -19,9 +19,18 @@ class AdminTicketController extends Controller
     public function index(Request $request)
     {
         $selectedStatus = $request->query('status', 'all');
+        $selectedUrgency = strtolower(trim((string) $request->query('urgency', 'all')));
+        $selectedTechnician = trim((string) $request->query('technician', 'all'));
         $search = trim((string) $request->query('search', ''));
+
         if (! in_array($selectedStatus, ['all', 'unassigned', 'open', 'queued', 'in_progress', 'resolved', 'closed', 'cancelled'], true)) {
             $selectedStatus = 'all';
+        }
+        if (! in_array($selectedUrgency, array_merge(['all'], Ticket::URGENCY_LEVELS), true)) {
+            $selectedUrgency = 'all';
+        }
+        if ($selectedTechnician !== 'all' && $selectedTechnician !== 'unassigned' && ! ctype_digit($selectedTechnician)) {
+            $selectedTechnician = 'all';
         }
 
         $ticketsQuery = Ticket::with(['user', 'technician'])
@@ -35,6 +44,16 @@ class AdminTicketController extends Controller
                         $userQuery->where('name', 'like', '%'.$search.'%');
                     });
             });
+        }
+
+        if ($selectedUrgency !== 'all') {
+            $ticketsQuery->where('urgency', $selectedUrgency);
+        }
+
+        if ($selectedTechnician === 'unassigned') {
+            $ticketsQuery->whereNull('technician_id');
+        } elseif ($selectedTechnician !== 'all') {
+            $ticketsQuery->where('technician_id', (int) $selectedTechnician);
         }
 
         if ($selectedStatus === 'unassigned') {
@@ -69,22 +88,58 @@ class AdminTicketController extends Controller
             ->orderBy('name')
             ->get();
 
+        $filterTechnicians = User::where('role', 'technician')
+            ->orderBy('name')
+            ->get(['id', 'name', 'disabled_at']);
+
+        $summaryQuery = Ticket::query();
+
+        if ($search !== '') {
+            $summaryQuery->where(function ($query) use ($search) {
+                $query->where('tracking_number', 'like', '%'.$search.'%')
+                    ->orWhere('subject', 'like', '%'.$search.'%')
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', '%'.$search.'%');
+                    });
+            });
+        }
+        if ($selectedUrgency !== 'all') {
+            $summaryQuery->where('urgency', $selectedUrgency);
+        }
+        if ($selectedTechnician === 'unassigned') {
+            $summaryQuery->whereNull('technician_id');
+        } elseif ($selectedTechnician !== 'all') {
+            $summaryQuery->where('technician_id', (int) $selectedTechnician);
+        }
+
         $queueSummary = [
-            'unassigned' => Ticket::whereNull('technician_id')
+            'unassigned' => (clone $summaryQuery)
+                ->whereNull('technician_id')
                 ->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED])
                 ->count(),
-            'open' => Ticket::whereNotNull('technician_id')
+            'open' => (clone $summaryQuery)
+                ->whereNotNull('technician_id')
                 ->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED])
                 ->count(),
-            'in_progress' => Ticket::whereNotNull('technician_id')
+            'in_progress' => (clone $summaryQuery)
+                ->whereNotNull('technician_id')
                 ->where('status', Ticket::STATUS_IN_PROGRESS)
                 ->count(),
-            'resolved' => Ticket::where('status', Ticket::STATUS_RESOLVED)->count(),
-            'closed' => Ticket::where('status', Ticket::STATUS_CLOSED)->count(),
-            'cancelled' => Ticket::where('status', Ticket::STATUS_CANCELLED)->count(),
+            'resolved' => (clone $summaryQuery)->where('status', Ticket::STATUS_RESOLVED)->count(),
+            'closed' => (clone $summaryQuery)->where('status', Ticket::STATUS_CLOSED)->count(),
+            'cancelled' => (clone $summaryQuery)->where('status', Ticket::STATUS_CANCELLED)->count(),
         ];
 
-        return view('admin.tickets.index', compact('tickets', 'technicians', 'queueSummary', 'selectedStatus', 'search'));
+        return view('admin.tickets.index', compact(
+            'tickets',
+            'technicians',
+            'filterTechnicians',
+            'queueSummary',
+            'selectedStatus',
+            'selectedUrgency',
+            'selectedTechnician',
+            'search'
+        ));
     }
 
     public function update(Request $request, Ticket $ticket)

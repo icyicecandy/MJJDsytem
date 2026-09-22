@@ -573,6 +573,9 @@ h1.card, h2.card { padding: 1rem 1.2rem; font-size: 1.15rem; }
     grid-template-columns: 1.6fr 1fr;
     gap: 1rem;
 }
+.panel-grid--single {
+    grid-template-columns: minmax(0, 1fr);
+}
 .panel-card {
     background: rgba(255,255,255,0.92);
     border: 1px solid rgba(219,228,239,0.95);
@@ -7412,3 +7415,122 @@ body.login-modal-open {
     font-weight: 900;
 }
 .technician-day-picker{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem}.technician-day-chip{position:relative}.technician-day-chip input{position:absolute;inset:0;opacity:0}.technician-day-chip span{display:flex;justify-content:center;padding:.65rem;border:1px solid #cbd5e1;border-radius:999px;background:#fff;font-weight:800}.technician-day-chip input:checked+span{border-color:#2563eb;background:#dbeafe;color:#1d4ed8}.technician-day-chip input:focus-visible+span{outline:3px solid rgba(37,99,235,.22)}@media(max-width:640px){.technician-day-picker{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* Compact status filters and fitted ticket tables shared by admin and technician queues. */
+.ticket-queue-overview {
+    gap: 0.85rem;
+    padding: 1rem;
+}
+.ticket-filter-toolbar {
+    display: grid;
+    align-items: end;
+    gap: 0.75rem;
+    width: 100%;
+}
+.ticket-filter-toolbar--admin {
+    grid-template-columns: minmax(17rem, 1.8fr) repeat(3, minmax(9rem, 1fr)) auto;
+}
+.ticket-filter-toolbar--technician {
+    grid-template-columns: minmax(17rem, 1.8fr) repeat(2, minmax(9rem, 1fr)) auto;
+}
+.ticket-filter-toolbar .toolbar-field,
+.ticket-filter-toolbar .toolbar-field.grow {
+    width: 100%;
+    min-width: 0;
+    flex: none;
+}
+.ticket-filter-toolbar .toolbar-actions {
+    align-self: end;
+    flex-wrap: nowrap;
+}
+.ticket-queue-overview__grid {
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: 0.65rem;
+}
+.ticket-queue-metric {
+    display: flex;
+    min-width: 0;
+    min-height: 68px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 13px;
+}
+.ticket-queue-metric__label {
+    min-width: 0;
+    line-height: 1.25;
+}
+.ticket-queue-metric__value {
+    flex: 0 0 auto;
+    min-width: 2.25rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(16, 42, 113, 0.08);
+    font-size: 1.25rem;
+    line-height: 1;
+    text-align: center;
+}
+.ticket-queue-metric.is-active .ticket-queue-metric__value {
+    background: #102a71;
+    color: #ffffff;
+}
+.ticket-queue-metric__meta {
+    display: none;
+}
+.ticket-table-card {
+    overflow: visible;
+}
+.ticket-table-wrap {
+    border-radius: inherit;
+}
+body.layout .telecom-table.ticket-list-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+}
+body.layout .ticket-list-table--admin .ticket-col-reference { width: 13%; }
+body.layout .ticket-list-table--admin .ticket-col-person { width: 14%; }
+body.layout .ticket-list-table--admin .ticket-col-urgency { width: 8%; }
+body.layout .ticket-list-table--admin .ticket-col-status { width: 10%; }
+body.layout .ticket-list-table--admin .ticket-col-submitted { width: 13%; }
+body.layout .ticket-list-table--admin .ticket-col-action { width: 6rem; }
+body.layout .ticket-list-table--technician .ticket-col-reference { width: 15%; }
+body.layout .ticket-list-table--technician .ticket-col-person { width: 18%; }
+body.layout .ticket-list-table--technician .ticket-col-urgency { width: 10%; }
+body.layout .ticket-list-table--technician .ticket-col-status { width: 13%; }
+body.layout .ticket-list-table--technician .ticket-col-submitted { width: 15%; }
+body.layout .ticket-list-table--technician .ticket-col-action { width: 6rem; }
+body.layout .ticket-list-table :is(th, td) {
+    min-width: 0;
+    padding: 0.75rem 0.65rem;
+}
+body.layout .ticket-list-table td:nth-child(3) {
+    overflow-wrap: anywhere;
+}
+.ticket-submitted-cell {
+    display: grid;
+    gap: 0.1rem;
+    white-space: normal;
+}
+.ticket-submitted-cell small {
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
+}
+body.layout .ticket-list-table :is(.col-actions, .actions-cell) {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    width: 6rem;
+    min-width: 6rem;
+    border-left: 1px solid rgba(217, 223, 239, 0.85);
+    background: #ffffff;
+    box-shadow: -8px 0 14px rgba(15, 23, 42, 0.035);
+    text-align: center;
+}
+body.layout .ticket-list-table .col-actions {
+    z-index: 3;
+    background: #f5f8fd;
+}
+body.layout .ticket-list-table tbody tr:hover .actions-cell {
+    background: #f7faff;
+}

@@ -16,9 +16,14 @@ class TechnicianTicketController extends Controller
     public function index(Request $request)
     {
         $selectedStatus = $request->query('status', 'all');
+        $selectedUrgency = strtolower(trim((string) $request->query('urgency', 'all')));
         $search = trim((string) $request->query('search', ''));
+
         if (! in_array($selectedStatus, ['all', 'open', 'queued', 'in_progress', 'resolved', 'closed', 'cancelled'], true)) {
             $selectedStatus = 'all';
+        }
+        if (! in_array($selectedUrgency, array_merge(['all'], Ticket::URGENCY_LEVELS), true)) {
+            $selectedUrgency = 'all';
         }
 
         $ticketsQuery = Ticket::with('user')
@@ -36,6 +41,10 @@ class TechnicianTicketController extends Controller
             });
         }
 
+        if ($selectedUrgency !== 'all') {
+            $ticketsQuery->where('urgency', $selectedUrgency);
+        }
+
         if ($selectedStatus === 'open' || $selectedStatus === 'queued') {
             $ticketsQuery->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED]);
         } elseif ($selectedStatus !== 'all') {
@@ -44,15 +53,36 @@ class TechnicianTicketController extends Controller
 
         $tickets = $ticketsQuery->get();
 
+        $summaryQuery = Ticket::assignedTo(Auth::user());
+
+        if ($search !== '') {
+            $summaryQuery->where(function ($query) use ($search) {
+                $query->where('tracking_number', 'like', '%'.$search.'%')
+                    ->orWhere('subject', 'like', '%'.$search.'%')
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', '%'.$search.'%');
+                    });
+            });
+        }
+        if ($selectedUrgency !== 'all') {
+            $summaryQuery->where('urgency', $selectedUrgency);
+        }
+
         $queueSummary = [
-            'open' => Ticket::assignedTo(Auth::user())->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED])->count(),
-            'in_progress' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_IN_PROGRESS)->count(),
-            'resolved' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_RESOLVED)->count(),
-            'closed' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_CLOSED)->count(),
-            'cancelled' => Ticket::assignedTo(Auth::user())->where('status', Ticket::STATUS_CANCELLED)->count(),
+            'open' => (clone $summaryQuery)->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED])->count(),
+            'in_progress' => (clone $summaryQuery)->where('status', Ticket::STATUS_IN_PROGRESS)->count(),
+            'resolved' => (clone $summaryQuery)->where('status', Ticket::STATUS_RESOLVED)->count(),
+            'closed' => (clone $summaryQuery)->where('status', Ticket::STATUS_CLOSED)->count(),
+            'cancelled' => (clone $summaryQuery)->where('status', Ticket::STATUS_CANCELLED)->count(),
         ];
 
-        return view('technician.tickets.index', compact('tickets', 'queueSummary', 'selectedStatus', 'search'));
+        return view('technician.tickets.index', compact(
+            'tickets',
+            'queueSummary',
+            'selectedStatus',
+            'selectedUrgency',
+            'search'
+        ));
     }
 
     public function start(Ticket $ticket)
