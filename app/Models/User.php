@@ -6,6 +6,7 @@ use App\Notifications\VerifyCustomerEmail;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -106,6 +107,8 @@ class User extends Authenticatable implements MustVerifyEmailContract
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     protected $appends = [
@@ -160,6 +163,9 @@ class User extends Authenticatable implements MustVerifyEmailContract
             'disabled_at' => 'datetime',
             'password_set_at' => 'datetime',
             'must_change_password' => 'boolean',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
         ];
     }
 
@@ -236,6 +242,23 @@ class User extends Authenticatable implements MustVerifyEmailContract
     public function requiresPasswordChange(): bool
     {
         return $this->isTechnician() && (bool) $this->must_change_password;
+    }
+
+    public function requiresStaffTwoFactor(): bool
+    {
+        return $this->isAdmin() || $this->isTechnician();
+    }
+
+    public function hasStaffTwoFactorEnabled(): bool
+    {
+        return $this->requiresStaffTwoFactor()
+            && filled($this->two_factor_secret)
+            && $this->two_factor_confirmed_at !== null;
+    }
+
+    public function trustedDevices(): HasMany
+    {
+        return $this->hasMany(TrustedDevice::class);
     }
 
     public static function formatCustomerId(int $id): string

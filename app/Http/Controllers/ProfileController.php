@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\User;
+use App\Services\StaffTwoFactorService;
 use App\Services\WorkflowTransaction;
 use App\Support\ProfileSanitizer;
 use Illuminate\Http\JsonResponse;
@@ -20,11 +21,17 @@ use Throwable;
 
 class ProfileController extends Controller
 {
-    public function edit(Request $request): View
+    public function edit(Request $request, StaffTwoFactorService $twoFactor): View
     {
+        $user = $request->user();
+
         return view('profile.edit', [
-            'user' => $request->user(),
-            'twoFactorAvailable' => false,
+            'user' => $user,
+            'twoFactorAvailable' => $user->requiresStaffTwoFactor(),
+            'trustedDevices' => $user->requiresStaffTwoFactor()
+                ? $user->trustedDevices()->active()->latest('last_used_at')->get()
+                : collect(),
+            'currentTrustedDeviceId' => $twoFactor->currentTrustedDeviceId($request),
         ]);
     }
 

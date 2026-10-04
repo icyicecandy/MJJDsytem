@@ -39,6 +39,10 @@
             @include('profile.partials.update-password-form')
         </aside>
     </div>
+
+    @if($twoFactorAvailable)
+        @include('profile.partials.staff-security')
+    @endif
 </div>
 @endsection
 

@@ -141,7 +141,7 @@
             <div class="flash-stack">
                 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
                 @if(session('error'))<div class="alert alert-error">{{ session('error') }}</div>@endif
-                @if(session('status'))<div class="alert alert-info">{{ match (session('status')) { 'profile-updated' => 'Profile successfully updated.', 'password-updated' => 'Password successfully changed.', 'password-set' => 'Password successfully set.', 'first-login-password-updated' => 'Password changed successfully. Your technician account is now ready.', default => session('status') } }}</div>@endif
+                @if(session('status'))<div class="alert alert-info">{{ match (session('status')) { 'profile-updated' => 'Profile successfully updated.', 'password-updated' => 'Password successfully changed. Trusted browsers were revoked.', 'password-set' => 'Password successfully set.', 'first-login-password-updated' => 'Password changed successfully. Complete two-factor setup to continue.', 'trusted-device-revoked' => 'The selected trusted browser was revoked.', 'trusted-devices-revoked' => 'All trusted browsers were revoked.', default => session('status') } }}</div>@endif
             </div>
         @endif
 

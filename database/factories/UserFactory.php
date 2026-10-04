@@ -29,6 +29,11 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            // Most feature tests model an established account. Staff enrollment
+            // tests explicitly override these fields with null values.
+            'two_factor_secret' => 'JBSWY3DPEHPK3PXP',
+            'two_factor_recovery_codes' => [],
+            'two_factor_confirmed_at' => now(),
         ];
     }
 

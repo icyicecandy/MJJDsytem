@@ -547,3 +547,84 @@ textarea.is-valid {
 .profile-main, .profile-side, .profile-panel, .profile-hero-card > div { min-width: 0; }
 .profile-hero-card strong, .profile-hero-card p, .profile-avatar-controls .field-help { overflow-wrap: anywhere; }
 .profile-avatar-controls input[type=file] { min-width: 0; max-width: 100%; }
+
+.staff-security-settings-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, .8fr) minmax(0, 1.2fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.staff-security-summary,
+.staff-trusted-devices {
+    display: grid;
+    gap: .85rem;
+}
+
+.staff-security-count {
+    width: fit-content;
+    padding: .38rem .65rem;
+    border-radius: 999px;
+    background: #e8f4ff;
+    color: #174ea6;
+    font-size: .8rem;
+    font-weight: 800;
+}
+
+.staff-security-disclosure {
+    border: 1px solid rgba(219,228,239,.95);
+    border-radius: 16px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.staff-security-disclosure summary {
+    padding: .95rem 1rem;
+    cursor: pointer;
+    color: #0f2c63;
+    font-weight: 800;
+}
+
+.staff-security-disclosure[open] summary {
+    border-bottom: 1px solid rgba(219,228,239,.95);
+    background: #f8fbff;
+}
+
+.staff-security-disclosure form { padding: 1rem; }
+.staff-security-disclosure .btn { width: 100%; }
+
+.trusted-device-card {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) minmax(250px, auto);
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid rgba(219,228,239,.95);
+    border-radius: 16px;
+    background: linear-gradient(180deg, #fff, #f8fbff);
+}
+
+.trusted-device-title { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.trusted-device-card p, .trusted-device-card small { display: block; margin: .3rem 0 0; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.trusted-device-revoke-form { display: grid; grid-template-columns: minmax(140px,1fr) auto; gap: .55rem; }
+.trusted-device-revoke-form input,
+.trusted-devices-revoke-all input {
+    min-width: 0;
+    min-height: 44px;
+    padding: .65rem .75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 11px;
+}
+
+.trusted-devices-revoke-all { display: grid; gap: .45rem; padding-top: .25rem; }
+.trusted-devices-revoke-all > div { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .55rem; }
+
+@media (max-width: 900px) {
+    .staff-security-settings-grid,
+    .trusted-device-card { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+    .trusted-device-revoke-form,
+    .trusted-devices-revoke-all > div { grid-template-columns: 1fr; }
+}

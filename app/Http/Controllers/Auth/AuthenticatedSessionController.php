@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\SystemLog;
 use App\Models\User;
+use App\Services\StaffTwoFactorService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,7 +25,7 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(LoginRequest $request, StaffTwoFactorService $twoFactor): RedirectResponse
     {
         $request->authenticate();
 
@@ -42,41 +44,69 @@ class AuthenticatedSessionController extends Controller
                 ->with('auth_modal', 'login');
         }
 
-        system_log('Account Login', 'Signed in using email and password.');
-
         if ($user->isAdmin() || $user->isTechnician()) {
             $requiresPasswordChange = $user->requiresPasswordChange();
 
             $user->forceFill([
-                'is_online' => ! $requiresPasswordChange,
-                'last_seen' => $requiresPasswordChange ? null : now(),
-                'chat_available' => ! $requiresPasswordChange,
+                'is_online' => false,
+                'last_seen' => null,
+                'chat_available' => false,
             ])->save();
 
             if ($requiresPasswordChange) {
                 return redirect()->route('technician.password.change');
             }
+
+            if (! $user->hasStaffTwoFactorEnabled()) {
+                SystemLog::create([
+                    'user_id' => $user->id,
+                    'user_role' => $user->role,
+                    'action' => 'Staff Two-Factor Enrollment Required',
+                    'description' => 'Password verification passed; authenticator enrollment is required.',
+                ]);
+
+                return redirect()->route('staff.two-factor.setup');
+            }
+
+            $trustedDevice = $twoFactor->trustedDevice($user, $request);
+
+            if (! $trustedDevice) {
+                SystemLog::create([
+                    'user_id' => $user->id,
+                    'user_role' => $user->role,
+                    'action' => 'Staff Two-Factor Challenge Started',
+                    'description' => 'Password verification passed on an untrusted browser.',
+                ]);
+
+                return StaffTwoFactorController::beginChallenge($request, $user);
+            }
+
+            $user->forceFill([
+                'is_online' => true,
+                'last_seen' => now(),
+                'chat_available' => true,
+            ])->save();
+
+            system_log('Trusted Device Used', $trustedDevice->name.' completed the staff security check.');
+            system_log('Account Login', 'Signed in using email and password on a trusted browser.');
+
+            return redirect($user->isAdmin() ? '/admin/dashboard' : '/technician/dashboard');
         }
+
+        if ($request->boolean('remember')) {
+            Auth::login($user, true);
+            $request->session()->regenerate();
+        }
+
+        system_log('Account Login', 'Signed in using email and password.');
 
         // If user originally tried to access a protected page
         if (session()->has('url.intended')) {
             return redirect()->intended();
         }
 
-        if ($user->role === 'admin') {
-            return redirect('/admin/dashboard');
-        }
-
-        if ($user->role === 'technician') {
-            return redirect('/technician/dashboard');
-        }
-
         return redirect('/customer/dashboard');
     }
-
-
-
-
 
     /**
      * Destroy an authenticated session.

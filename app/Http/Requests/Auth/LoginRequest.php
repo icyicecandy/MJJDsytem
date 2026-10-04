@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\SystemLog;
 use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\Validator;
@@ -46,14 +47,29 @@ class LoginRequest extends FormRequest
 
     /**
      * Attempt to authenticate the request's credentials.
-     *
      */
     public function authenticate(): void
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        // Persistent staff access is handled by revocable trusted-device tokens.
+        // The ordinary Laravel remember cookie remains available to customers only.
+        if (! Auth::attempt($this->only('email', 'password'), false)) {
             RateLimiter::hit($this->throttleKey());
+
+            $staff = User::query()
+                ->where('email', Str::lower(trim((string) $this->input('email'))))
+                ->whereIn('role', ['admin', 'technician'])
+                ->first();
+
+            if ($staff) {
+                SystemLog::create([
+                    'user_id' => $staff->id,
+                    'user_role' => $staff->role,
+                    'action' => 'Staff Login Failed',
+                    'description' => 'A staff password attempt was rejected.',
+                ]);
+            }
 
             $this->throwLoginError(trans('auth.failed'));
         }
@@ -70,7 +86,6 @@ class LoginRequest extends FormRequest
 
     /**
      * Ensure the login request is not rate limited.
-     *
      */
     public function ensureIsNotRateLimited(): void
     {

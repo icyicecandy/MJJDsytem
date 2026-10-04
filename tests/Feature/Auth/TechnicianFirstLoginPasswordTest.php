@@ -21,6 +21,9 @@ function technicianRequiringPasswordChange(array $attributes = []): User
         'is_online' => false,
         'chat_available' => false,
         'technician_status' => 'available',
+        'two_factor_secret' => null,
+        'two_factor_recovery_codes' => null,
+        'two_factor_confirmed_at' => null,
     ], $attributes));
 }
 
@@ -95,7 +98,7 @@ test('wrong temporary key and reused temporary key are rejected', function () {
         ->and(Hash::check('TemporaryKey123!', $technician->fresh()->password))->toBeTrue();
 });
 
-test('successful first password change unlocks the portal and invalidates the temporary key', function () {
+test('successful first password change continues to staff security enrollment and invalidates the temporary key', function () {
     $technician = technicianRequiringPasswordChange();
     $newPassword = 'PrivatePassword456!';
 
@@ -107,20 +110,21 @@ test('successful first password change unlocks the portal and invalidates the te
         ]);
 
     $response
-        ->assertRedirect(route('technician.dashboard', absolute: false))
+        ->assertRedirect(route('staff.two-factor.setup', absolute: false))
         ->assertSessionHas('status', 'first-login-password-updated');
 
     $technician->refresh();
 
     expect($technician->must_change_password)->toBeFalse()
         ->and($technician->password_set_at)->not->toBeNull()
-        ->and($technician->is_online)->toBeTrue()
-        ->and($technician->chat_available)->toBeTrue()
-        ->and($technician->last_seen)->not->toBeNull()
+        ->and($technician->is_online)->toBeFalse()
+        ->and($technician->chat_available)->toBeFalse()
+        ->and($technician->last_seen)->toBeNull()
         ->and(Hash::check($newPassword, $technician->password))->toBeTrue()
         ->and(Hash::check('TemporaryKey123!', $technician->password))->toBeFalse();
 
-    $this->get(route('technician.dashboard', absolute: false))->assertOk();
+    $this->get(route('technician.dashboard', absolute: false))
+        ->assertRedirect(route('staff.two-factor.setup', absolute: false));
 
     expect(SystemLog::query()
         ->where('user_id', $technician->id)
@@ -128,16 +132,19 @@ test('successful first password change unlocks the portal and invalidates the te
         ->exists())->toBeTrue();
 });
 
-test('existing technicians and other account roles are not forced into the first login flow', function () {
+test('existing technicians skip the password change but must enroll in staff two-factor authentication', function () {
     $existingTechnician = User::factory()->create([
         'role' => 'technician',
         'must_change_password' => false,
         'password_set_at' => now(),
+        'two_factor_secret' => null,
+        'two_factor_recovery_codes' => null,
+        'two_factor_confirmed_at' => null,
     ]);
 
     $this->actingAs($existingTechnician)
         ->get(route('technician.dashboard', absolute: false))
-        ->assertOk();
+        ->assertRedirect(route('staff.two-factor.setup', absolute: false));
 
     foreach (['admin', 'customer'] as $role) {
         $user = User::factory()->create([

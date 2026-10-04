@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Throwable;
 
@@ -187,7 +188,6 @@ class TechnicianController extends Controller
                 : ' Account key email could not be sent. Share this key manually.'));
     }
 
-
     public function updateSchedule(Request $request, User $technician): RedirectResponse
     {
         abort_unless($technician->isTechnician(), 404);
@@ -249,7 +249,10 @@ class TechnicianController extends Controller
             'chat_available' => false,
             'last_seen' => null,
             'technician_status' => 'off_duty',
+            'remember_token' => Str::random(60),
         ])->save();
+
+        $technician->trustedDevices()->whereNull('revoked_at')->update(['revoked_at' => now()]);
 
         system_log(
             'Technician Account Disabled',

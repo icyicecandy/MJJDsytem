@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use PragmaRX\Google2FA\Google2FA;
 
 beforeEach(function () {
     Http::fake(['api.pwnedpasswords.com/*' => fn () => Http::response(config('profile_test.breach_response', ''), 200)]);
@@ -128,7 +129,18 @@ test('password change persists and only the new password works for each role', f
     $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertSessionHasErrorsIn('login', 'email');
     $this->assertGuest();
     $this->get('/');
-    $this->post('/login', ['email' => $user->email, 'password' => 'ProfileQa2026!z'])->assertSessionHasNoErrors();
+    $login = $this->post('/login', ['email' => $user->email, 'password' => 'ProfileQa2026!z']);
+    $login->assertSessionHasNoErrors();
+
+    if (in_array($role, ['admin', 'technician'], true)) {
+        $login->assertRedirect(route('staff.two-factor.challenge', absolute: false));
+        $this->assertGuest();
+
+        $this->post(route('staff.two-factor.challenge.verify'), [
+            'code' => (new Google2FA)->getCurrentOtp($user->fresh()->two_factor_secret),
+        ])->assertRedirect($role === 'admin' ? route('admin.dashboard', absolute: false) : route('technician.dashboard', absolute: false));
+    }
+
     $this->assertAuthenticatedAs($user);
 })->with(['admin', 'technician', 'customer']);
 

@@ -1,0 +1,141 @@
+:root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #0b1f4d;
+    background: #f5f7fb;
+}
+
+* { box-sizing: border-box; }
+html, body { max-width: 100%; overflow-x: hidden; }
+body { margin: 0; min-width: 320px; }
+button, input { font: inherit; }
+
+.staff-security-page {
+    width: 100%;
+    max-width: 100vw;
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    background:
+        radial-gradient(circle at 92% 8%, rgba(245, 196, 0, .15), transparent 26rem),
+        radial-gradient(circle at 8% 90%, rgba(37, 99, 235, .12), transparent 30rem),
+        #f7f8f4;
+}
+
+.staff-security-header {
+    min-height: 82px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem clamp(1.25rem, 4vw, 4rem);
+    background: linear-gradient(135deg, #061938, #102a71);
+    border-bottom: 1px solid rgba(255,255,255,.12);
+}
+
+.staff-security-brand { display: flex; align-items: center; gap: .8rem; color: white; text-decoration: none; }
+.staff-security-brand img { width: 44px; height: 44px; border-radius: 50%; }
+.staff-security-brand strong, .staff-security-brand small { display: block; }
+.staff-security-brand strong { font-size: 1.1rem; }
+.staff-security-brand strong span { color: #4cc9ff; }
+.staff-security-brand strong { color: #f5c400; }
+.staff-security-brand small { margin-top: .15rem; color: rgba(255,255,255,.68); font-size: .78rem; }
+
+.security-link-button {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 42px; padding: 0 1rem; border: 1px solid rgba(255,255,255,.28);
+    border-radius: 12px; color: white; background: rgba(255,255,255,.08); text-decoration: none; cursor: pointer;
+}
+
+.staff-security-main { width: 100%; max-width: 100vw; min-width: 0; display: grid; place-items: center; padding: clamp(1.25rem, 4vw, 3.5rem); }
+.staff-security-shell { width: 100%; max-width: 1040px; min-width: 0; display: grid; gap: 1rem; }
+
+.security-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    display: grid; gap: 1.5rem; padding: clamp(1.35rem, 4vw, 2.5rem);
+    border: 1px solid #d8e2f1; border-radius: 26px; background: rgba(255,255,255,.96);
+    box-shadow: 0 28px 70px rgba(15, 31, 74, .14);
+}
+.security-card-compact { width: 100%; max-width: 610px; margin-inline: auto; }
+.security-heading { min-width: 0; display: grid; gap: .55rem; overflow-wrap: anywhere; }
+.security-heading h1, .security-heading p, .security-step h2, .security-step p, .security-help p { margin: 0; }
+.security-heading h1 { font-size: clamp(1.85rem, 4vw, 2.7rem); line-height: 1.08; letter-spacing: -.035em; }
+.security-heading p, .security-step p, .security-help p { color: #52627e; line-height: 1.65; }
+.security-eyebrow { color: #1d4ed8; font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+
+.security-setup-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 1.5rem; align-items: start; }
+.security-steps { display: grid; gap: .8rem; }
+.security-step { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .8rem; padding: 1rem; border: 1px solid #e1e8f3; border-radius: 17px; background: #f8faff; }
+.security-step > div { min-width: 0; }
+.security-step h2 { font-size: 1rem; margin-bottom: .25rem; }
+.security-step-number { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: white; background: #1d4ed8; font-weight: 800; }
+.security-secret { margin-top: .75rem; padding: .75rem; border: 1px dashed #9fb1ca; border-radius: 11px; background: white; font: 700 .88rem ui-monospace, monospace; letter-spacing: .12em; overflow-wrap: anywhere; }
+.security-enrollment-panel { min-width: 0; display: grid; gap: 1rem; padding: 1.1rem; border: 1px solid #d9e3f2; border-radius: 20px; background: #f9fbff; }
+.security-qr { display: grid; place-items: center; padding: .8rem; border-radius: 16px; background: white; }
+.security-qr svg { width: min(240px, 100%); max-width: 100%; height: auto; }
+.security-account-label span, .security-account-label strong { display: block; }
+.security-account-label span { color: #64748b; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; }
+.security-account-label { min-width: 0; }
+.security-account-label strong { margin-top: .2rem; overflow-wrap: anywhere; }
+
+.security-form { min-width: 0; display: grid; gap: .7rem; }
+.security-form > label:not(.security-check) { font-weight: 750; }
+.security-form input[type="text"], .security-form input[type="password"] { width: 100%; min-width: 0; max-width: 100%; min-height: 52px; padding: .8rem .9rem; border: 1px solid #cbd7e7; border-radius: 12px; background: white; color: #0b1f4d; }
+.security-form input:focus { outline: 0; border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,.12); }
+.security-form input.is-invalid { border-color: #dc2626; }
+.security-field-error { color: #b91c1c; font-size: .86rem; font-weight: 650; }
+.security-check { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: .7rem; padding: .85rem; border-radius: 13px; background: #eef4ff; cursor: pointer; }
+.security-check input { width: 18px; height: 18px; margin-top: .15rem; }
+.security-check strong, .security-check small { display: block; }
+.security-check small { margin-top: .2rem; color: #5b6b85; line-height: 1.4; }
+
+.security-primary-button, .security-secondary-button {
+    min-height: 50px; display: inline-flex; align-items: center; justify-content: center; padding: 0 1.2rem;
+    border-radius: 13px; font-weight: 800; text-decoration: none; cursor: pointer;
+}
+.security-primary-button { border: 0; color: white; background: linear-gradient(135deg, #123ca3, #2563eb); box-shadow: 0 12px 25px rgba(37,99,235,.2); }
+.security-secondary-button { border: 1px solid #cbd7e7; color: #123166; background: white; }
+.security-action-row { display: flex; gap: .7rem; }
+.security-action-row > * { flex: 1; }
+
+.security-alert { display: grid; gap: .2rem; padding: .9rem 1rem; border: 1px solid; border-radius: 14px; line-height: 1.45; }
+.security-alert-error { color: #991b1b; border-color: #fecaca; background: #fff1f2; }
+.security-alert-success { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+.security-alert-warning { color: #854d0e; border-color: #fde68a; background: #fffbeb; }
+.security-icon { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 19px; color: #1d4ed8; background: #e8f0ff; }
+.security-icon svg { width: 32px; height: 32px; }
+.security-icon-success { color: #15803d; background: #e7f8ee; }
+.security-help { min-width: 0; padding: 1rem; border-radius: 14px; background: #f1f5f9; overflow-wrap: anywhere; }
+.security-help strong { display: block; margin-bottom: .25rem; }
+.security-recovery-codes { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .65rem; padding: 1rem; border: 1px solid #dce5f2; border-radius: 16px; background: #f8fafc; }
+.security-recovery-codes code { padding: .7rem; border-radius: 10px; background: white; color: #0b1f4d; font-size: 1rem; font-weight: 800; text-align: center; letter-spacing: .06em; }
+.staff-security-footer { padding: 1.4rem; color: #64748b; text-align: center; font-size: .86rem; }
+
+@media (max-width: 760px) {
+    .staff-security-header { min-height: 70px; padding: .8rem 1rem; }
+    .staff-security-brand img { width: 38px; height: 38px; }
+    .staff-security-brand small { display: none; }
+    .security-setup-grid { grid-template-columns: 1fr; }
+    .security-card { border-radius: 20px; }
+    .security-recovery-codes { grid-template-columns: 1fr; }
+    .security-action-row { flex-direction: column; }
+}
+
+@media (max-width: 480px) {
+    .staff-security-main { padding: 1rem .75rem 1.5rem; }
+    .staff-security-header { gap: .5rem; }
+    .staff-security-brand { gap: .55rem; min-width: 0; }
+    .staff-security-brand strong { font-size: 1rem; white-space: nowrap; }
+    .security-link-button { min-height: 38px; padding: 0 .7rem; font-size: .78rem; white-space: nowrap; }
+    .security-card { padding: 1.15rem; }
+    .security-step { padding: .85rem; }
+    .security-enrollment-panel { padding: .85rem; }
+}
+
+@media print {
+    .staff-security-header, .staff-security-footer, .security-action-row, .security-primary-button { display: none !important; }
+    .staff-security-page, .staff-security-main { background: white; }
+    .security-card { box-shadow: none; border: 0; }
+}

@@ -50,9 +50,9 @@ class FirstLoginPasswordController extends Controller
             'password_set_at' => now(),
             'must_change_password' => false,
             'remember_token' => Str::random(60),
-            'is_online' => true,
-            'last_seen' => now(),
-            'chat_available' => true,
+            'is_online' => false,
+            'last_seen' => null,
+            'chat_available' => false,
         ])->save();
 
         $request->session()->regenerate();
@@ -63,7 +63,7 @@ class FirstLoginPasswordController extends Controller
         );
 
         return redirect()
-            ->route('technician.dashboard')
+            ->route('staff.two-factor.setup')
             ->with('status', 'first-login-password-updated');
     }
 }

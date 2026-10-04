@@ -94,6 +94,12 @@ class GoogleAuthController extends Controller
                         ->with('google_auth_error', User::DISABLED_ACCOUNT_MESSAGE);
                 }
 
+                if ($user->requiresStaffTwoFactor()) {
+                    return redirect('/')
+                        ->with('auth_modal', 'login')
+                        ->with('google_auth_error', 'Administrator and technician accounts must sign in with their staff email and password.');
+                }
+
                 $wasUnverified = ! $user->hasVerifiedEmail();
                 $isNewGoogleLink = ! $user->google_id;
                 $updates = [];

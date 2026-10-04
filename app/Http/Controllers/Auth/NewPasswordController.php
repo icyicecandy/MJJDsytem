@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\SystemLog;
 use App\Models\User;
+use App\Services\StaffTwoFactorService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +30,7 @@ class NewPasswordController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, StaffTwoFactorService $twoFactor): RedirectResponse
     {
         $request->validate([
             'token' => ['required'],
@@ -41,13 +43,24 @@ class NewPasswordController extends Controller
         // database. Otherwise we will parse the error and return the response.
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user) use ($request) {
+            function (User $user) use ($request, $twoFactor) {
                 $user->forceFill([
                     'password' => Hash::make($request->password),
                     'password_set_at' => now(),
                     'must_change_password' => false,
                     'remember_token' => Str::random(60),
                 ])->save();
+
+                if ($user->requiresStaffTwoFactor()) {
+                    $twoFactor->revokeAllTrustedDevices($user);
+
+                    SystemLog::create([
+                        'user_id' => $user->id,
+                        'user_role' => $user->role,
+                        'action' => 'Staff Password Reset',
+                        'description' => 'The staff password was reset and all trusted devices were revoked.',
+                    ]);
+                }
 
                 event(new PasswordReset($user));
             }
@@ -62,7 +75,3 @@ class NewPasswordController extends Controller
                         ->withErrors(['email' => __($status)]);
     }
 }
-
-
-
-
