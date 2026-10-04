@@ -53,7 +53,7 @@
 
                 <div class="profile-field">
                     <label for="name">Full name <span class="field-badge required">Required</span></label>
-                    <input id="name" name="name" type="text" value="{{ old('name', $user->name) }}" required minlength="2" maxlength="255" pattern="^[A-Za-z][A-Za-z\s'\-]*$" autocomplete="name" data-validate="name">
+                    <input id="name" name="name" type="text" value="{{ old('name', $user->name) }}" required minlength="2" maxlength="255" autocomplete="name" data-validate="name">
                     @error('name')
                         <p class="field-error">{{ $message }}</p>
                     @enderror

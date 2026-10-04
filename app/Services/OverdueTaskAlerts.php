@@ -84,11 +84,10 @@ class OverdueTaskAlerts
         $start = $installation ? $task->scheduledStartAt() : $task->created_at;
         $users = User::query()
             ->whereNull('disabled_at')
-            ->where(function ($query) use ($task) {
+            ->where(function ($query) use ($task, $installation) {
                 $query->where('role', 'admin')
-                    ->orWhere(function ($technicianQuery) use ($task) {
-                        $technicianQuery->where('role', 'technician')
-                            ->whereKey($task->technician_id);
+                    ->orWhere(function ($staffQuery) use ($task, $installation) {
+                        $staffQuery->whereKey($installation ? $task->technician_id : $task->assigned_staff_id);
                     });
             })
             ->get();
@@ -100,7 +99,7 @@ class OverdueTaskAlerts
                 $kind,
                 $task->id,
                 $deadline->format('Y-m-d H:i:s'),
-                $task->technician_id,
+                $installation ? $task->technician_id : $task->assigned_staff_id,
                 $user->id,
             ]));
 
@@ -127,7 +126,7 @@ class OverdueTaskAlerts
                         .strtolower($task->displayUrgencyLabel()).' response target on '
                         .$deadline->format('M d, Y g:i A').' ('.config('app.timezone').'). '
                         .($admin
-                            ? 'Review the priority queue and technician workload.'
+                            ? 'Review the priority queue and support workload.'
                             : 'Update the ticket or contact an administrator if support is needed.');
 
                 DB::table('overdue_alert_deliveries')->insert([
@@ -146,7 +145,7 @@ class OverdueTaskAlerts
                         'task_id' => $task->id,
                         'scheduled_start' => $start?->toIso8601String(),
                         'scheduled_end' => $deadline->toIso8601String(),
-                        'technician_id' => $task->technician_id,
+                        'technician_id' => $installation ? $task->technician_id : $task->assigned_staff_id,
                     ]
                 );
             }

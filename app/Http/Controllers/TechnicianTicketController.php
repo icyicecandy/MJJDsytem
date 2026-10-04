@@ -94,7 +94,7 @@ class TechnicianTicketController extends Controller
 
     private function startWithinTransaction(Ticket $ticket)
     {
-        abort_unless($ticket->technician_id === Auth::id(), 403);
+        abort_unless($ticket->assigned_staff_id === Auth::id(), 403);
         abort_unless($ticket->isOpenForWork(), 422, 'Only open tickets can be started.');
         $ticket->forceFill(array_merge([
             'status' => Ticket::STATUS_IN_PROGRESS,
@@ -124,7 +124,7 @@ class TechnicianTicketController extends Controller
 
     private function resolveWithinTransaction(Request $request, Ticket $ticket)
     {
-        abort_unless($ticket->technician_id === Auth::id(), 403);
+        abort_unless($ticket->assigned_staff_id === Auth::id(), 403);
 
         if ($ticket->status === Ticket::STATUS_RESOLVED) {
             return redirect()
@@ -200,7 +200,7 @@ class TechnicianTicketController extends Controller
 
     public function show(Ticket $ticket)
     {
-        abort_unless($ticket->technician_id === Auth::id(), 403);
+        abort_unless($ticket->assigned_staff_id === Auth::id(), 403);
 
         $ticket->load('messages.user', 'user');
 
@@ -216,7 +216,7 @@ class TechnicianTicketController extends Controller
 
     private function replyWithinTransaction(Request $request, Ticket $ticket)
     {
-        abort_unless($ticket->technician_id === Auth::id(), 403);
+        abort_unless($ticket->assigned_staff_id === Auth::id(), 403);
         abort_unless($ticket->canReceiveReplies(), 422, 'Closed or cancelled tickets cannot receive new replies.');
 
         $request->validate([

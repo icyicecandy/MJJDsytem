@@ -90,6 +90,10 @@ class NotificationController extends Controller
             'title' => $notification->title,
             'message' => $notification->message,
             'time' => $notification->created_at?->displayRelative(),
+            'date_key' => $notification->created_at?->format('Y-m-d'),
+            'date_label' => $notification->created_at?->isToday()
+                ? 'Today'
+                : ($notification->created_at?->isYesterday() ? 'Yesterday' : $notification->created_at?->format('M d, Y')),
             'is_unread' => $notification->read_at === null,
             'url' => route('notifications.redirect', $notification),
         ];

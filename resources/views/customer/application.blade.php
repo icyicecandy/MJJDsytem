@@ -103,6 +103,8 @@
                     <div class="tracking-meta"><strong>Plan</strong>{{ $application->plan_code }}</div>
                     <div class="tracking-meta"><strong>Service Area</strong>{{ $application->barangay }}, {{ $application->municipality }}</div>
                     <div class="tracking-meta"><strong>Address</strong>{{ $fullAddress ?: 'Not provided' }}</div>
+                    <div class="tracking-meta"><strong>Submitted ID</strong>{{ $application->validIdTypeLabel() }}</div>
+                    <div class="tracking-meta"><strong>ID verification</strong>{{ $application->id_verification_status ? ucfirst($application->id_verification_status) : 'Not recorded — legacy application' }}</div>
                 </div>
 
                 @if($installation)
@@ -128,6 +130,81 @@
                         <p style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ $installation->customer_reschedule_reason }}</p>
                         <p>Updated {{ $installation->customer_rescheduled_at?->displayDateTime('F j, Y g:i A') }}. Your current appointment is shown above.</p>
                     </div>
+                @endif
+
+                @if($application->id_verification_status === \App\Support\ApplicationIdentity::STATUS_PENDING)
+                    <div class="application-alert-card">
+                        <strong>Identity Verification Pending</strong>
+                        <p>An administrator will compare your declared ID details with the two submitted photos.</p>
+                    </div>
+                @elseif($application->id_verification_status === \App\Support\ApplicationIdentity::STATUS_REJECTED)
+                    <section class="application-id-resubmission-card" aria-labelledby="identity-resubmission-title">
+                        <div class="application-id-resubmission-head">
+                            <div>
+                                <span class="application-status-kicker">Action required</span>
+                                <h3 id="identity-resubmission-title">ID resubmission required</h3>
+                                <p>Your service application has not been rejected. Replace both ID photos so the administrator can continue the review.</p>
+                            </div>
+                            <span class="badge rejected">Needs replacement</span>
+                        </div>
+
+                        <div class="application-id-rejection-reason">
+                            <strong>Administrator's reason</strong>
+                            <p>{{ $application->id_verification_reason ?: 'The submitted identity documents could not be verified.' }}</p>
+                        </div>
+
+                        @error('identity_resubmission')
+                            <div class="application-alert-card is-danger">
+                                <strong>Unable to replace ID documents</strong>
+                                <p>{{ $message }}</p>
+                            </div>
+                        @enderror
+
+                        <form method="POST" action="{{ route('customer.application.identity.resubmit') }}" enctype="multipart/form-data" class="application-id-resubmission-form">
+                            @csrf
+                            @method('PATCH')
+
+                            <div class="apply-form-grid">
+                                <div class="apply-field full-span">
+                                    <label for="replacement_valid_id_type">Type of valid ID</label>
+                                    <select id="replacement_valid_id_type" name="valid_id_type" required data-replacement-id-type>
+                                        <option value="">Select government ID</option>
+                                        @foreach(\App\Support\ApplicationIdentity::types() as $typeValue => $typeLabel)
+                                            <option value="{{ $typeValue }}" @selected(old('valid_id_type', $application->valid_id_type) === $typeValue)>{{ $typeLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('valid_id_type')<span class="error">{{ $message }}</span>@enderror
+                                </div>
+
+                                <div class="apply-field full-span" data-replacement-id-other @if(old('valid_id_type', $application->valid_id_type) !== \App\Support\ApplicationIdentity::TYPE_OTHER) hidden @endif>
+                                    <label for="replacement_valid_id_type_other">Name of government-issued ID</label>
+                                    <input id="replacement_valid_id_type_other" name="valid_id_type_other" type="text" maxlength="80" value="{{ old('valid_id_type_other', $application->valid_id_type_other) }}" placeholder="Example: PWD ID">
+                                    @error('valid_id_type_other')<span class="error">{{ $message }}</span>@enderror
+                                </div>
+
+                                <div class="application-id-upload-field">
+                                    <label for="replacement_id_image">1. Clear close-up of the ID</label>
+                                    <p>Keep the name, photo, and document details readable.</p>
+                                    <input id="replacement_id_image" name="id_image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required>
+                                    <small>JPG, PNG, or WebP up to 5 MB.</small>
+                                    @error('id_image')<span class="error">{{ $message }}</span>@enderror
+                                </div>
+
+                                <div class="application-id-upload-field">
+                                    <label for="replacement_id_selfie_image">2. You holding the same ID</label>
+                                    <p>Keep your face and the ID visible in one clear photo.</p>
+                                    <input id="replacement_id_selfie_image" name="id_selfie_image" type="file" accept="image/jpeg,image/png,image/webp" capture="user" required>
+                                    <small>JPG, PNG, or WebP up to 5 MB.</small>
+                                    @error('id_selfie_image')<span class="error">{{ $message }}</span>@enderror
+                                </div>
+                            </div>
+
+                            <div class="application-id-resubmission-actions">
+                                <p>Submitting replaces the rejected photos and returns ID verification to Pending Review.</p>
+                                <button type="submit" class="btn">Submit replacement ID</button>
+                            </div>
+                        </form>
+                    </section>
                 @endif
 
                 @if($status === 'rejected')
@@ -328,6 +405,26 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const replacementIdType = document.querySelector('[data-replacement-id-type]');
+        const replacementOtherField = document.querySelector('[data-replacement-id-other]');
+
+        function updateReplacementOtherField() {
+            if (!replacementIdType || !replacementOtherField) {
+                return;
+            }
+
+            const showOther = replacementIdType.value === @json(\App\Support\ApplicationIdentity::TYPE_OTHER);
+            replacementOtherField.hidden = !showOther;
+            const input = replacementOtherField.querySelector('input');
+            if (input) {
+                input.required = showOther;
+                if (!showOther) input.value = '';
+            }
+        }
+
+        replacementIdType?.addEventListener('change', updateReplacementOtherField);
+        updateReplacementOtherField();
+
         const dateSelect = document.querySelector('[data-reschedule-date]');
         const timeSelect = document.querySelector('[data-reschedule-time]');
         const slotHint = document.querySelector('[data-reschedule-slot-hint]');

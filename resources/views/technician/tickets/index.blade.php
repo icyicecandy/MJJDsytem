@@ -9,7 +9,7 @@
 
         <section class="card ticket-queue-overview">
             <div class="ticket-queue-overview__head">
-                <form method="GET" action="{{ route('technician.tickets.index') }}" class="toolbar-row ticket-filter-toolbar ticket-filter-toolbar--technician" data-mobile-filter>
+                <form method="GET" action="{{ route('technician.tickets.index') }}" class="toolbar-row ticket-filter-toolbar ticket-filter-toolbar--technician" data-mobile-filter data-live-filter data-live-filter-target="#technicianTicketResults">
                     <div class="toolbar-field grow ticket-filter-search">
                         <label for="technician_ticket_search">Search Tickets</label>
                         <input
@@ -54,7 +54,7 @@
                     'urgency' => $selectedUrgency,
                 ], fn ($value) => $value !== '' && $value !== 'all');
             @endphp
-            <nav class="ticket-queue-overview__grid" aria-label="Filter assigned tickets by status">
+            <nav class="ticket-queue-overview__grid" aria-label="Filter assigned tickets by status" data-live-filter-sync="technician-ticket-queue">
                 <a href="{{ route('technician.tickets.index', array_merge($queueFilterParams, ['status' => 'open'])) }}" class="ticket-queue-metric {{ in_array($selectedStatus, ['open', 'queued'], true) ? 'is-active' : '' }}" @if(in_array($selectedStatus, ['open', 'queued'], true)) aria-current="page" @endif>
                     <span class="ticket-queue-metric__label">Open</span>
                     <strong class="ticket-queue-metric__value">{{ $queueSummary['open'] }}</strong>
@@ -78,7 +78,7 @@
             </nav>
         </section>
 
-        <section class="card table-card ticket-table-card">
+        <section id="technicianTicketResults" class="card table-card ticket-table-card" data-live-filter-results aria-busy="false">
             <div class="table-wrap ticket-table-wrap" tabindex="0" role="region" aria-label="Assigned support ticket records">
                 <table class="telecom-table ticket-list-table ticket-list-table--technician" data-mobile-cards>
                     <colgroup>
@@ -273,10 +273,11 @@
                 document.body.classList.remove('ticket-overlay-open');
             };
 
-            document.querySelectorAll('[data-tech-ticket-overlay-open]').forEach(function (button) {
-                button.addEventListener('click', function () {
+            document.addEventListener('click', function (event) {
+                const button = event.target.closest('[data-tech-ticket-overlay-open]');
+                if (button) {
                     openOverlay(button);
-                });
+                }
             });
 
             overlay.querySelectorAll('[data-tech-ticket-overlay-close]').forEach(function (button) {

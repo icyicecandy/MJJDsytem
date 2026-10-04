@@ -22,7 +22,7 @@ class TicketMessageController extends Controller
 
         $isAllowed = $user->isAdmin()
             || $ticket->user_id === $user->id
-            || $ticket->technician_id === $user->id;
+            || $ticket->assigned_staff_id === $user->id;
 
         abort_unless($isAllowed, 403);
         abort_unless($ticket->canReceiveReplies(), 422, 'Closed or cancelled tickets cannot receive new replies.');

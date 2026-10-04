@@ -55,12 +55,12 @@
                 <div class="register-auth-grid">
                     <div class="register-field {{ $registerErrors->has('first_name') ? 'has-error' : '' }}">
                         <label for="register_modal_first_name">First Name</label>
-                        <input id="register_modal_first_name" type="text" name="first_name" value="{{ $registerModalActive ? old('first_name') : '' }}" required autofocus placeholder="Jane" maxlength="255" pattern="^[A-Za-z][A-Za-z\s'\-]*$" />
+                        <input id="register_modal_first_name" type="text" name="first_name" value="{{ $registerModalActive ? old('first_name') : '' }}" required autofocus placeholder="Jane" maxlength="255" />
                         <span class="error" id="registerFirstNameLiveError" @unless ($registerErrors->has('first_name')) hidden @endunless>{{ $registerErrors->first('first_name') }}</span>
                     </div>
                     <div class="register-field {{ $registerErrors->has('last_name') ? 'has-error' : '' }}">
                         <label for="register_modal_last_name">Last Name</label>
-                        <input id="register_modal_last_name" type="text" name="last_name" value="{{ $registerModalActive ? old('last_name') : '' }}" required placeholder="Doe" maxlength="255" pattern="^[A-Za-z][A-Za-z\s'\-]*$" />
+                        <input id="register_modal_last_name" type="text" name="last_name" value="{{ $registerModalActive ? old('last_name') : '' }}" required placeholder="Doe" maxlength="255" />
                         <span class="error" id="registerLastNameLiveError" @unless ($registerErrors->has('last_name')) hidden @endunless>{{ $registerErrors->first('last_name') }}</span>
                     </div>
                 </div>

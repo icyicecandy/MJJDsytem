@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\SystemLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Contracts\Provider;
@@ -25,6 +26,12 @@ test('users can authenticate using the login screen', function () {
 
     $followUp = $this->actingAs($user)->get(route('dashboard', absolute: false));
     $followUp->assertRedirect(route('customer.apply', absolute: false));
+
+    expect(SystemLog::query()
+        ->where('user_id', $user->id)
+        ->where('action', 'Account Login')
+        ->where('description', 'Signed in using email and password.')
+        ->exists())->toBeTrue();
 });
 
 test('remember me creates a persistent login cookie', function () {
@@ -79,6 +86,12 @@ test('users can logout', function () {
 
     $this->assertGuest();
     $response->assertRedirect('/');
+
+    expect(SystemLog::query()
+        ->where('user_id', $user->id)
+        ->where('action', 'Account Logout')
+        ->where('description', 'Signed out of the system.')
+        ->exists())->toBeTrue();
 });
 
 test('google login does not create an account for an unregistered email', function () {

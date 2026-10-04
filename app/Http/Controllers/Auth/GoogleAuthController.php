@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use GuzzleHttp\Client;
 use Illuminate\Auth\Events\Registered;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -64,7 +64,7 @@ class GoogleAuthController extends Controller
                 ->with('google_auth_error', 'Google sign-in could not be completed. Please try again.');
         }
 
-        $email = trim((string) $googleUser->getEmail());
+        $email = Str::lower(trim((string) $googleUser->getEmail()));
 
         Log::info('Google user payload received.', [
             'google_id' => $googleUser->getId(),
@@ -94,14 +94,21 @@ class GoogleAuthController extends Controller
                         ->with('google_auth_error', User::DISABLED_ACCOUNT_MESSAGE);
                 }
 
+                $wasUnverified = ! $user->hasVerifiedEmail();
+                $isNewGoogleLink = ! $user->google_id;
                 $updates = [];
 
-                if (! $user->google_id) {
+                if ($isNewGoogleLink) {
                     $updates['google_id'] = $googleUser->getId();
                 }
 
-                if (! $user->email_verified_at) {
+                if ($wasUnverified) {
                     $updates['email_verified_at'] = now();
+                }
+
+                if ($user->isCustomer() && $wasUnverified && $isNewGoogleLink) {
+                    $updates['password'] = Str::random(40);
+                    $updates['password_set_at'] = null;
                 }
 
                 if ($updates !== []) {
@@ -161,6 +168,8 @@ class GoogleAuthController extends Controller
 
         Auth::login($user, true);
         request()->session()->regenerate();
+
+        system_log('Account Login', 'Signed in using Google.');
 
         if (session()->has('url.intended')) {
             return redirect()->intended();

@@ -19,7 +19,9 @@
 
     <p><a href="{{ $loginUrl }}">Sign in to MJJD Telecom</a></p>
 
-    <p>Please keep this key private and update your password from your profile after signing in.</p>
+    <p><strong>This is a temporary account key.</strong> After signing in, you must create a new private password before the technician portal becomes available.</p>
+
+    <p>Keep this key private. It is used only to complete your first sign-in and required password change.</p>
 
     <p>Thank you,<br>MJJD Telecom</p>
 </body>

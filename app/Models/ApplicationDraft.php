@@ -12,6 +12,7 @@ class ApplicationDraft extends Model
     public const FIELDS = [
         'first_name', 'last_name', 'email', 'mobile_number', 'region', 'province',
         'municipality', 'barangay', 'street_landmark', 'lat', 'lng', 'plan_code',
+        'valid_id_type', 'valid_id_type_other',
     ];
 
     protected $guarded = ['id'];
@@ -27,9 +28,20 @@ class ApplicationDraft extends Model
             && ! str_contains($this->photo_path, '..') && Storage::disk('local')->exists($this->photo_path);
     }
 
+    public function hasIdImage(): bool
+    {
+        return $this->id_image_path && str_starts_with($this->id_image_path, 'application-ids/private/')
+            && ! str_contains($this->id_image_path, '..') && Storage::disk('local')->exists($this->id_image_path);
+    }
+
     public function photoUrl(): ?string
     {
-        return $this->hasPhoto() ? route('customer.apply.draft.photo', ['v' => $this->token]) : null;
+        return $this->hasPhoto() ? route('customer.apply.draft.photo', ['photo' => 'selfie', 'v' => $this->token]) : null;
+    }
+
+    public function idImageUrl(): ?string
+    {
+        return $this->hasIdImage() ? route('customer.apply.draft.photo', ['photo' => 'id', 'v' => $this->token]) : null;
     }
 
     public static function deletePhoto(?string $path): void
@@ -54,12 +66,12 @@ class ApplicationDraft extends Model
                     User::query()->whereKey($row->user_id)->lockForUpdate()->first();
                     $draft = static::query()->whereKey($row->id)->lockForUpdate()->first();
                     if (! $draft || $draft->expires_at->isFuture()) return null;
-                    $path = $draft->photo_path;
+                    $paths = [$draft->photo_path, $draft->id_image_path];
                     $draft->delete();
-                    return ['path' => $path];
+                    return $paths;
                 });
                 if ($removed !== null) {
-                    static::deletePhoto($removed['path']);
+                    foreach ($removed as $path) static::deletePhoto($path);
                     $count++;
                 }
             }

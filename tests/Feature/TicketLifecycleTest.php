@@ -233,6 +233,7 @@ test('admin assignment does not start work automatically', function () {
         ->patch(route('admin.tickets.update', $ticket, false), [
             'admin_action' => 'save',
             'technician_id' => $technician->id,
+            'confirm_assignment_override' => '1',
         ])
         ->assertRedirect(route('admin.tickets.index', absolute: false));
 

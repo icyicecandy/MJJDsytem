@@ -10,11 +10,14 @@
     <link rel="stylesheet" href="{{ asset('css/consent.css') }}?v={{ filemtime(public_path('css/consent.css')) }}" />
     @stack('styles')
     <link rel="stylesheet" href="{{ asset('css/responsive.css') }}?v={{ filemtime(public_path('css/responsive.css')) }}" />
+    <link rel="stylesheet" href="{{ asset('css/ui-system.css') }}?v={{ filemtime(public_path('css/ui-system.css')) }}" />
     <script defer src="{{ asset('js/dashboard.js') }}?v={{ filemtime(public_path('js/dashboard.js')) }}"></script>
+    <script defer src="{{ asset('js/ui-system.js') }}?v={{ filemtime(public_path('js/ui-system.js')) }}"></script>
+    <script defer src="{{ asset('js/live-filters.js') }}?v={{ filemtime(public_path('js/live-filters.js')) }}"></script>
     <script defer src="{{ asset('js/auth.js') }}?v={{ filemtime(public_path('js/auth.js')) }}"></script>
     <script defer src="{{ asset('js/consent.js') }}?v={{ filemtime(public_path('js/consent.js')) }}"></script>
 </head>
-<body class="layout {{ auth()->check() ? 'is-auth' : 'is-guest' }}" @auth data-notifications-feed="{{ route('notifications.feed') }}" data-notifications-index="{{ route('notifications.index') }}" data-notifications-mark-all="{{ route('notifications.mark-all-read') }}" @endauth>
+<body class="layout {{ auth()->check() ? 'is-auth' : 'is-guest' }} {{ request()->is('/') ? 'is-landing' : 'is-application-page' }}" @auth data-notifications-feed="{{ route('notifications.feed') }}" data-notifications-index="{{ route('notifications.index') }}" data-notifications-mark-all="{{ route('notifications.mark-all-read') }}" @endauth>
     @php
         $headerNotifications = collect();
         $notificationOverlayItems = collect();
@@ -138,7 +141,7 @@
             <div class="flash-stack">
                 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
                 @if(session('error'))<div class="alert alert-error">{{ session('error') }}</div>@endif
-                @if(session('status'))<div class="alert alert-info">{{ match (session('status')) { 'profile-updated' => 'Profile successfully updated.', 'password-updated' => 'Password successfully changed.', 'password-set' => 'Password successfully set.', default => session('status') } }}</div>@endif
+                @if(session('status'))<div class="alert alert-info">{{ match (session('status')) { 'profile-updated' => 'Profile successfully updated.', 'password-updated' => 'Password successfully changed.', 'password-set' => 'Password successfully set.', 'first-login-password-updated' => 'Password changed successfully. Your technician account is now ready.', default => session('status') } }}</div>@endif
             </div>
         @endif
 
@@ -200,7 +203,7 @@
 
                     <div class="notifications-overlay__list notifications-page-list" id="notificationsOverlayList">
                         @forelse($notificationOverlayItems as $notification)
-                            <a href="{{ route('notifications.redirect', $notification) }}" class="notifications-page-item notifications-compact-item {{ $notification->read_at ? '' : 'is-unread' }}" data-notification-item data-notification-unread="{{ $notification->read_at ? '0' : '1' }}">
+                            <a href="{{ route('notifications.redirect', $notification) }}" class="notifications-page-item notifications-compact-item {{ $notification->read_at ? '' : 'is-unread' }}" data-notification-item data-notification-unread="{{ $notification->read_at ? '0' : '1' }}" data-notification-date="{{ $notification->created_at->format('Y-m-d') }}" data-notification-date-label="{{ $notification->created_at->isToday() ? 'Today' : ($notification->created_at->isYesterday() ? 'Yesterday' : $notification->created_at->format('M d, Y')) }}">
                                 <div class="notifications-compact-dot-wrap">
                                     <span class="notifications-compact-dot {{ $notification->read_at ? '' : 'is-unread' }}"></span>
                                 </div>

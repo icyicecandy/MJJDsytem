@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Notifications\VerifyCustomerEmail;
+use Carbon\CarbonInterface;
+use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -10,9 +13,14 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmailContract
 {
     use HasFactory, Notifiable;
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerifyCustomerEmail);
+    }
 
     public const TECHNICIAN_STANDARD_SHIFT = '8:00 AM - 5:00 PM, Mon - Fri';
 
@@ -82,6 +90,7 @@ class User extends Authenticatable
         'disabled_reason',
         'password',
         'password_set_at',
+        'must_change_password',
         'role',
         'agreed_to_terms',
         'agreed_to_privacy',
@@ -150,6 +159,7 @@ class User extends Authenticatable
             'deletion_requested_at' => 'datetime',
             'disabled_at' => 'datetime',
             'password_set_at' => 'datetime',
+            'must_change_password' => 'boolean',
         ];
     }
 
@@ -175,22 +185,22 @@ class User extends Authenticatable
 
     public function assignedTickets()
     {
-        return $this->hasMany(Ticket::class, 'technician_id');
+        return $this->hasMany(Ticket::class, 'assigned_staff_id');
     }
 
     public function installations()
     {
-        return $this->hasMany(\App\Models\Installation::class, 'technician_id');
+        return $this->hasMany(Installation::class, 'technician_id');
     }
 
     public function application()
     {
-        return $this->hasOne(\App\Models\Application::class)->latestOfMany();
+        return $this->hasOne(Application::class)->latestOfMany();
     }
 
     public function applications()
     {
-        return $this->hasMany(\App\Models\Application::class);
+        return $this->hasMany(Application::class);
     }
 
     public function latestApplication()
@@ -221,6 +231,11 @@ class User extends Authenticatable
     public function canSetInitialPassword(): bool
     {
         return filled($this->google_id) && $this->password_set_at === null;
+    }
+
+    public function requiresPasswordChange(): bool
+    {
+        return $this->isTechnician() && (bool) $this->must_change_password;
     }
 
     public static function formatCustomerId(int $id): string
@@ -308,7 +323,7 @@ class User extends Authenticatable
             : '17:00';
     }
 
-    public function worksOnDate(\Carbon\CarbonInterface|string $date): bool
+    public function worksOnDate(CarbonInterface|string $date): bool
     {
         $calendarDate = \Carbon\Carbon::parse($date);
         $dayKey = strtolower($calendarDate->format('D'));
@@ -373,32 +388,32 @@ class User extends Authenticatable
 
     public function ticketMessages()
     {
-        return $this->hasMany(\App\Models\TicketMessage::class);
+        return $this->hasMany(TicketMessage::class);
     }
 
     public function chatSent()
     {
-        return $this->hasMany(\App\Models\ChatMessage::class, 'from_user_id');
+        return $this->hasMany(ChatMessage::class, 'from_user_id');
     }
 
     public function chatReceived()
     {
-        return $this->hasMany(\App\Models\ChatMessage::class, 'to_user_id');
+        return $this->hasMany(ChatMessage::class, 'to_user_id');
     }
 
     public function supportChats()
     {
-        return $this->hasMany(\App\Models\ChatMessage::class, 'customer_id');
+        return $this->hasMany(ChatMessage::class, 'customer_id');
     }
 
     public function assignedSupportChats()
     {
-        return $this->hasMany(\App\Models\ChatMessage::class, 'assigned_staff_id');
+        return $this->hasMany(ChatMessage::class, 'assigned_staff_id');
     }
 
     public function installationLogs()
     {
-        return $this->hasMany(\App\Models\InstallationLog::class);
+        return $this->hasMany(InstallationLog::class);
     }
 
     public function disabledBy()

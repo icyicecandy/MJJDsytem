@@ -1,9 +1,11 @@
 <?php
 
 use App\Models\User;
+use App\Notifications\VerifyCustomerEmail;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -27,16 +29,25 @@ function profileSettingsImage(string $extension = 'png'): UploadedFile
 }
 
 test('each role saves profile details and adds replaces and removes an avatar', function (string $role) {
+    Notification::fake();
     Storage::fake('public');
     $user = User::factory()->create(['role' => $role, 'username' => 'profile-'.$role]);
     $this->actingAs($user)->get('/profile')->assertOk()->assertSee('profileForm', false)->assertSee('passwordForm', false);
     foreach (['png', 'jpg', 'webp'] as $extension) {
         $old = $user->avatar_path;
-        $this->post('/profile', profileSettingsPayload($user, [
+        $emailWasChanged = $user->email !== 'saved-'.$role.'@example.test';
+        $response = $this->post('/profile', profileSettingsPayload($user, [
             '_method' => 'PATCH', 'avatar' => profileSettingsImage($extension),
             'email' => '  SAVED-'.$role.'@example.test  ',
             'role' => 'admin', 'password' => 'UnwantedChange1!', 'avatar_path' => 'untrusted/path',
-        ]))->assertSessionHasNoErrors()->assertRedirect('/profile')->assertSessionHas('status', 'profile-updated');
+        ]))->assertSessionHasNoErrors();
+
+        if ($role === 'customer' && $emailWasChanged) {
+            $response->assertRedirect(route('verification.notice', absolute: false))
+                ->assertSessionHas('status', 'verification-link-sent');
+        } else {
+            $response->assertRedirect('/profile')->assertSessionHas('status', 'profile-updated');
+        }
         $user->refresh();
         expect($user->name)->toBe('Profile Tester')->and($user->phone)->toBe('+639123456789')
             ->and($user->email)->toBe('saved-'.$role.'@example.test')->and($user->role)->toBe($role)
@@ -44,13 +55,21 @@ test('each role saves profile details and adds replaces and removes an avatar', 
             ->and($user->gender)->toBe('female')->and(Hash::check('password', $user->password))->toBeTrue();
         Storage::disk('public')->assertExists($user->avatar_path);
         expect(Storage::disk('public')->get($user->avatar_path))->toBe(file_get_contents(__DIR__.'/../Fixtures/application-id/holding-id.'.$extension));
-        if ($old) Storage::disk('public')->assertMissing($old);
+        if ($old) {
+            Storage::disk('public')->assertMissing($old);
+        }
         $this->get('/profile')->assertOk()->assertSee($user->avatar_url, false)->assertSee('Test address');
     }
     $old = $user->avatar_path;
     $this->patch('/profile', profileSettingsPayload($user, ['remove_avatar' => '1']))->assertSessionHasNoErrors();
     expect($user->fresh()->avatar_path)->toBeNull();
     Storage::disk('public')->assertMissing($old);
+
+    if ($role === 'customer') {
+        Notification::assertSentTo($user, VerifyCustomerEmail::class);
+    } else {
+        Notification::assertNothingSent();
+    }
 })->with(['admin', 'technician', 'customer']);
 
 test('a failed profile save preserves the old photo and cleans up any replacement', function (bool $replace) {
@@ -61,7 +80,9 @@ test('a failed profile save preserves the old photo and cleans up any replacemen
     $dispatcher = User::getEventDispatcher();
     $isolated = clone $dispatcher;
     User::setEventDispatcher($isolated);
-    $isolated->listen('eloquent.updating: '.User::class, function () { throw new RuntimeException('Simulated profile database failure'); });
+    $isolated->listen('eloquent.updating: '.User::class, function () {
+        throw new RuntimeException('Simulated profile database failure');
+    });
     try {
         $this->withoutExceptionHandling()->actingAs($user)->patch('/profile', profileSettingsPayload($user,
             $replace ? ['avatar' => profileSettingsImage()] : ['remove_avatar' => '1']));
@@ -81,8 +102,12 @@ test('invalid profile fields and duplicate contacts do not save partial changes'
     $user = User::factory()->create(['username' => 'validation-profile']);
     User::factory()->create(['username' => 'taken-profile', 'email' => 'taken@example.test']);
     $before = $user->fresh()->getRawOriginal();
-    if ($value === 'invalid-image') $value = UploadedFile::fake()->create('avatar.txt', 1, 'text/plain');
-    if ($value === 'oversized-image') $value = UploadedFile::fake()->image('large.png')->size(2049);
+    if ($value === 'invalid-image') {
+        $value = UploadedFile::fake()->create('avatar.txt', 1, 'text/plain');
+    }
+    if ($value === 'oversized-image') {
+        $value = UploadedFile::fake()->image('large.png')->size(2049);
+    }
     $this->actingAs($user)->patch('/profile', profileSettingsPayload($user, [$field => $value]))->assertSessionHasErrors($field);
     expect($user->fresh()->getRawOriginal())->toBe($before);
     expect(Storage::disk('public')->allFiles())->toBe([]);
@@ -121,7 +146,6 @@ test('rejected password updates leave the existing password usable', function (a
     [['password' => '', 'password_confirmation' => ''], 'password'],
 ]);
 
-
 test('a breached password is rejected without changing the stored password', function () {
     $user = User::factory()->create();
     $candidate = 'ProfileQa2026!z';
@@ -131,7 +155,6 @@ test('a breached password is rejected without changing the stored password', fun
     ])->assertSessionHasErrorsIn('updatePassword', 'password');
     expect(Hash::check('password', $user->fresh()->password))->toBeTrue();
 });
-
 
 test('storage failure does not replace the avatar or save other profile changes', function () {
     $disk = Storage::fake('public');

@@ -16,12 +16,12 @@
             </form>
         </div>
 
-        <div class="notifications-compact-filters notifications-compact-filters--desktop">
+        <div class="notifications-compact-filters notifications-compact-filters--desktop" data-live-filter-sync="notification-filter-chips">
             <a href="{{ route('notifications.index') }}" class="notifications-filter-chip {{ $filter === 'all' ? 'is-active' : '' }}">All</a>
             <a href="{{ route('notifications.index', ['filter' => 'unread']) }}" class="notifications-filter-chip {{ $filter === 'unread' ? 'is-active' : '' }}">Unread</a>
         </div>
 
-        <form method="GET" action="{{ route('notifications.index') }}" class="notifications-mobile-page-filters">
+        <form method="GET" action="{{ route('notifications.index') }}" class="notifications-mobile-page-filters" data-live-filter data-live-filter-target="#notificationResults">
             <label class="notifications-mobile-search">
                 <span>Search</span>
                 <input type="search" name="search" value="{{ $search }}" placeholder="Title or message">
@@ -41,7 +41,7 @@
             </div>
         </form>
 
-        <div class="panel-body">
+        <div id="notificationResults" class="panel-body" data-live-filter-results aria-busy="false">
             @if($notifications->count())
                 <div class="notifications-page-list notifications-compact-list" data-notifications-page-list>
                     @foreach($notifications as $notification)
@@ -63,7 +63,7 @@
                 </div>
 
                 <div class="notifications-page-pagination">
-                    {{ $notifications->links() }}
+                    <x-ui.pagination :paginator="$notifications" />
                 </div>
             @else
                 <div class="empty-state">{{ $search !== '' ? 'No notifications match your search.' : ($filter === 'unread' ? 'No unread notifications.' : 'No notifications yet.') }}</div>

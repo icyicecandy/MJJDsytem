@@ -82,6 +82,60 @@ class TechnicianDashboardController extends Controller
         return view('technician.installations.show', compact('installation'));
     }
 
+    public function printInstallation(Installation $installation)
+    {
+        abort_if((int) $installation->technician_id !== (int) auth()->id(), 403);
+
+        $installation->load(['application', 'technician']);
+        $application = $installation->application;
+        $schedule = null;
+
+        if ($installation->installation_date) {
+            $time = $installation->installation_time
+                ? Installation::slotLabel(\Carbon\Carbon::parse($installation->installation_time)->format('H:i'))
+                : 'Time not set';
+            $schedule = $installation->installation_date->format('F d, Y').' at '.$time;
+        }
+
+        $section = static fn (string $title, array $items): array => [
+            'title' => $title,
+            'items' => collect($items)->map(fn ($value, $label) => [
+                'label' => $label,
+                'value' => filled($value) || $value === 0 ? (string) $value : 'Not recorded',
+            ])->values()->all(),
+        ];
+
+        $document = [
+            'title' => 'Installation Summary',
+            'reference' => $installation->displayJobReference(),
+            'status' => $installation->displayStatusLabel(),
+            'subtitle' => 'Important details for your assigned installation work order.',
+            'back_url' => route('technician.installations.show', $installation),
+            'generated_at' => now(),
+            'generated_by' => auth()->user()->name,
+            'sections' => [
+                $section('Installation', [
+                    'Job number' => $installation->displayJobReference(),
+                    'Application reference' => $application?->reference_no,
+                    'Status' => $installation->displayStatusLabel(),
+                    'Schedule' => $schedule,
+                    'Assigned technician' => $installation->technician?->name,
+                    'Completed' => $installation->completed_at?->format('F d, Y h:i A'),
+                    'Activation date' => $installation->activation_date?->format('F d, Y'),
+                ]),
+                $section('Customer and Service', [
+                    'Customer' => $application ? trim($application->first_name.' '.$application->last_name) : null,
+                    'Mobile number' => $application?->mobile_number,
+                    'Email' => $application?->email,
+                    'Plan' => $application?->plan_code,
+                    'Service address' => $application?->fullServiceAddress(),
+                ]),
+                $section('Recorded Technical Details', $installation->technicalDetails()),
+            ],
+        ];
+
+        return view('admin.reports.detail', compact('document'));
+    }
     public function updateInstallationStatus(Request $request, Installation $installation)
     {
         return WorkflowTransaction::installation($installation, function (Installation $installation) use ($request) {

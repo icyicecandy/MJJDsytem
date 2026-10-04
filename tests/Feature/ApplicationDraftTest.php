@@ -12,9 +12,17 @@ beforeEach(function () {
     Storage::fake('public');
 });
 
-function draftPhoto(): UploadedFile
+function draftPhoto(string $name = 'holding-id.png'): UploadedFile
 {
-    return new UploadedFile(base_path('tests/Fixtures/application-id/holding-id.png'), 'holding-id.png', 'image/png', null, true);
+    return new UploadedFile(base_path('tests/Fixtures/application-id/holding-id.png'), $name, 'image/png', null, true);
+}
+
+function draftIdentityPhotos(): array
+{
+    return [
+        'id_image' => draftPhoto('id-close-up.png'),
+        'id_selfie_image' => draftPhoto('holding-id.png'),
+    ];
 }
 
 function draftPayload(User $user): array
@@ -27,6 +35,7 @@ function draftPayload(User $user): array
         'region' => $region['name'], 'province' => $province['name'], 'municipality' => $municipality['name'],
         'barangay' => is_array($municipality['barangays'][0]) ? $municipality['barangays'][0]['name'] : $municipality['barangays'][0],
         'lat' => '16.2', 'lng' => '121.0', 'plan_code' => 'S2S_50', 'draft_step' => 4,
+        'valid_id_type' => 'national_id',
     ];
 }
 
@@ -40,12 +49,13 @@ test('incomplete drafts are encrypted saved separately and resumed on a fresh re
         ->and($draft->payload)->not->toHaveKey('status')->and(Application::count())->toBe(0);
     expect(DB::table('application_drafts')->value('payload'))->not->toContain('Draftname', 'unfinished@');
     $this->get(route('customer.apply'))->assertOk()->assertSee('Your saved application draft has been restored.')
-        ->assertSee('value="Draftname"', false)->assertSee('value="unfinished@"', false);
+        ->assertSee('value="Draftname"', false)->assertSee('value="unfinished@"', false)
+        ->assertSee('let currentStep = 2;', false);
 });
 
 test('saved private photo is visible only to its customer and is reused on submission', function () {
     $user = User::factory()->create(['role' => 'customer']);
-    $this->actingAs($user)->post(route('customer.apply.draft.save'), draftPayload($user) + ['id_selfie_image' => draftPhoto()])
+    $this->actingAs($user)->post(route('customer.apply.draft.save'), draftPayload($user) + draftIdentityPhotos())
         ->assertOk();
     $draft = ApplicationDraft::sole();
     $path = $draft->photo_path;
@@ -72,7 +82,7 @@ test('stale saves discards and submissions cannot overwrite a newer draft', func
     $this->postJson(route('customer.apply.draft.save'), ['first_name' => 'Latest', 'draft_step' => 2, 'draft_token' => $old])->assertOk();
     $this->postJson(route('customer.apply.draft.save'), ['first_name' => 'Stale', 'draft_step' => 1, 'draft_token' => $old])->assertConflict();
     $this->deleteJson(route('customer.apply.draft.destroy'), ['draft_token' => $old])->assertConflict();
-    $this->post(route('customer.apply.store'), draftPayload($user) + ['draft_token' => $old, 'id_selfie_image' => draftPhoto()])->assertSessionHasErrors('draft');
+    $this->post(route('customer.apply.store'), draftPayload($user) + ['draft_token' => $old] + draftIdentityPhotos())->assertSessionHasErrors('draft');
     expect(ApplicationDraft::sole()->payload['first_name'])->toBe('Latest')->and(Application::count())->toBe(0);
 });
 
@@ -87,7 +97,7 @@ test('draft saving cannot bypass final required fields address or duplicate chec
         Application::create(draftPayload($other) + ['user_id' => $other->id, 'reference_no' => 'APP-DUPLICATE', 'status' => 'submitted']);
         $payload['email'] = $other->email;
     }
-    $this->actingAs($user)->post(route('customer.apply.draft.save'), $payload + ['id_selfie_image' => draftPhoto()])->assertOk();
+    $this->actingAs($user)->post(route('customer.apply.draft.save'), $payload + draftIdentityPhotos())->assertOk();
     $draft = ApplicationDraft::where('user_id', $user->id)->firstOrFail();
     $this->post(route('customer.apply.store'), $payload + ['draft_token' => $draft->token])->assertSessionHasErrors($field);
     expect($user->fresh()->application)->toBeNull()->and($draft->fresh())->not->toBeNull();
@@ -96,9 +106,9 @@ test('draft saving cannot bypass final required fields address or duplicate chec
 
 test('photo replacement and discard clean up only the corresponding draft files', function () {
     $user = User::factory()->create(['role' => 'customer']);
-    $this->actingAs($user)->post(route('customer.apply.draft.save'), ['draft_step' => 4, 'id_selfie_image' => draftPhoto()])->assertOk();
+    $this->actingAs($user)->post(route('customer.apply.draft.save'), ['draft_step' => 4] + draftIdentityPhotos())->assertOk();
     $first = ApplicationDraft::sole();
-    $this->post(route('customer.apply.draft.save'), ['draft_step' => 4, 'draft_token' => $first->token, 'id_selfie_image' => draftPhoto()])->assertOk();
+    $this->post(route('customer.apply.draft.save'), ['draft_step' => 4, 'draft_token' => $first->token] + draftIdentityPhotos())->assertOk();
     Storage::disk('local')->assertMissing($first->photo_path);
     $latest = ApplicationDraft::sole();
     $this->deleteJson(route('customer.apply.draft.destroy'), ['draft_token' => $latest->token])->assertNoContent();
@@ -107,7 +117,7 @@ test('photo replacement and discard clean up only the corresponding draft files'
 
 test('expired drafts cannot be viewed or submitted and cleanup preserves current drafts', function () {
     $user = User::factory()->create(['role' => 'customer']);
-    $this->actingAs($user)->post(route('customer.apply.draft.save'), draftPayload($user) + ['id_selfie_image' => draftPhoto()])->assertOk();
+    $this->actingAs($user)->post(route('customer.apply.draft.save'), draftPayload($user) + draftIdentityPhotos())->assertOk();
     $draft = ApplicationDraft::sole();
     $other = User::factory()->create(['role' => 'customer']);
     $this->actingAs($other)->postJson(route('customer.apply.draft.save'), ['draft_step' => 1])->assertOk();
@@ -135,7 +145,7 @@ test('invalid oversized and missing photos do not become usable draft uploads', 
     $user = User::factory()->create(['role' => 'customer']);
     $this->actingAs($user)->post(route('customer.apply.draft.save'), ['draft_step' => 4, 'id_selfie_image' => UploadedFile::fake()->create('bad.txt', 2)])
         ->assertSessionHasErrors('id_selfie_image');
-    $this->post(route('customer.apply.draft.save'), ['draft_step' => 4, 'id_selfie_image' => UploadedFile::fake()->image('large.png')->size(5121)])
+    $this->post(route('customer.apply.draft.save'), ['draft_step' => 4, 'id_selfie_image' => UploadedFile::fake()->createWithContent('large.png', file_get_contents(base_path('tests/Fixtures/application-id/holding-id.png')).str_repeat(chr(0), 6 * 1024 * 1024))])
         ->assertSessionHasErrors('id_selfie_image');
     $this->postJson(route('customer.apply.draft.save'), ['draft_step' => 4])->assertOk();
     $this->post(route('customer.apply.store'), draftPayload($user) + ['draft_token' => ApplicationDraft::sole()->token])->assertSessionHasErrors('id_selfie_image');
@@ -144,24 +154,26 @@ test('invalid oversized and missing photos do not become usable draft uploads', 
 
 test('failed draft replacement preserves old data and photo', function () {
     $user = User::factory()->create(['role' => 'customer']);
-    $this->actingAs($user)->post(route('customer.apply.draft.save'), ['draft_step' => 4, 'id_selfie_image' => draftPhoto()])->assertOk();
+    $this->actingAs($user)->post(route('customer.apply.draft.save'), ['draft_step' => 4] + draftIdentityPhotos())->assertOk();
     $draft = ApplicationDraft::sole();
     $dispatcher = ApplicationDraft::getEventDispatcher();
     $isolated = clone $dispatcher;
     ApplicationDraft::setEventDispatcher($isolated);
     $isolated->listen('eloquent.updating: '.ApplicationDraft::class, fn () => throw new RuntimeException('Draft save failure'));
     try {
-        $this->withoutExceptionHandling()->post(route('customer.apply.draft.save'), ['draft_step' => 4, 'draft_token' => $draft->token, 'id_selfie_image' => draftPhoto()]);
+        $this->withoutExceptionHandling()->post(route('customer.apply.draft.save'), ['draft_step' => 4, 'draft_token' => $draft->token] + draftIdentityPhotos());
         $this->fail('Expected save failure');
     } catch (RuntimeException $error) {
         expect($error->getMessage())->toBe('Draft save failure');
     } finally { ApplicationDraft::setEventDispatcher($dispatcher); }
-    expect($draft->fresh()->token)->toBe($draft->token)->and(Storage::disk('local')->allFiles())->toBe([$draft->photo_path]);
+    expect($draft->fresh()->token)->toBe($draft->token)
+        ->and(Storage::disk('local')->allFiles())->toHaveCount(2)
+        ->toContain($draft->photo_path, $draft->id_image_path);
 });
 
 test('failed application submission preserves the draft and its existing photo', function () {
     $user = User::factory()->create(['role' => 'customer']);
-    $this->actingAs($user)->post(route('customer.apply.draft.save'), draftPayload($user) + ['id_selfie_image' => draftPhoto()])->assertOk();
+    $this->actingAs($user)->post(route('customer.apply.draft.save'), draftPayload($user) + draftIdentityPhotos())->assertOk();
     $draft = ApplicationDraft::sole();
     $dispatcher = Application::getEventDispatcher();
     $isolated = clone $dispatcher;
@@ -175,4 +187,5 @@ test('failed application submission preserves the draft and its existing photo',
     } finally { Application::setEventDispatcher($dispatcher); }
     expect(Application::count())->toBe(0)->and($draft->fresh())->not->toBeNull();
     Storage::disk('local')->assertExists($draft->photo_path);
+    Storage::disk('local')->assertExists($draft->id_image_path);
 });

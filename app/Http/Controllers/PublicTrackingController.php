@@ -55,7 +55,7 @@ class PublicTrackingController extends Controller
         $trackingNumber = strtoupper(trim($validated['reference_no']));
         $contact = trim($validated['contact']);
 
-        $ticket = Ticket::with('user')
+        $ticket = Ticket::with(['user', 'assignedStaff'])
             ->where('tracking_number', $trackingNumber)
             ->whereHas('user', function ($q) use ($contact) {
                 $q->where('email', $contact);

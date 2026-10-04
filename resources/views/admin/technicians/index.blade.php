@@ -108,9 +108,11 @@
     .technician-account-modal__dialog {
         position: relative;
         z-index: 1;
+        display: flex;
+        flex-direction: column;
         width: min(780px, 100%);
-        max-height: min(860px, calc(100vh - 2rem));
-        overflow: auto;
+        max-height: min(860px, calc(100dvh - 2rem));
+        overflow: hidden;
         border: 1px solid rgba(226, 232, 240, 0.95);
         border-radius: 18px;
         background: #fff;
@@ -118,11 +120,15 @@
     }
     .technician-account-modal__head {
         display: flex;
+        flex: 0 0 auto;
         align-items: flex-start;
         justify-content: space-between;
         gap: 1rem;
         padding: 1.15rem 1.25rem;
         border-bottom: 1px solid #e5e7eb;
+    }
+    .technician-account-modal__head > div {
+        min-width: 0;
     }
     .technician-account-modal__head h2 {
         margin: 0;
@@ -132,6 +138,7 @@
     .technician-account-modal__head p {
         margin: 0.25rem 0 0;
         color: #64748b;
+        overflow-wrap: anywhere;
     }
     .technician-account-modal__close {
         width: 2.25rem;
@@ -147,8 +154,13 @@
     }
     .technician-create-form {
         display: grid;
+        flex: 1 1 auto;
         gap: 1rem;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
         padding: 1.25rem;
+        scrollbar-gutter: stable;
     }
     .technician-create-grid {
         display: grid;
@@ -278,7 +290,7 @@
     </section>
 
     <section class="card toolbar-card">
-        <form method="GET" action="{{ route('admin.technicians.index') }}" class="toolbar-row" data-mobile-filter>
+        <form method="GET" action="{{ route('admin.technicians.index') }}" class="toolbar-row" data-mobile-filter data-live-filter data-live-filter-target="#technicianResults">
             <div class="toolbar-field">
                 <label for="status">Status</label>
                 <select name="status" id="status">
@@ -303,6 +315,7 @@
         </form>
     </section>
 
+    <div id="technicianResults" data-live-filter-results aria-busy="false">
     <section class="card table-card">
         <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
             <table class="telecom-table admin-technicians-table" data-mobile-cards>
@@ -390,8 +403,9 @@
     </section>
 
     <section class="card toolbar-card">
-        {{ $technicians->links() }}
+        <x-ui.pagination :paginator="$technicians" />
     </section>
+    </div>
 
     <div class="technician-account-modal {{ $showCreateModal ? 'is-open' : '' }}" data-technician-create-modal aria-hidden="{{ $showCreateModal ? 'false' : 'true' }}">
         <div class="technician-account-modal__backdrop" data-close-technician-create></div>

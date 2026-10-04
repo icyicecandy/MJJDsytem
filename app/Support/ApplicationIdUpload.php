@@ -41,4 +41,11 @@ class ApplicationIdUpload
 
         return $path !== null && Storage::disk(self::disk($path))->exists($path);
     }
+
+    public static function delete(?string $path): bool
+    {
+        $path = self::path($path);
+
+        return $path === null || Storage::disk(self::disk($path))->delete($path);
+    }
 }

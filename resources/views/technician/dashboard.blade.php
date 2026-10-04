@@ -114,6 +114,16 @@
         </div>
     </section>
 
+    @if(($overdueTickets + $overdueInstallations) > 0)
+        <section class="ui-operations-alert" role="status" aria-label="Overdue assigned work alert">
+            <div class="ui-operations-alert__copy">
+                <strong>{{ number_format($overdueTickets + $overdueInstallations) }} assigned {{ Str::plural('task', $overdueTickets + $overdueInstallations) }} overdue</strong>
+                <span>Open the affected installation or ticket to update its progress.</span>
+            </div>
+            <a href="{{ $overdueTickets > 0 ? route('technician.tickets.index', ['overdue' => 1]) : route('technician.installations.index') }}" class="btn">Review work</a>
+        </section>
+    @endif
+
     <section class="metrics-grid">
         <article class="metric-card"><div class="metric-head"><div><div class="metric-label">Assigned Installations</div><div class="metric-value">{{ $totalInstallations }}</div><div class="metric-meta">Total installation jobs assigned</div></div><div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a4 4 0 0 0-5.65 5.65L3 18v3h3l6.05-6.05A4 4 0 0 0 17.7 9.3l-3 3-3-3 3-3z"></path></svg></div></div></article>
         <article class="metric-card"><div class="metric-head"><div><div class="metric-label">Completed Jobs</div><div class="metric-value">{{ $completedInstallations }}</div><div class="metric-meta">Installations finished successfully</div></div><div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6 9 17l-5-5"></path></svg></div></div></article>
@@ -224,7 +234,3 @@
     </div>
 </div>
 @endsection
-
-
-
-

@@ -21,7 +21,7 @@ function reasonFixture(): array
         'installation_date' => now()->subDay()->toDateString(), 'installation_time' => '09:00',
         'status' => 'scheduled', 'technician_remarks' => 'Private staff-only note',
     ]);
-    $payload = ['technician_id' => $tech->id, 'installation_date' => now()->addDays(3)->toDateString(), 'installation_time' => '11:00'];
+    $payload = ['technician_id' => $tech->id, 'installation_date' => now()->addWeek()->startOfWeek()->toDateString(), 'installation_time' => '11:00'];
 
     return [$admin, $tech, $customer, $application, $job, $payload];
 }

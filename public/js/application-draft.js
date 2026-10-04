@@ -7,8 +7,12 @@
     const token = document.getElementById('applicationDraftToken');
     const status = document.getElementById('applicationDraftStatus');
     const photo = document.getElementById('id_selfie_image');
+    const idImage = document.getElementById('id_image');
     let busy = false;
     let leaving = false;
+    let autoSaveTimer = null;
+    let saveQueued = false;
+    const autoSaveDelay = 1400;
     const step = () => document.querySelector('[data-panel].is-active')?.dataset.panel || '1';
     function snapshot() {
         const fields = [...new FormData(form)].filter(([name]) => !['_token', 'draft_token'].includes(name))
@@ -27,7 +31,7 @@
         save.disabled = value;
         discard.disabled = value || !token.value;
         form.querySelectorAll('button[type=submit]').forEach(button => { button.disabled = value; });
-        save.textContent = value ? 'Please wait...' : 'Save draft';
+        save.textContent = value ? 'Please wait...' : 'Save now';
     }
     async function send(url, options) {
         const controller = new AbortController();
@@ -44,15 +48,23 @@
             return data;
         } finally { clearTimeout(timer); }
     }
-    save.addEventListener('click', async () => {
-        if (busy) return;
+    async function saveDraft({ automatic = false } = {}) {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+        if (busy) {
+            saveQueued = true;
+            return;
+        }
+        if (automatic && snapshot() === savedState) return;
         const sentState = snapshot();
         const sentPhoto = photo.files[0];
+        const sentIdImage = idImage.files[0];
         const body = new FormData(form);
         body.set('draft_step', step());
         if (!sentPhoto) body.delete('id_selfie_image');
+        if (!sentIdImage) body.delete('id_image');
         setBusy(true);
-        message('Saving your draft...');
+        message(automatic ? 'Saving your progress automatically...' : 'Saving your draft...');
         try {
             const data = await send(form.dataset.draftSaveUrl, { method: 'POST', body });
             if (typeof data.token !== 'string' || !data.saved_at) throw new Error('Could not confirm the save. Your session may have expired; reload Apply after signing in.');
@@ -60,19 +72,49 @@
             token.value = data.token;
             photo.dataset.savedPhotoUrl = data.photo_url || '';
             photo.required = !data.photo_url;
+            idImage.dataset.savedPhotoUrl = data.id_image_url || '';
+            idImage.required = !data.id_image_url;
             if (photo.files[0] === sentPhoto) photo.value = '';
+            if (idImage.files[0] === sentIdImage) idImage.value = '';
             photo.dispatchEvent(new Event('change', { bubbles: true }));
+            idImage.dispatchEvent(new Event('change', { bubbles: true }));
             savedState = unchanged ? snapshot() : sentState;
-            message('Draft saved at ' + new Date(data.saved_at).toLocaleString() + '. ' +
-                (unchanged ? 'You can leave and return to Apply later.' : 'You have newer edits. Save again before leaving.'));
+            message((automatic ? 'Progress saved automatically at ' : 'Draft saved at ') +
+                new Date(data.saved_at).toLocaleString() + '. ' +
+                (unchanged ? 'You can safely return to Apply later.' : 'Saving your newer edits next...'));
         } catch (error) {
-            message(error.name === 'AbortError' || error instanceof TypeError
+            message((automatic ? 'Automatic save failed. ' : '') + (error.name === 'AbortError' || error instanceof TypeError
                 ? 'Could not confirm the save. Keep this page open, check your connection, and try again. Reload Apply if it reports a draft conflict.'
-                : error.message, true);
-        } finally { setBusy(false); }
+                : error.message), true);
+        } finally {
+            setBusy(false);
+            if (saveQueued || snapshot() !== sentState) {
+                saveQueued = false;
+                scheduleAutoSave();
+            }
+        }
+    }
+    function scheduleAutoSave() {
+        if (leaving) return;
+        clearTimeout(autoSaveTimer);
+        if (busy) {
+            saveQueued = true;
+            return;
+        }
+        if (snapshot() === savedState) return;
+        message('Changes detected. Your progress will save automatically...');
+        autoSaveTimer = setTimeout(() => saveDraft({ automatic: true }), autoSaveDelay);
+    }
+    save.addEventListener('click', () => saveDraft());
+    form.addEventListener('input', scheduleAutoSave);
+    form.addEventListener('change', scheduleAutoSave);
+    form.addEventListener('click', event => {
+        if (event.target.closest('[data-next-step], [data-prev-step]')) {
+            setTimeout(scheduleAutoSave, 0);
+        }
     });
     discard.addEventListener('click', async () => {
-        if (busy || !token.value || !window.confirm('Discard this saved draft and its ID photo? This cannot be undone.')) return;
+        if (busy || !token.value || !window.confirm('Discard this saved draft and its ID photos? This cannot be undone.')) return;
         const body = new FormData();
         body.set('draft_token', token.value);
         body.set('_method', 'DELETE');

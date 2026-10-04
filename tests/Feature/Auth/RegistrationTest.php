@@ -1,6 +1,9 @@
 <?php
 
 use App\Models\User;
+use App\Notifications\VerifyCustomerEmail;
+use Illuminate\Contracts\Notifications\Dispatcher;
+use Illuminate\Support\Facades\Notification;
 
 test('registration route redirects to the homepage modal', function () {
     $response = $this->get('/register');
@@ -8,11 +11,13 @@ test('registration route redirects to the homepage modal', function () {
     $response->assertRedirect('/');
 });
 
-test('new users register as customers and consent is stored', function () {
+test('new manual users register as unverified customers and receive a verification email', function () {
+    Notification::fake();
+
     $response = $this->post('/register', [
         'first_name' => 'Test',
         'last_name' => 'User',
-        'email' => 'test@example.com',
+        'email' => '  TEST@EXAMPLE.COM ',
         'password' => 'password',
         'password_confirmation' => 'password',
         'role' => 'technician',
@@ -23,17 +28,21 @@ test('new users register as customers and consent is stored', function () {
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('customer.dashboard', absolute: false));
+    $response->assertRedirect(route('verification.notice', absolute: false));
 
     $user = User::firstOrFail();
 
     expect($user->name)->toBe('Test User')
+        ->and($user->email)->toBe('test@example.com')
         ->and($user->role)->toBe('customer')
+        ->and($user->hasVerifiedEmail())->toBeFalse()
         ->and($user->agreed_to_terms)->toBeTrue()
         ->and($user->agreed_to_privacy)->toBeTrue()
         ->and($user->consented_at)->not->toBeNull()
         ->and($user->terms_version)->toBe('2026-03')
         ->and($user->privacy_version)->toBe('2026-03');
+
+    Notification::assertSentTo($user, VerifyCustomerEmail::class);
 });
 
 test('registration validation reopens modal with compact errors', function () {
@@ -51,4 +60,30 @@ test('registration validation reopens modal with compact errors', function () {
         ->assertSee('register-consent-error is-visible', false)
         ->assertDontSee('register-error-summary', false)
         ->assertDontSee('Please fix the following errors');
+});
+
+test('customer registration remains recoverable when verification email delivery fails', function () {
+    $dispatcher = Mockery::mock(Dispatcher::class);
+    $dispatcher->shouldReceive('send')
+        ->once()
+        ->andThrow(new RuntimeException('SMTP connection unavailable'));
+    $this->app->instance(Dispatcher::class, $dispatcher);
+
+    $response = $this->post('/register', [
+        'first_name' => 'Delivery',
+        'last_name' => 'Retry',
+        'email' => 'delivery.retry@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+        'agreed_to_terms' => '1',
+        'agreed_to_privacy' => '1',
+    ]);
+
+    $user = User::where('email', 'delivery.retry@example.com')->firstOrFail();
+
+    $this->assertAuthenticatedAs($user);
+    $response
+        ->assertRedirect(route('verification.notice', absolute: false))
+        ->assertSessionHas('status', 'verification-link-failed');
+    expect($user->hasVerifiedEmail())->toBeFalse();
 });

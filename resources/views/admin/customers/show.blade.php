@@ -20,17 +20,24 @@
     $ticketStatusLabel = $latestTicket?->displayStatusLabel() ?? 'No Tickets';
     $contactNumber = $customer->phone ?: ($application?->mobile_number ?: 'No contact number on file');
     $contactEmail = $customer->email ?: ($application?->email ?: 'No email on file');
+    $isTechnicianView = auth()->user()?->isTechnician() ?? false;
+    $customerIndexRoute = $isTechnicianView ? 'technician.customers.index' : 'admin.customers.index';
+    $customerPrintRoute = $isTechnicianView ? 'technician.customers.print' : 'admin.reports.print.customer';
 @endphp
 
 @section('content')
 <div class="page-stack">
     <section class="telecom-hero">
         <h1>{{ $customer->name }}</h1>
-        <p>Review customer information, account contact details, service application status, installation progress, and support ticket history from one admin view.</p>
+        <p>Review customer information, account contact details, service application status, installation progress, and support ticket history from one shared service view.</p>
         <div class="telecom-chip-row">
             <span class="telecom-chip">Customer ID: {{ $customer->displayCustomerRecordId() }}</span>
+            <span class="telecom-chip">Account: {{ $customer->isDisabled() ? 'Disabled' : 'Active' }}</span>
             <span class="telecom-chip">Application: {{ $applicationStatusLabel }}</span>
             <span class="telecom-chip">Open Tickets: {{ $customer->open_tickets_count }}</span>
+        </div>
+        <div class="telecom-hero-actions">
+            <a href="{{ route($customerPrintRoute, $customer) }}" class="btn">Print Customer Summary</a>
         </div>
     </section>
 
@@ -148,9 +155,11 @@
                     <div class="tracking-meta"><strong>Submitted</strong><span>{{ $application->created_at?->format('M d, Y h:i A') ?? 'Unknown' }}</span></div>
                     <div class="tracking-meta"><strong>Assessed</strong><span>{{ $application->assessed_at?->format('M d, Y h:i A') ?? 'Not assessed' }}</span></div>
                 </div>
-                <div class="form-actions">
-                    <a href="{{ route('admin.applications.show', $application) }}" class="btn secondary">Open Application</a>
-                </div>
+                @unless($isTechnicianView)
+                    <div class="form-actions">
+                        <a href="{{ route('admin.applications.show', $application) }}" class="btn secondary">Open Application</a>
+                    </div>
+                @endunless
             @else
                 <div class="empty-state">No service application is linked to this customer account yet.</div>
             @endif
@@ -199,7 +208,7 @@
         <div class="panel-body">
             @if($customer->tickets->count())
                 <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
-                    <table class="telecom-table">
+                    <table class="telecom-table" data-mobile-cards data-mobile-cards-expandable>
                         <thead>
                             <tr>
                                 <th>Ticket</th>
@@ -218,10 +227,18 @@
                                             <span class="record-muted">{{ \App\Models\Ticket::resolveSubjectLabel($ticket->subject) }}</span>
                                         </div>
                                     </td>
-                                    <td>{{ $ticket->technician->name ?? 'Unassigned queue' }}</td>
+                                    <td data-mobile-secondary>{{ $ticket->assignedStaff->name ?? 'Unassigned queue' }}</td>
                                     <td><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></td>
-                                    <td>{{ $ticket->created_at?->format('M d, Y') ?? 'Unknown' }}</td>
-                                    <td><a href="{{ route('admin.tickets.show', $ticket) }}" class="btn secondary">View</a></td>
+                                    <td data-mobile-secondary>{{ $ticket->created_at?->format('M d, Y') ?? 'Unknown' }}</td>
+                                    <td>
+                                        @if(! $isTechnicianView)
+                                            <a href="{{ route('admin.tickets.show', $ticket) }}" class="btn secondary">View</a>
+                                        @elseif($ticket->assigned_staff_id === auth()->id())
+                                            <a href="{{ route('technician.tickets.show', $ticket) }}" class="btn secondary">View</a>
+                                        @else
+                                            <span class="record-muted">Summary only</span>
+                                        @endif
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -233,8 +250,65 @@
         </div>
     </section>
 
+    @unless($isTechnicianView)
+        <section class="panel-card">
+            <div class="panel-header">
+                <div class="panel-title-wrap">
+                    <span class="panel-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z"></path><path d="M9.5 11.5 11 13l3.5-3.5"></path></svg></span>
+                    <div>
+                        <div class="panel-title">Account Access</div>
+                        <div class="panel-subtitle">Admin-only access controls for this customer account</div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-body">
+                @if(session('status') === 'customer-disabled')
+                    <div class="empty-state compact">Customer account has been disabled.</div>
+                @elseif(session('status') === 'customer-enabled')
+                    <div class="empty-state compact">Customer account has been enabled.</div>
+                @endif
+                <div class="quick-link-grid">
+                    <div class="quick-link">
+                        <strong>{{ $customer->isDisabled() ? 'Disabled' : 'Active' }}</strong>
+                        <span>{{ $customer->isDisabled() ? 'This customer cannot sign in or use customer services.' : 'This customer can sign in and use customer services.' }}</span>
+                    </div>
+                    <div class="quick-link">
+                        <strong>{{ $customer->disabled_at?->format('M d, Y h:i A') ?? 'No disable record' }}</strong>
+                        <span>{{ $customer->disabledBy ? 'Disabled by '.$customer->disabledBy->name : 'No admin disable action is recorded.' }}</span>
+                    </div>
+                    <div class="quick-link">
+                        <strong>Disable Reason</strong>
+                        <span>{{ $customer->disabled_reason ?: 'No disable reason recorded.' }}</span>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    @if($customer->isDisabled())
+                        <form method="POST" action="{{ route('admin.customers.enable', $customer) }}">
+                            @csrf
+                            @method('PATCH')
+                            <button type="submit" class="btn">Enable Account</button>
+                        </form>
+                    @else
+                        <form method="POST" action="{{ route('admin.customers.disable', $customer) }}" class="admin-disable-account-form">
+                            @csrf
+                            @method('PATCH')
+                            <div class="apply-field full-span">
+                                <label for="customer_disabled_reason">Disable reason</label>
+                                <textarea id="customer_disabled_reason" name="disabled_reason" rows="3" required maxlength="1000" placeholder="State clearly why this account will be disabled.">{{ old('disabled_reason') }}</textarea>
+                                @error('disabled_reason')
+                                    <span class="error">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <button type="submit" class="btn danger">Disable Account</button>
+                        </form>
+                    @endif
+                </div>
+            </div>
+        </section>
+    @endunless
+
     <section class="card">
-        <a href="{{ route('admin.customers.index') }}" class="btn secondary">Back</a>
+        <a href="{{ route($customerIndexRoute) }}" class="btn secondary">Back</a>
     </section>
 </div>
 @endsection

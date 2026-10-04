@@ -59,8 +59,10 @@ test('approved applications can be scheduled with assigned_at and installation p
     $this->actingAs($admin)
         ->get(route('admin.applications.show', $application, false))
         ->assertOk()
-        ->assertSee('View History')
-        ->assertSee('installationHistoryModal');
+        ->assertSee('Installation History')
+        ->assertSee('data-workspace-tab="history"', false)
+        ->assertSee('data-app-workspace-panel="history"', false)
+        ->assertDontSee('installationHistoryModal');
 
     $this->actingAs($customer)
         ->get(route('customer.application.show', absolute: false))
@@ -837,6 +839,7 @@ test('assigned technician can complete an in-progress installation', function ()
 test('assigned technician can activate a completed installation', function () {
     $technician = User::factory()->create(['role' => 'technician']);
     $customer = User::factory()->create(['role' => 'customer']);
+    $admin = User::factory()->create(['role' => 'admin']);
 
     $application = Application::create([
         'user_id' => $customer->id,
@@ -882,6 +885,24 @@ test('assigned technician can activate a completed installation', function () {
         ->and($application->refresh()->status)->toBe(Application::STATUS_ACTIVATED);
 
     expect(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%marked activated%')->exists())->toBeTrue();
+
+    $technicianPage = $this->actingAs($technician)
+        ->get(route('technician.installations.show', $installation, false))
+        ->assertOk()
+        ->assertSee('Proof of Installation')
+        ->assertSee('Installation History');
+
+    expect(substr_count($technicianPage->getContent(), 'Technical Installation Details'))->toBe(1);
+
+    $this->actingAs($admin)
+        ->get(route('admin.installations.index', ['group' => 'scheduled'], false))
+        ->assertOk()
+        ->assertDontSee($installation->displayJobReference());
+
+    $this->get(route('admin.installations.index', ['status' => Installation::STATUS_ACTIVATED], false))
+        ->assertOk()
+        ->assertSee($installation->displayJobReference())
+        ->assertSee('Activated');
 });
 
 test('scheduled installations cannot be marked completed directly', function () {

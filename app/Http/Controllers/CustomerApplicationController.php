@@ -4,17 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Models\Application;
 use App\Models\ApplicationDraft;
+use App\Models\ApplicationIdVerificationEvent;
+use App\Models\IdentityDocumentClaim;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\User;
+use App\Rules\ReadableApplicationIdImage;
 use App\Services\TechnicianSchedule;
 use App\Services\WorkflowTransaction;
 use App\Support\ApplicationContact;
 use App\Support\ApplicationIdUpload;
+use App\Support\ApplicationIdentity;
 use App\Support\AppNotificationSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class CustomerApplicationController extends Controller
@@ -45,23 +50,25 @@ class CustomerApplicationController extends Controller
 
         $draft = ApplicationDraft::query()->where('user_id', $user->id)->where('expires_at', '>', now())->first();
 
-        return view('customer.apply', compact('application', 'mapBounds', 'addressCatalog', 'draft'));
+        $validIdTypes = ApplicationIdentity::types();
+
+        return view('customer.apply', compact('application', 'mapBounds', 'addressCatalog', 'draft', 'validIdTypes'));
     }
 
     public function store(Request $request)
     {
-        $obsoleteDraftPhoto = null;
-        $response = WorkflowTransaction::customerApplication(auth()->user(), function (User $user) use ($request, &$obsoleteDraftPhoto) {
-            $obsoleteDraftPhoto = null;
+        $obsoleteDraftPhotos = [];
+        $response = WorkflowTransaction::customerApplication(auth()->user(), function (User $user) use ($request, &$obsoleteDraftPhotos) {
+            $obsoleteDraftPhotos = [];
 
-            return $this->storeWithinTransaction($request, $user, $obsoleteDraftPhoto);
+            return $this->storeWithinTransaction($request, $user, $obsoleteDraftPhotos);
         }, protectContacts: true);
-        ApplicationDraft::deletePhoto($obsoleteDraftPhoto);
+        foreach ($obsoleteDraftPhotos as $obsoleteDraftPhoto) ApplicationDraft::deletePhoto($obsoleteDraftPhoto);
 
         return $response;
     }
 
-    private function storeWithinTransaction(Request $request, User $user, ?string &$obsoleteDraftPhoto)
+    private function storeWithinTransaction(Request $request, User $user, array &$obsoleteDraftPhotos)
     {
         $existing = $user->application;
         $ownerUserId = $user->id;
@@ -110,13 +117,20 @@ class CustomerApplicationController extends Controller
             'lat' => ['required', 'numeric'],
             'lng' => ['required', 'numeric'],
             'plan_code' => ['required', 'in:S2S_50,S2S_100'],
-            'id_selfie_image' => [$draft?->hasPhoto() ? 'nullable' : 'required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'valid_id_type' => ['required', Rule::in(array_keys(ApplicationIdentity::types()))],
+            'valid_id_type_other' => [Rule::requiredIf($request->input('valid_id_type') === ApplicationIdentity::TYPE_OTHER), 'nullable', 'string', 'max:80', 'regex:/^[\p{L}\p{N}][\p{L}\p{N}\s().,&\-\/]*$/u'],
+            'id_image' => [$draft?->hasIdImage() ? 'nullable' : 'required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', new ReadableApplicationIdImage],
+            'id_selfie_image' => [$draft?->hasPhoto() ? 'nullable' : 'required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', new ReadableApplicationIdImage],
         ], [
             'first_name.regex' => 'First name may contain letters, spaces, apostrophes, periods, and hyphens.',
             'last_name.regex' => 'Last name may contain letters, spaces, apostrophes, periods, and hyphens.',
             'email.unique' => 'This email address is already used in another application.',
             'mobile_number.regex' => 'Enter a valid contact number with 10 to 15 digits.',
             'mobile_number.unique' => 'This mobile number is already used in another application.',
+            'valid_id_type.required' => 'Select the type of government ID you are submitting.',
+            'valid_id_type_other.required' => 'Enter the name of the other government-issued ID.',
+            'valid_id_type_other.regex' => 'Enter a valid government ID name.',
+            'id_image.required' => 'Please upload a clear close-up photo of the valid ID.',
             'id_selfie_image.required' => 'Please upload the photo of the customer holding the valid ID.',
         ]);
 
@@ -135,22 +149,23 @@ class CustomerApplicationController extends Controller
                 ->withInput();
         }
 
-        $year = now()->format('Y');
-        $random = str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-        $reference = "APP-{$year}-{$random}";
 
-        while (Application::where('reference_no', $reference)->exists()) {
-            $random = str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-            $reference = "APP-{$year}-{$random}";
-        }
-
+        $idImageHash = $request->hasFile('id_image')
+            ? ApplicationIdentity::uploadedFileHash($request->file('id_image'))
+            : ApplicationIdentity::storedFileHash($draft?->id_image_path);
+        $idImagePath = $request->hasFile('id_image')
+            ? ApplicationIdUpload::store($request->file('id_image'))
+            : $draft->id_image_path;
         $idSelfiePath = $request->hasFile('id_selfie_image')
             ? ApplicationIdUpload::store($request->file('id_selfie_image'))
             : $draft->photo_path;
+        $duplicateImage = $this->claimBelongsToAnotherUser('id_image', $idImageHash, $user);
         $consentedAt = $user->consented_at ?? now();
 
         $payload = [
-            'reference_no' => $reference,
+            // A private placeholder satisfies the existing non-null unique column
+            // until the insert assigns the numeric ID used by the public reference.
+            'reference_no' => 'PENDING-'.Str::uuid(),
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'email' => $validated['email'],
@@ -163,8 +178,19 @@ class CustomerApplicationController extends Controller
             'lat' => $lat,
             'lng' => $lng,
             'plan_code' => $validated['plan_code'],
-            'id_image_path' => null,
+            'id_image_path' => $idImagePath,
             'id_selfie_image_path' => $idSelfiePath,
+            'valid_id_type' => $validated['valid_id_type'],
+            'valid_id_type_other' => $validated['valid_id_type'] === ApplicationIdentity::TYPE_OTHER ? trim($validated['valid_id_type_other']) : null,
+            'valid_id_number' => null,
+            'valid_id_number_fingerprint' => null,
+            'id_image_hash' => $idImageHash,
+            'duplicate_id_number_detected' => false,
+            'duplicate_id_image_detected' => $duplicateImage,
+            'id_verification_status' => ApplicationIdentity::STATUS_PENDING,
+            'id_verification_reason' => null,
+            'id_verified_by' => null,
+            'id_verified_at' => null,
             'agreed_to_terms' => (bool) $user->agreed_to_terms,
             'agreed_to_privacy' => (bool) $user->agreed_to_privacy,
             'consented_at' => $consentedAt,
@@ -184,10 +210,22 @@ class CustomerApplicationController extends Controller
             'user_id' => $user->id,
         ]);
 
+        $application->forceFill([
+            'reference_no' => $application->sequentialReference(),
+        ])->save();
+
+        ApplicationIdVerificationEvent::create([
+            'application_id' => $application->id,
+            'actor_id' => $user->id,
+            'from_status' => null,
+            'to_status' => ApplicationIdentity::STATUS_PENDING,
+            'reason' => 'Identity documents submitted for administrator review.',
+        ]);
+
         AppNotificationSender::sendToRole(
             'admin',
             'New customer application submitted',
-            $application->first_name.' '.$application->last_name.' submitted application '.$application->reference_no.'.',
+            $application->first_name.' '.$application->last_name.' submitted application '.$application->reference_no.'.'.($application->hasPotentialIdentityDuplicate() ? ' Identity documents require duplicate review.' : ''),
             route('admin.applications.show', $application),
             'application_submitted',
             ['application_id' => $application->id, 'reference_no' => $application->reference_no],
@@ -200,11 +238,28 @@ class CustomerApplicationController extends Controller
         );
 
         if ($draft) {
-            $obsoleteDraftPhoto = $draft->photo_path !== $idSelfiePath ? $draft->photo_path : null;
+            $obsoleteDraftPhotos = array_values(array_filter([
+                $draft->photo_path !== $idSelfiePath ? $draft->photo_path : null,
+                $draft->id_image_path !== $idImagePath ? $draft->id_image_path : null,
+            ]));
             $draft->delete();
         }
 
         return redirect()->route('customer.apply.done', ['reference' => $application->reference_no]);
+    }
+
+    private function claimBelongsToAnotherUser(string $kind, ?string $fingerprint, User $user): bool
+    {
+        if (! $fingerprint) {
+            return false;
+        }
+
+        $claim = IdentityDocumentClaim::firstOrCreate(
+            ['kind' => $kind, 'fingerprint' => $fingerprint],
+            ['owner_user_id' => $user->id]
+        );
+
+        return (int) $claim->owner_user_id !== (int) $user->id;
     }
 
     public function contactCheck(Request $request)
@@ -258,6 +313,108 @@ class CustomerApplicationController extends Controller
             : [];
 
         return view('customer.application', compact('application', 'applications', 'rescheduleAvailability'));
+    }
+
+    public function resubmitIdentity(Request $request)
+    {
+        $obsoleteIdentityPhotos = [];
+        $response = WorkflowTransaction::customerApplication(auth()->user(), function (User $user) use ($request, &$obsoleteIdentityPhotos) {
+            return $this->resubmitIdentityWithinTransaction($request, $user, $obsoleteIdentityPhotos);
+        });
+
+        foreach ($obsoleteIdentityPhotos as $obsoleteIdentityPhoto) {
+            try {
+                ApplicationIdUpload::delete($obsoleteIdentityPhoto);
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        return $response;
+    }
+
+    private function resubmitIdentityWithinTransaction(Request $request, User $user, array &$obsoleteIdentityPhotos)
+    {
+        $application = $user->application;
+
+        if (! $application) {
+            return back()->withErrors(['identity_resubmission' => 'No application is available for ID resubmission.']);
+        }
+
+        if ($application->id_verification_status !== ApplicationIdentity::STATUS_REJECTED) {
+            return back()->withErrors(['identity_resubmission' => 'ID documents can only be replaced after an administrator requests resubmission.']);
+        }
+
+        if (! in_array($application->status, [Application::STATUS_SUBMITTED, Application::STATUS_UNDER_REVIEW], true)) {
+            return back()->withErrors(['identity_resubmission' => 'This application is no longer accepting replacement ID documents.']);
+        }
+
+        $validated = $request->validate([
+            'valid_id_type' => ['required', Rule::in(array_keys(ApplicationIdentity::types()))],
+            'valid_id_type_other' => [Rule::requiredIf($request->input('valid_id_type') === ApplicationIdentity::TYPE_OTHER), 'nullable', 'string', 'max:80', 'regex:/^[\p{L}\p{N}][\p{L}\p{N}\s().,&\-\/]*$/u'],
+            'id_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', new ReadableApplicationIdImage],
+            'id_selfie_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', new ReadableApplicationIdImage],
+        ], [
+            'valid_id_type.required' => 'Select the type of government ID you are replacing.',
+            'valid_id_type_other.required' => 'Enter the name of the other government-issued ID.',
+            'valid_id_type_other.regex' => 'Enter a valid government ID name.',
+            'id_image.required' => 'Upload a new clear close-up photo of the ID.',
+            'id_selfie_image.required' => 'Upload a new photo of yourself holding the same ID.',
+        ]);
+
+        $idImageHash = ApplicationIdentity::uploadedFileHash($request->file('id_image'));
+        $idImagePath = ApplicationIdUpload::store($request->file('id_image'));
+        $idSelfiePath = ApplicationIdUpload::store($request->file('id_selfie_image'));
+        $duplicateImage = $this->claimBelongsToAnotherUser('id_image', $idImageHash, $user);
+        $previousStatus = $application->id_verification_status;
+
+        $obsoleteIdentityPhotos = array_values(array_filter([
+            $application->id_image_path,
+            $application->id_selfie_image_path,
+        ]));
+
+        $application->update([
+            'id_image_path' => $idImagePath,
+            'id_selfie_image_path' => $idSelfiePath,
+            'valid_id_type' => $validated['valid_id_type'],
+            'valid_id_type_other' => $validated['valid_id_type'] === ApplicationIdentity::TYPE_OTHER
+                ? trim((string) $validated['valid_id_type_other'])
+                : null,
+            'valid_id_number' => null,
+            'valid_id_number_fingerprint' => null,
+            'id_image_hash' => $idImageHash,
+            'duplicate_id_number_detected' => false,
+            'duplicate_id_image_detected' => $duplicateImage,
+            'id_verification_status' => ApplicationIdentity::STATUS_PENDING,
+            'id_verification_reason' => null,
+            'id_verified_by' => null,
+            'id_verified_at' => null,
+        ]);
+
+        ApplicationIdVerificationEvent::create([
+            'application_id' => $application->id,
+            'actor_id' => $user->id,
+            'from_status' => $previousStatus,
+            'to_status' => ApplicationIdentity::STATUS_PENDING,
+            'reason' => 'Customer submitted replacement identity documents for administrator review.',
+        ]);
+
+        AppNotificationSender::sendToRole(
+            'admin',
+            'Replacement ID documents submitted',
+            $application->reference_no.' has new identity documents ready for review.'.($duplicateImage ? ' The close-up image requires duplicate review.' : ''),
+            route('admin.applications.show', $application),
+            'application_identity_resubmitted',
+            ['application_id' => $application->id, 'id_verification_status' => ApplicationIdentity::STATUS_PENDING],
+            $user->id
+        );
+
+        system_log(
+            'Identity Documents Resubmitted',
+            'Customer submitted replacement identity documents for Application '.$application->reference_no.'.'
+        );
+
+        return back()->with('success', 'Your replacement ID documents were submitted and are pending administrator review.');
     }
 
     public function requestReschedule(Request $request)

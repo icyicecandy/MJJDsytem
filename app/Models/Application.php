@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\ApplicationIdUpload;
+use App\Support\ApplicationIdentity;
 use App\Support\ApplicationContact;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -38,6 +39,17 @@ class Application extends Model
         'plan_code',
         'id_image_path',
         'id_selfie_image_path',
+        'valid_id_type',
+        'valid_id_type_other',
+        'valid_id_number',
+        'valid_id_number_fingerprint',
+        'id_image_hash',
+        'duplicate_id_number_detected',
+        'duplicate_id_image_detected',
+        'id_verification_status',
+        'id_verification_reason',
+        'id_verified_by',
+        'id_verified_at',
         'agreed_to_terms',
         'agreed_to_privacy',
         'consented_at',
@@ -75,6 +87,10 @@ class Application extends Model
             'agreed_to_privacy' => 'boolean',
             'consented_at' => 'datetime',
             'assessed_at' => 'datetime',
+            'valid_id_number' => 'encrypted',
+            'duplicate_id_number_detected' => 'boolean',
+            'duplicate_id_image_detected' => 'boolean',
+            'id_verified_at' => 'datetime',
         ];
     }
 
@@ -93,6 +109,16 @@ class Application extends Model
         return $this->belongsTo(\App\Models\User::class, 'assessed_by');
     }
 
+    public function idVerifier()
+    {
+        return $this->belongsTo(User::class, 'id_verified_by');
+    }
+
+    public function idVerificationEvents()
+    {
+        return $this->hasMany(ApplicationIdVerificationEvent::class)->latest();
+    }
+
     public function fullServiceAddress(): string
     {
         return collect([
@@ -102,6 +128,13 @@ class Application extends Model
             $this->province,
             $this->region,
         ])->filter()->implode(', ');
+    }
+
+    public function sequentialReference(): string
+    {
+        $year = $this->created_at?->format('Y') ?? now()->format('Y');
+
+        return sprintf('APP-%s-%06d', $year, $this->getKey());
     }
 
     public function isTerminalForNewApplication(): bool
@@ -121,5 +154,20 @@ class Application extends Model
     public function idSelfieImageUrl(): ?string
     {
         return ApplicationIdUpload::exists($this->id_selfie_image_path) ? route('applications.id-photo', [$this, 'selfie']) : null;
+    }
+
+    public function validIdTypeLabel(): string
+    {
+        return ApplicationIdentity::typeLabel($this->valid_id_type, $this->valid_id_type_other);
+    }
+
+    public function maskedValidIdNumber(): string
+    {
+        return ApplicationIdentity::maskedNumber($this->valid_id_number);
+    }
+
+    public function hasPotentialIdentityDuplicate(): bool
+    {
+        return $this->duplicate_id_image_detected;
     }
 }

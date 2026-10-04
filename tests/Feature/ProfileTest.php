@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\User;
+use App\Notifications\VerifyCustomerEmail;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
 test('profile page is displayed', function () {
@@ -27,9 +29,12 @@ test('profile page is displayed', function () {
 });
 
 test('profile information can be updated with avatar and core details', function () {
+    Notification::fake();
     Storage::fake('public');
 
     $user = User::factory()->create([
+        'email' => 'original@example.test',
+        'role' => 'customer',
         'bio' => 'Existing support note',
         'phone' => '+639111111111',
         'phone_verified_at' => now(),
@@ -59,7 +64,8 @@ test('profile information can be updated with avatar and core details', function
 
     $response
         ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
+        ->assertRedirect(route('verification.notice', absolute: false))
+        ->assertSessionHas('status', 'verification-link-sent');
 
     $user->refresh();
 
@@ -83,6 +89,7 @@ test('profile information can be updated with avatar and core details', function
         ->and($user->avatar_path)->not->toBeNull();
 
     Storage::disk('public')->assertExists($user->avatar_path);
+    Notification::assertSentTo($user, VerifyCustomerEmail::class);
 });
 
 test('email verification status is unchanged when the email address is unchanged', function () {

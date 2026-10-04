@@ -1,5 +1,5 @@
-<div class="chat-ui chat-ui--{{ $role }}">
-    <section class="chat-ui__shell">
+<div class="chat-ui chat-ui--{{ $role }} {{ !empty($hasSidebar) ? 'chat-ui--has-sidebar' : '' }} {{ !empty($hasActiveConversation) ? 'chat-ui--has-conversation' : '' }}">
+    <section class="chat-ui__shell" aria-label="Support chat workspace">
         <header class="chat-ui__header">
             <div class="chat-ui__header-copy">
                 <p class="chat-ui__eyebrow">{{ $eyebrow }}</p>

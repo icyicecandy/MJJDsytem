@@ -11,7 +11,7 @@
     $isClosed = $ticket->status === \App\Models\Ticket::STATUS_CLOSED;
     $isCancelled = $ticket->isCancelled();
     $isReadOnly = $ticket->isReadOnly();
-    $assignedStaff = optional($ticket->technician)->name ?? 'Waiting for Assignment';
+    $assignedStaff = optional($ticket->assignedStaff)->name ?? 'Waiting for Assignment';
     $customerName = auth()->user()->name;
     $showReopenFields = $errors->has('reason') || old('reason');
     $statusHelper = match ($ticket->status) {
@@ -37,13 +37,23 @@
                         <p class="ticket-detail-eyebrow">{{ $ticket->publicReference() }}</p>
                         <h1>{{ $ticket->subject }}</h1>
                     </div>
-                    <span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span>
+                    <span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->isQueued() ? 'Queued' : $ticket->displayStatusLabel() }}</span>
                 </div>
 
                 <div class="ticket-detail-hero__meta">
                     <span class="badge urgency-{{ $ticket->displayUrgencyClass() }}">{{ $ticket->displayUrgencyLabel() }}</span>
                     <span>Assigned to {{ $assignedStaff }}</span>
                 </div>
+
+                @if($ticket->isQueued())
+                    <div class="ticket-queue-notice ticket-queue-notice--detail" role="status">
+                        <strong>No technician is currently on duty.</strong>
+                        <span>Automatic assignment retries every five minutes.</span>
+                        @if($nextAutomaticAssignmentAt)
+                            <span>Next eligible shift: {{ $nextAutomaticAssignmentAt->format('F d, Y h:i A') }} ({{ config('app.timezone') }}).</span>
+                        @endif
+                    </div>
+                @endif
 
                 <p class="ticket-detail-description">{{ $ticket->description }}</p>
 
@@ -112,7 +122,7 @@
                 </div>
 
                 @if(! $isReadOnly)
-                    <form method="POST" action="{{ route('customer.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form">
+                    <form method="POST" action="{{ route('customer.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form" data-unsaved-warning>
                         @csrf
                         <textarea name="message" rows="5" placeholder="Type your reply..."></textarea>
                         <label for="customer_ticket_attachment">Attachments <span class="field-badge optional">Optional</span></label>

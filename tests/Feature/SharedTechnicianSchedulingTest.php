@@ -52,6 +52,7 @@ test('legacy ticket appointment columns remain while ticket updates retire their
     $this->actingAs($admin)->patch(route('admin.tickets.update', $ticket), [
         'technician_id' => $technician->id,
         'urgency' => Ticket::URGENCY_CRITICAL,
+        'confirm_assignment_override' => '1',
         // Historical integrations may still send these; active logic ignores them.
         'appointment_date' => '2026-09-19',
         'appointment_time' => '11:00',

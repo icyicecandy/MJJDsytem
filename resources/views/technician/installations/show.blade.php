@@ -617,6 +617,7 @@
                 @else
                     <button type="button" class="btn secondary" disabled>Awaiting Reschedule</button>
                 @endif
+                <a href="{{ route('technician.installations.print', $installation) }}" class="btn secondary">Print Summary</a>
                 <a href="{{ route('technician.installations.index') }}" class="btn secondary">Back</a>
             </div>
         </section>
@@ -967,21 +968,6 @@
                         <div class="workflow-summary-box full">
                             <span class="workflow-label">Technician Remarks</span>
                             <div class="workflow-value">{{ $installation->technician_remarks ?: 'No remarks yet.' }}</div>
-                        </div>
-                        <div class="workflow-summary-box full">
-                            <span class="workflow-label">Technical Installation Details</span>
-                            @if($hasTechnicalDetails)
-                                <div class="workflow-summary-grid">
-                                    @foreach($technicalDetails as $label => $value)
-                                        <div class="workflow-summary-box">
-                                            <span class="workflow-label">{{ $label }}</span>
-                                            <div class="workflow-value">{{ $value ?: '-' }}</div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @else
-                                <div class="workflow-value">Technical details not yet recorded.</div>
-                            @endif
                         </div>
                     </div>
                 </section>

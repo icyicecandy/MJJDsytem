@@ -15,18 +15,8 @@
     </section>
 
     <section class="card toolbar-card">
-        <form method="GET" action="{{ route('customer.tickets.index') }}" class="toolbar-row" data-mobile-filter>
-            <div class="toolbar-field">
-                <label for="customer_ticket_status">Status</label>
-                <select name="status" id="customer_ticket_status">
-                    <option value="">All</option>
-                    @foreach($statusOptions as $value => $label)
-                        <option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div class="toolbar-field grow">
+        <form method="GET" action="{{ route('customer.tickets.index') }}" class="toolbar-row customer-ticket-filter-toolbar" data-mobile-filter data-live-filter data-live-filter-target="#customerTicketResults">
+            <div class="toolbar-field grow customer-ticket-search-field">
                 <label for="customer_ticket_search">Search</label>
                 <input
                     id="customer_ticket_search"
@@ -35,6 +25,16 @@
                     value="{{ $search }}"
                     placeholder="Tracking number, subject, description, or assigned staff"
                 >
+            </div>
+
+            <div class="toolbar-field customer-ticket-status-field">
+                <label for="customer_ticket_status">Status</label>
+                <select name="status" id="customer_ticket_status">
+                    <option value="">All statuses</option>
+                    @foreach($statusOptions as $value => $label)
+                        <option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
             </div>
 
             <div class="toolbar-actions">
@@ -46,7 +46,7 @@
         </form>
     </section>
 
-    <section class="card table-card">
+    <section id="customerTicketResults" class="card table-card" data-live-filter-results aria-busy="false">
         <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
             <table class="telecom-table ticket-list-table ticket-list-table--customer" data-mobile-cards>
                     <colgroup>
@@ -67,8 +67,18 @@
                         <td><span class="record-strong record-reference">{{ $ticket->publicReference() }}</span></td>
                         <td>{{ $ticket->subject }}</td>
                         <td><span class="badge ticket-urgency-text urgency-{{ $ticket->displayUrgencyClass() }}">{{ $ticket->displayUrgencyLabel() }}</span></td>
-                        <td><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></td>
-                        <td>{{ optional($ticket->technician)->name ?? 'Waiting for Assignment' }}</td>
+                        <td class="customer-ticket-status-cell">
+                            <span class="badge {{ $ticket->displayStatusClass() }}">
+                                {{ $ticket->isQueued() ? 'Queued' : $ticket->displayStatusLabel() }}
+                            </span>
+                        </td>
+                        <td>
+                            @if($ticket->assignedStaff)
+                                <span class="record-strong">{{ $ticket->assignedStaff->name }}</span>
+                            @else
+                                <span class="record-muted">Not yet assigned</span>
+                            @endif
+                        </td>
                         <td>{{ $ticket->created_at->displayDateTime('m/d/y h:i A') }}</td>
                         <td class="mobile-table-only">
                             {{ $ticket->responseTargetLabel() }}

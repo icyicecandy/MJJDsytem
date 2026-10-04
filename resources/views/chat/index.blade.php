@@ -4,27 +4,25 @@
 
 @section('content')
 @php
-    $viewerRole = auth()->user()->role;
-    $isAdmin = auth()->user()->isAdmin();
-    $staffStatus = auth()->user()->chatAvailabilityLabel();
-    $availabilityRoute = route('role.chat.availability', ['role' => auth()->user()->role]);
+    $viewer = auth()->user();
+    $viewerRole = $viewer->role;
+    $isAdmin = $viewer->isAdmin();
+    $availabilityRoute = route('role.chat.availability', ['role' => $viewerRole]);
     $pageTitle = $isAdmin ? 'Support queue' : 'Assigned conversations';
     $pageSubtitle = $isAdmin
         ? 'Monitor customer conversations, route them to staff, and pick up threads when needed.'
         : 'Review the customer conversations currently assigned to you and respond from one workspace.';
-    $headerActions = view('chat.components.empty-state', [
-        'icon' => auth()->user()->chat_available ? 'On' : 'Off',
-        'title' => auth()->user()->chat_available ? 'Available' : 'Away',
-        'message' => 'Chat availability can be changed from this page.',
-        'compact' => true,
+    $headerActions = view('chat.components.availability-control', [
+        'user' => $viewer,
+        'route' => $availabilityRoute,
     ])->render();
     $sidebarContent = view('chat.components.conversation-list', [
         'viewerRole' => $viewerRole,
-        'sidebarTitle' => $isAdmin ? 'Customer queue' : 'My chats',
+        'sidebarTitle' => $isAdmin ? 'Customer queue' : 'My conversations',
         'sidebarMeta' => $conversations->count() . ' active conversation' . ($conversations->count() === 1 ? '' : 's'),
         'conversations' => $conversations,
         'activeConversationId' => optional(request()->route('user'))->id,
-        'filterAction' => route('role.chat.index', ['role' => auth()->user()->role]),
+        'filterAction' => route('role.chat.index', ['role' => $viewerRole]),
         'search' => $search,
         'scope' => $scope,
         'showFilters' => true,
@@ -33,25 +31,20 @@
         'emptyMessage' => $isAdmin ? 'Customer chats will appear here when someone starts a conversation.' : 'New customer chats assigned to you will appear here.',
     ])->render();
     $panelContent = '<section class="chat-ui__panel">' . view('chat.components.empty-state', [
-        'icon' => '.',
+        'icon' => 'Chat',
         'title' => 'Select a conversation',
-        'message' => 'Choose a customer from the list to open the chat thread.',
+        'message' => 'Choose a customer from the queue to open the message thread and customer details.',
     ])->render() . '</section>';
 @endphp
 
 @include('chat.layouts.chat-layout', [
     'role' => $viewerRole,
-    'eyebrow' => $isAdmin ? 'Admin' : 'Technician',
+    'eyebrow' => $isAdmin ? 'Admin support' : 'Technician support',
     'title' => $pageTitle,
     'subtitle' => $pageSubtitle,
-    'headerActions' => '<form method="POST" action="' . $availabilityRoute . '">'
-        . '<span class="chat-ui__button chat-ui__button--secondary" style="pointer-events:none;">' . e($staffStatus) . '</span>'
-        . csrf_field()
-        . '<input type="hidden" name="chat_available" value="' . (auth()->user()->chat_available ? '0' : '1') . '">'
-        . '<button type="submit" class="chat-ui__button ' . (auth()->user()->chat_available ? 'chat-ui__button--secondary' : 'chat-ui__button--primary') . '">'
-        . (auth()->user()->chat_available ? 'Set away' : 'Set available')
-        . '</button></form>',
+    'headerActions' => $headerActions,
     'sidebarContent' => $sidebarContent,
     'panelContent' => $panelContent,
+    'hasActiveConversation' => false,
 ])
 @endsection

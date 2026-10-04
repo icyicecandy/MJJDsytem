@@ -30,6 +30,9 @@
             <span class="telecom-chip">Account: {{ $accountStatusLabel }}</span>
             <span class="telecom-chip">Chat: {{ $chatStatusLabel }}</span>
         </div>
+        <div class="telecom-hero-actions">
+            <a href="{{ route('admin.reports.print.technician', $technician) }}" class="btn">Print Technician Summary</a>
+        </div>
     </section>
 
     <section class="metrics-grid">
@@ -140,7 +143,7 @@
         <div class="panel-body">
             @if($technician->installations->count())
                 <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
-                    <table class="telecom-table">
+                    <table class="telecom-table" data-mobile-cards data-mobile-cards-expandable>
                         <thead>
                             <tr>
                                 <th>Job</th>
@@ -171,13 +174,13 @@
                                             <span class="record-muted">{{ $application->mobile_number ?? ($application->email ?? 'No contact info') }}</span>
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-mobile-secondary>
                                         <div class="record-stack">
                                             <span class="record-strong">{{ $application?->municipality ?: 'Location pending' }}</span>
                                             <span class="record-muted">{{ $address }}</span>
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-mobile-secondary>
                                         <div class="record-stack">
                                             <span class="record-strong">{{ $installation->installation_date?->format('M d, Y') ?? 'Not scheduled' }}</span>
                                             <span class="record-muted">{{ $installation->installation_time ? \App\Models\Installation::slotLabel(\Carbon\Carbon::parse($installation->installation_time)->format('H:i')) : 'Time to be confirmed' }}</span>
@@ -215,7 +218,7 @@
         <div class="panel-body">
             @if($technician->assignedTickets->count())
                 <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
-                    <table class="telecom-table">
+                    <table class="telecom-table" data-mobile-cards data-mobile-cards-expandable>
                         <thead>
                             <tr>
                                 <th>Ticket</th>
@@ -236,7 +239,7 @@
                                     </td>
                                     <td>{{ $ticket->user->name ?? 'Unknown customer' }}</td>
                                     <td><span class="badge {{ $ticket->status }}">{{ ucfirst(str_replace('_', ' ', $ticket->status)) }}</span></td>
-                                    <td>{{ $ticket->created_at?->displayRelative() }}</td>
+                                    <td data-mobile-secondary>{{ $ticket->created_at?->displayRelative() }}</td>
                                     <td><a href="{{ route('admin.tickets.show', $ticket) }}" class="btn secondary">View</a></td>
                                 </tr>
                             @endforeach
@@ -345,4 +348,3 @@
     </section>
 </div>
 @endsection
-

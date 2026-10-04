@@ -202,7 +202,8 @@ final class TechnicianSchedule
         \Carbon\CarbonInterface|string $endDate,
         ?int $ignoreInstallationId = null,
         ?string $excludedDate = null,
-        ?string $excludedTime = null
+        ?string $excludedTime = null,
+        bool $includeRouteDetails = false
     ): array {
         $technicianIds = $technicians->pluck('id')->map(fn ($id) => (int) $id)->values();
         if ($technicianIds->isEmpty()) {
@@ -215,7 +216,8 @@ final class TechnicianSchedule
         $dailyInstallations = Installation::query()
             ->with('application')
             ->whereIn('technician_id', $technicianIds)
-            ->whereBetween('installation_date', [$start->toDateString(), $end->toDateString()])
+            ->whereDate('installation_date', '>=', $start->toDateString())
+            ->whereDate('installation_date', '<=', $end->toDateString())
             ->whereIn('status', Installation::activeSchedulingStatuses())
             ->when($ignoreInstallationId, fn ($query) => $query->whereKeyNot($ignoreInstallationId))
             ->get();
@@ -237,7 +239,8 @@ final class TechnicianSchedule
                     $excludedDate,
                     $excludedTime,
                     $bookings,
-                    $dailyInstallations
+                    $dailyInstallations,
+                    $includeRouteDetails
                 ) {
                     if ($dateKey === $excludedDate && $slot === $excludedTime) {
                         return null;
@@ -247,26 +250,50 @@ final class TechnicianSchedule
                         return null;
                     }
 
-                    $availableTechnicians = self::availableTechniciansForInstallation(
-                        $technicians,
-                        $application,
-                        $dateKey,
-                        $slot,
-                        $ignoreInstallationId,
-                        $bookings,
-                        $dailyInstallations
-                    );
+                    $routeOptions = $includeRouteDetails
+                        ? self::routeRecommendationOptions(
+                            $technicians,
+                            $application,
+                            $dateKey,
+                            $slot,
+                            $ignoreInstallationId,
+                            $bookings,
+                            $dailyInstallations
+                        )
+                        : collect();
+
+                    $availableTechnicians = $includeRouteDetails
+                        ? $routeOptions->where('available', true)
+                        : self::availableTechniciansForInstallation(
+                            $technicians,
+                            $application,
+                            $dateKey,
+                            $slot,
+                            $ignoreInstallationId,
+                            $bookings,
+                            $dailyInstallations
+                        );
 
                     if ($availableTechnicians->isEmpty()) {
                         return null;
                     }
 
-                    return [
+                    $slotData = [
                         'value' => $slot,
                         'label' => Installation::slotLabel($slot),
                         'available_count' => $availableTechnicians->count(),
-                        'technician_ids' => $availableTechnicians->pluck('id')->map(fn ($id) => (int) $id)->values()->all(),
+                        'technician_ids' => $availableTechnicians
+                            ->pluck('id')
+                            ->map(fn ($id) => (int) $id)
+                            ->values()
+                            ->all(),
                     ];
+
+                    if ($includeRouteDetails) {
+                        $slotData['technicians'] = $routeOptions->values()->all();
+                    }
+
+                    return $slotData;
                 })
                 ->filter()
                 ->values()
@@ -281,6 +308,228 @@ final class TechnicianSchedule
         }
 
         return $availability;
+    }
+
+    private static function routeRecommendationOptions(
+        Collection $technicians,
+        Application $application,
+        string $date,
+        string $time,
+        ?int $ignoreInstallationId,
+        Collection $bookings,
+        Collection $dailyInstallations
+    ): Collection {
+        $options = $technicians->map(function (User $technician) use (
+            $application,
+            $date,
+            $time,
+            $ignoreInstallationId,
+            $bookings,
+            $dailyInstallations
+        ) {
+            $issue = null;
+
+            if ($technician->isDisabled()) {
+                $issue = 'This technician account is disabled.';
+            } elseif ($technician->technician_status === 'on_leave') {
+                $issue = 'This technician is currently marked as on leave.';
+            } else {
+                $issue = self::installationAvailabilityIssue(
+                    $technician,
+                    $application,
+                    $date,
+                    $time,
+                    $ignoreInstallationId,
+                    bookings: $bookings,
+                    dailyInstallations: $dailyInstallations
+                )['message'] ?? null;
+            }
+
+            $context = self::routeContext(
+                $technician,
+                $application,
+                $date,
+                $time,
+                $dailyInstallations
+            );
+
+            return array_merge($context, [
+                'id' => (int) $technician->id,
+                'name' => $technician->name,
+                'initials' => $technician->initials,
+                'available' => $issue === null,
+                'unavailable_reason' => $issue,
+            ]);
+        })->sort(function (array $left, array $right) {
+            if ($left['available'] !== $right['available']) {
+                return $left['available'] ? -1 : 1;
+            }
+
+            $scoreComparison = $right['score'] <=> $left['score'];
+            if ($scoreComparison !== 0) {
+                return $scoreComparison;
+            }
+
+            $workloadComparison = $left['daily_count'] <=> $right['daily_count'];
+            if ($workloadComparison !== 0) {
+                return $workloadComparison;
+            }
+
+            return strcasecmp($left['name'], $right['name']);
+        })->values();
+
+        $recommendedId = data_get($options->firstWhere('available', true), 'id');
+
+        return $options->map(function (array $option) use ($recommendedId) {
+            $option['recommended'] = $recommendedId !== null && $option['id'] === $recommendedId;
+
+            if (! $option['available']) {
+                $option['route_label'] = 'Unavailable';
+            } elseif ($option['recommended']) {
+                $option['route_label'] = 'Recommended';
+            } elseif ($option['same_barangay'] || ($option['nearest_distance_km'] !== null && $option['nearest_distance_km'] <= 10)) {
+                $option['route_label'] = 'Good route';
+            } elseif ($option['nearest_distance_km'] !== null && $option['nearest_distance_km'] > 20) {
+                $option['route_label'] = 'Longer route';
+            } else {
+                $option['route_label'] = 'Available';
+            }
+
+            return $option;
+        });
+    }
+
+    private static function routeContext(
+        User $technician,
+        Application $application,
+        string $date,
+        string $time,
+        Collection $dailyInstallations
+    ): array {
+        $candidateStart = Carbon::parse($date.' '.$time);
+        $jobs = $dailyInstallations
+            ->where('technician_id', $technician->id)
+            ->filter(fn (Installation $installation) => $installation->installation_date?->format('Y-m-d') === $candidateStart->toDateString())
+            ->sortBy(fn (Installation $installation) => $installation->scheduledStartAt()?->getTimestamp() ?? PHP_INT_MAX)
+            ->values();
+
+        $jobDetails = $jobs->map(function (Installation $installation) use ($application, $candidateStart) {
+            $jobApplication = $installation->application;
+            $jobStart = $installation->scheduledStartAt();
+            $distance = self::applicationDistance($application, $jobApplication);
+
+            return [
+                'reference' => $installation->displayJobReference(),
+                'time' => $jobStart?->format('H:i'),
+                'time_label' => $installation->installation_time
+                    ? Installation::slotLabel(Carbon::parse($installation->installation_time)->format('H:i'))
+                    : 'Time not set',
+                'location' => self::applicationAreaLabel($jobApplication),
+                'position' => ! $jobStart
+                    ? 'Scheduled job'
+                    : ($jobStart->lt($candidateStart)
+                        ? 'Earlier job'
+                        : ($jobStart->gt($candidateStart) ? 'Later job' : 'Conflicting slot')),
+                'distance_km' => $distance !== null ? round($distance, 1) : null,
+            ];
+        })->values();
+
+        $previous = $jobs
+            ->filter(fn (Installation $installation) => $installation->scheduledStartAt()?->lt($candidateStart))
+            ->last();
+        $next = $jobs
+            ->first(fn (Installation $installation) => $installation->scheduledStartAt()?->gt($candidateStart));
+
+        $previousDistance = $previous ? self::applicationDistance($application, $previous->application) : null;
+        $nextDistance = $next ? self::applicationDistance($application, $next->application) : null;
+        $adjacentDistances = collect([$previousDistance, $nextDistance])->filter(fn ($distance) => $distance !== null);
+        $nearestDistance = $adjacentDistances->isNotEmpty() ? (float) $adjacentDistances->min() : null;
+
+        $incrementalDistance = null;
+        if ($previousDistance !== null && $nextDistance !== null) {
+            $betweenNeighbors = self::applicationDistance($previous->application, $next->application);
+            $incrementalDistance = $previousDistance + $nextDistance - ($betweenNeighbors ?? 0);
+        } elseif ($previousDistance !== null || $nextDistance !== null) {
+            $incrementalDistance = $previousDistance ?? $nextDistance;
+        }
+
+        $sameBarangay = $jobs->contains(fn (Installation $installation) => self::sameArea(
+            $application->barangay,
+            $installation->application?->barangay
+        ));
+        $sameMunicipality = $jobs->contains(fn (Installation $installation) => self::sameArea(
+            $application->municipality,
+            $installation->application?->municipality
+        ));
+
+        $score = 100 - ($jobs->count() * 8);
+        if ($incrementalDistance !== null) {
+            $score -= min(60, max(0, $incrementalDistance) * 1.5);
+        } elseif ($jobs->isNotEmpty()) {
+            $score -= 12;
+        }
+
+        if ($sameBarangay) {
+            $score += 20;
+        } elseif ($sameMunicipality) {
+            $score += 10;
+        }
+
+        $reason = match (true) {
+            $sameBarangay && $nearestDistance !== null => 'Same barangay as another job; approximately '.number_format($nearestDistance, 1).' km away.',
+            $sameBarangay => 'Another installation is in the same barangay.',
+            $sameMunicipality && $nearestDistance !== null => 'Same municipality as another job; approximately '.number_format($nearestDistance, 1).' km away.',
+            $sameMunicipality => 'Another installation is in the same municipality.',
+            $nearestDistance !== null => 'Nearest scheduled job is approximately '.number_format($nearestDistance, 1).' km away.',
+            $jobs->isEmpty() => 'No other installation is scheduled for this technician on this date.',
+            default => 'Route distance is unavailable because an existing job has no map pin.',
+        };
+
+        return [
+            'score' => round($score, 2),
+            'daily_count' => $jobs->count(),
+            'capacity' => Installation::MAX_DAILY_INSTALLATIONS,
+            'shift' => Carbon::parse($technician->technicianShiftStart())->format('g:i A')
+                .' - '.Carbon::parse($technician->technicianShiftEnd())->format('g:i A'),
+            'jobs' => $jobDetails->all(),
+            'same_barangay' => $sameBarangay,
+            'same_municipality' => $sameMunicipality,
+            'nearest_distance_km' => $nearestDistance !== null ? round($nearestDistance, 1) : null,
+            'additional_distance_km' => $incrementalDistance !== null ? round(max(0, $incrementalDistance), 1) : null,
+            'route_reason' => $reason,
+        ];
+    }
+
+    private static function applicationAreaLabel(?Application $application): string
+    {
+        if (! $application) {
+            return 'Location unavailable';
+        }
+
+        return collect([$application->barangay, $application->municipality])
+            ->filter(fn ($value) => filled($value))
+            ->implode(', ') ?: 'Location unavailable';
+    }
+
+    private static function applicationDistance(?Application $from, ?Application $to): ?float
+    {
+        if (! $from || ! $to || $from->lat === null || $from->lng === null || $to->lat === null || $to->lng === null) {
+            return null;
+        }
+
+        return self::distanceKilometers(
+            (float) $from->lat,
+            (float) $from->lng,
+            (float) $to->lat,
+            (float) $to->lng
+        );
+    }
+
+    private static function sameArea(?string $left, ?string $right): bool
+    {
+        return filled($left)
+            && filled($right)
+            && mb_strtolower(trim($left)) === mb_strtolower(trim($right));
     }
 
     /** Caller must lock the target technician before checking and saving a booking. */

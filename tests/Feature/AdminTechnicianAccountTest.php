@@ -169,6 +169,8 @@ test('admin can create a technician account with a generated key', function () {
         ->and($technician->technicianWorkDays())->toBe(['mon', 'tue', 'wed', 'thu', 'fri'])
         ->and($technician->technician_employment_type)->toBe('full_time')
         ->and($technician->technician_status)->toBe('available')
+        ->and($technician->must_change_password)->toBeTrue()
+        ->and($technician->password_set_at)->toBeNull()
         ->and(Hash::check($temporaryPassword, $technician->password))->toBeTrue();
 
     $response
@@ -178,7 +180,8 @@ test('admin can create a technician account with a generated key', function () {
     Mail::assertSent(TechnicianAccountCreatedMail::class, function (TechnicianAccountCreatedMail $mail) use ($technician, $temporaryPassword) {
         return $mail->hasTo($technician->email)
             && $mail->technician->is($technician)
-            && $mail->temporaryPassword === $temporaryPassword;
+            && $mail->temporaryPassword === $temporaryPassword
+            && str_contains($mail->render(), 'must create a new private password');
     });
 });
 

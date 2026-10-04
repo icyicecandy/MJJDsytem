@@ -69,7 +69,10 @@ test('customer application stores consent metadata', function () {
             'lat' => 16.2,
             'lng' => 121.0,
             'plan_code' => 'S2S_50',
-            'id_selfie_image' => UploadedFile::fake()->image('id-selfie.png'),
+            'valid_id_type' => 'national_id',
+            'valid_id_number' => 'NAT-FLOW-1001',
+            'id_image' => applicationIdentityPhoto('id-close-up.png'),
+            'id_selfie_image' => applicationIdentityPhoto('id-selfie.png'),
             'agreed_to_terms' => '1',
             'agreed_to_privacy' => '1',
             'terms_version' => '2026-03',
@@ -86,11 +89,62 @@ test('customer application stores consent metadata', function () {
         ->and($application->consented_at)->not->toBeNull()
         ->and($application->terms_version)->toBe('2026-03')
         ->and($application->privacy_version)->toBe('2026-03')
-        ->and($application->id_image_path)->toBeNull()
-        ->and($application->id_selfie_image_path)->toStartWith('application-ids/');
+        ->and($application->id_verification_status)->toBe('pending')
+        ->and($application->id_image_path)->toStartWith('application-ids/')
+        ->and($application->id_selfie_image_path)->toStartWith('application-ids/')
+        ->and($application->reference_no)->toBe($application->sequentialReference())
+        ->and($application->reference_no)->toMatch('/^APP-\d{4}-\d{6}$/');
 
+    Storage::disk('local')->assertExists($application->id_image_path);
     Storage::disk('local')->assertExists($application->id_selfie_image_path);
     Storage::disk('public')->assertMissing($application->id_selfie_image_path);
+});
+
+test('new application references follow consecutive database ids', function () {
+    Storage::fake('public');
+    Storage::fake('local');
+
+    $area = firstServiceArea();
+    $submit = function (int $number) use ($area): Application {
+        $user = User::factory()->create([
+            'role' => 'customer',
+            'agreed_to_terms' => true,
+            'agreed_to_privacy' => true,
+            'consented_at' => now(),
+        ]);
+
+        $response = $this->actingAs($user)->post(route('customer.apply.store'), [
+            'first_name' => 'Sequence',
+            'last_name' => $number === 1 ? 'Customer One' : 'Customer Two',
+            'email' => 'sequence'.$number.'@example.test',
+            'mobile_number' => '0917123400'.$number,
+            'region' => $area['region'],
+            'province' => $area['province'],
+            'municipality' => $area['municipality'],
+            'barangay' => $area['barangay'],
+            'street_landmark' => 'Reference test address',
+            'lat' => 16.2,
+            'lng' => 121.0,
+            'plan_code' => 'S2S_50',
+            'valid_id_type' => 'national_id',
+            'valid_id_number' => 'NAT-SEQUENCE-'.$number,
+            'id_image' => applicationIdentityPhoto('sequence-id-'.$number.'.png'),
+            'id_selfie_image' => applicationIdentityPhoto('sequence-selfie-'.$number.'.png'),
+        ]);
+
+        $application = $user->refresh()->application;
+        $response->assertRedirect(route('customer.apply.done', ['reference' => $application->reference_no], false));
+
+        return $application;
+    };
+
+    $first = $submit(1);
+    $second = $submit(2);
+
+    expect($second->id)->toBe($first->id + 1)
+        ->and($first->reference_no)->toBe($first->sequentialReference())
+        ->and($second->reference_no)->toBe($second->sequentialReference())
+        ->and((int) substr($second->reference_no, -6))->toBe((int) substr($first->reference_no, -6) + 1);
 });
 
 test('customer application rejects invalid email and mobile number formats', function () {
@@ -116,7 +170,10 @@ test('customer application rejects invalid email and mobile number formats', fun
             'lat' => 16.2,
             'lng' => 121.0,
             'plan_code' => 'S2S_50',
-            'id_selfie_image' => UploadedFile::fake()->image('id-selfie.png'),
+            'valid_id_type' => 'national_id',
+            'valid_id_number' => 'NAT-FLOW-INVALID',
+            'id_image' => applicationIdentityPhoto('id-close-up.png'),
+            'id_selfie_image' => applicationIdentityPhoto('id-selfie.png'),
         ]);
 
     $response
@@ -151,7 +208,10 @@ test('cancelled customer application can be submitted again with the same detail
     $this
         ->actingAs($user)
         ->post(route('customer.apply.store'), $payload + [
-            'id_selfie_image' => UploadedFile::fake()->image('first-id-selfie.png'),
+            'valid_id_type' => 'national_id',
+            'valid_id_number' => 'NAT-REAPPLY-1001',
+            'id_image' => applicationIdentityPhoto('first-id-close-up.png'),
+            'id_selfie_image' => applicationIdentityPhoto('first-id-selfie.png'),
         ])
         ->assertRedirect();
 
@@ -171,7 +231,10 @@ test('cancelled customer application can be submitted again with the same detail
     $this
         ->actingAs($user)
         ->post(route('customer.apply.store'), $payload + [
-            'id_selfie_image' => UploadedFile::fake()->image('second-id-selfie.png'),
+            'valid_id_type' => 'national_id',
+            'valid_id_number' => 'NAT-REAPPLY-1001',
+            'id_image' => applicationIdentityPhoto('second-id-close-up.png'),
+            'id_selfie_image' => applicationIdentityPhoto('second-id-selfie.png'),
         ])
         ->assertRedirect();
 
@@ -381,7 +444,10 @@ test('application names accept unicode letters punctuation and activated custome
         'lat' => 16.2,
         'lng' => 121.0,
         'plan_code' => 'S2S_100',
-        'id_selfie_image' => UploadedFile::fake()->image('holding.png'),
+        'valid_id_type' => 'national_id',
+        'valid_id_number' => 'NAT-UNICODE-1001',
+        'id_image' => applicationIdentityPhoto('id-close-up.png'),
+        'id_selfie_image' => applicationIdentityPhoto('holding.png'),
     ])->assertSessionHasNoErrors();
 
     expect($user->applications()->count())->toBe(2)

@@ -31,7 +31,7 @@ class TicketController extends Controller
 
         $ticketsQuery = Auth::user()
             ->tickets()
-            ->with('technician')
+            ->with('assignedStaff')
             ->when($selectedStatus !== '', function ($query) use ($selectedStatus) {
                 if ($selectedStatus === Ticket::STATUS_OPEN) {
                     $query->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED]);
@@ -46,7 +46,7 @@ class TicketController extends Controller
                     $searchQuery->where('tracking_number', 'like', "%{$search}%")
                         ->orWhere('subject', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhereHas('technician', function ($technicianQuery) use ($search) {
+                        ->orWhereHas('assignedStaff', function ($technicianQuery) use ($search) {
                             $technicianQuery->where('name', 'like', "%{$search}%")
                                 ->orWhere('email', 'like', "%{$search}%");
                         });
@@ -107,13 +107,23 @@ class TicketController extends Controller
             $ticket->refresh();
         }
 
+        $isCriticalAfterHours = $ticket->urgency === Ticket::URGENCY_CRITICAL
+            && ! $ticket->assigned_staff_id
+            && ! $requiresAdminTriage;
+        $nextAssignmentAt = $isCriticalAfterHours
+            ? app(TicketAssignmentService::class)->nextEligibleShiftAt()
+            : null;
+        $assignmentMessage = $requiresAdminTriage
+            ? 'Urgency review is required before assignment.'
+            : ($ticket->assignedStaff
+                ? 'Automatically assigned to '.$ticket->assignedStaff->name.'.'
+                : 'No technician is currently on duty. The priority queue retries every five minutes.'
+                    .($nextAssignmentAt ? ' Next eligible shift: '.$nextAssignmentAt->format('M d, Y h:i A').' ('.config('app.timezone').').' : ''));
+
         AppNotificationSender::sendToRole(
             'admin',
-            'New support ticket submitted',
-            Auth::user()->name.' opened ticket "'.$ticket->subject.'". '
-                .($requiresAdminTriage
-                    ? 'Urgency review is required before assignment.'
-                    : ($ticket->technician ? 'Automatically assigned to '.$ticket->technician->name.'.' : 'Waiting for an eligible on-shift technician.')),
+            $isCriticalAfterHours ? 'Critical after-hours ticket waiting' : 'New support ticket submitted',
+            Auth::user()->name.' opened ticket "'.$ticket->subject.'". '.$assignmentMessage,
             route('admin.tickets.show', $ticket),
             'ticket_submitted',
             [
@@ -138,8 +148,11 @@ class TicketController extends Controller
         abort_unless(Auth::id() === $ticket->user_id, 403);
 
         $ticket->load('messages.user', 'technician');
+        $nextAutomaticAssignmentAt = $ticket->isQueued()
+            ? app(TicketAssignmentService::class)->nextEligibleShiftAt()
+            : null;
 
-        return view('customer.tickets.show', compact('ticket'));
+        return view('customer.tickets.show', compact('ticket', 'nextAutomaticAssignmentAt'));
     }
 
     public function reply(Request $request, Ticket $ticket)
@@ -295,10 +308,17 @@ class TicketController extends Controller
         ]);
 
         $nextStatus = Ticket::STATUS_OPEN;
+        $previousStaffId = $ticket->assigned_staff_id ?: $ticket->technician_id;
 
         $ticket->forceFill(array_merge([
             'status' => $nextStatus,
+            'assigned_staff_id' => null,
             'technician_id' => null,
+            'assigned_at' => null,
+            'assignment_source' => null,
+            'assignment_reason' => 'Customer reopened the ticket for another support review.',
+            'assignment_changed_by' => Auth::id(),
+            'assignment_unavailable_since' => null,
             'appointment_date' => null,
             'appointment_time' => null,
             'appointment_change_reason' => null,
@@ -314,6 +334,15 @@ class TicketController extends Controller
             'user_id' => Auth::id(),
             'message' => 'Ticket reopened by customer and returned to the queue for a new appointment. Reason: '.$validated['reason'],
         ]);
+
+        app(TicketAssignmentService::class)->recordAssignmentEvent(
+            $ticket,
+            $previousStaffId,
+            null,
+            Auth::id(),
+            'customer_reopen',
+            'Customer reopened the ticket. Reason: '.$validated['reason']
+        );
 
         AppNotificationSender::sendToRole(
             'admin',

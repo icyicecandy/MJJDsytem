@@ -183,13 +183,18 @@ body.layout .telecom-table.ticket-list-table {
     min-width: 64rem;
 }
 body.layout .telecom-table.ticket-list-table--admin {
-    min-width: 80rem;
+    min-width: 86rem;
 }
 body.layout .ticket-list-table .ticket-col-reference { width: 11rem; }
 body.layout .ticket-list-table .ticket-col-person { width: 16%; }
-body.layout .ticket-list-table--admin .ticket-col-person { width: 12%; }
+body.layout .ticket-list-table--admin .ticket-col-reference { width: 11rem; }
+body.layout .ticket-list-table--admin .ticket-col-customer { width: 12%; }
+body.layout .ticket-list-table--admin .ticket-col-assignee { width: 18%; }
 body.layout .ticket-list-table .ticket-col-urgency { width: 7rem; }
 body.layout .ticket-list-table .ticket-col-status { width: 11rem; }
+body.layout .ticket-list-table--admin .ticket-col-status { width: 14%; }
+body.layout .ticket-list-table--customer .ticket-col-status { width: 8.5rem; }
+body.layout .ticket-list-table--customer .ticket-col-person { width: 14%; }
 body.layout .ticket-list-table .ticket-col-submitted { width: 11rem; }
 body.layout .ticket-list-table .ticket-col-action { width: 6rem; }
 body.layout .ticket-list-table :is(th, td) {
@@ -201,6 +206,15 @@ body.layout .ticket-list-table :is(th, td):last-child:not([colspan]) {
 }
 body.layout .ticket-list-table .badge {
     max-width: 100%;
+}
+body.layout .ticket-list-table--customer .customer-ticket-status-cell .badge {
+    white-space: nowrap;
+}
+body.layout .customer-ticket-filter-toolbar .customer-ticket-status-field {
+    flex: 0 0 14rem;
+}
+body.layout .customer-ticket-filter-toolbar .customer-ticket-search-field {
+    min-width: min(100%, 24rem);
 }
 
 /* Mobile-only header controls. Existing desktop selectors above stay unchanged. */
@@ -288,13 +302,8 @@ body.layout .mobile-header-action { display: none; }
         background: rgba(255, 255, 255, 0.08);
     }
     body.layout.is-guest .guest-actions {
-        display: flex;
-        order: 0;
-        width: 100%;
-        margin: 0;
-        gap: 0.5rem;
+        display: none;
     }
-    body.layout.is-guest .guest-actions .btn { flex: 1 1 0; min-height: 44px; }
     body.layout.is-guest .main-content { padding-top: 90px; }
     body.layout .public-home [id] { scroll-margin-top: 90px; }
     body.layout .sidebar { max-width: calc(100vw - 3rem); overscroll-behavior: contain; }
@@ -329,9 +338,9 @@ body.layout .mobile-header-action { display: none; }
         overflow-wrap: anywhere;
     }
     body.layout .chat-ui .chat-ui__thread-card {
-        height: clamp(22rem, calc(100dvh - 13rem), 40rem);
-        min-height: 22rem;
-        max-height: none;
+        height: 100%;
+        min-height: 0;
+        max-height: 100%;
     }
     body.layout .chat-ui .chat-ui__messages {
         min-height: 5rem;
@@ -360,6 +369,13 @@ body.layout .mobile-header-action { display: none; }
     body.layout .chat-ui .chat-ui__context-item { min-width: 0; max-width: 100%; }
     body.layout .chat-ui .chat-ui__sidebar-toggle { display: flex; }
     body.layout .chat-ui .chat-ui__sidebar-shell:not([open]) .chat-ui__sidebar { display: none; }
+}
+
+@media (max-width: 700px) {
+    body.layout .customer-ticket-filter-toolbar .customer-ticket-status-field {
+        flex-basis: auto;
+        width: 100%;
+    }
 }
 
 @media (max-width: 640px) {
@@ -937,7 +953,8 @@ body.layout .telecom-table.ticket-list-table--admin {
         background: transparent;
         box-shadow: none;
     }
-    body.layout .ticket-list-table .ticket-submitted-cell {
-        display: grid;
+    body.layout .ticket-list-table .ticket-submitted-cell > span,
+    body.layout .ticket-list-table .ticket-submitted-cell > small {
+        display: block;
     }
 }

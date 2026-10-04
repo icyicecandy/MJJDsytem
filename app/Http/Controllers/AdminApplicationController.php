@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
+use App\Models\ApplicationIdVerificationEvent;
 use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Models\User;
 use App\Services\TechnicianSchedule;
 use App\Services\WorkflowTransaction;
+use App\Support\ApplicationIdentity;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
 use Carbon\Carbon;
@@ -19,40 +21,92 @@ class AdminApplicationController extends Controller
 {
     public function index(Request $request)
     {
-        $status = $request->query('status');
+        $status = trim((string) $request->query('status', ''));
         $search = trim((string) $request->query('search', ''));
 
+        $availableStatuses = [
+            '',
+            Application::STATUS_SUBMITTED,
+            Application::STATUS_UNDER_REVIEW,
+            Application::STATUS_APPROVED,
+            Application::STATUS_CANCELLATION_REQUESTED,
+            Application::STATUS_REJECTED,
+            Application::STATUS_SCHEDULED,
+            Application::STATUS_INSTALLED,
+            Application::STATUS_ACTIVATED,
+            Application::STATUS_CANCELLED,
+            'reschedule',
+        ];
+
+        if (! in_array($status, $availableStatuses, true)) {
+            $status = '';
+        }
+
         $query = Application::query()
-            ->with('user')
+            ->with(['user', 'installation'])
             ->orderByDesc('created_at');
 
-        if ($status) {
+        if ($status === 'reschedule') {
+            $this->applyRescheduleFilter($query);
+        } elseif ($status !== '') {
             $query->where('status', $status);
         }
 
-        if ($search !== '') {
-            $query->where(function ($builder) use ($search) {
-                $builder
-                    ->where('reference_no', 'like', '%'.$search.'%')
-                    ->orWhere('first_name', 'like', '%'.$search.'%')
-                    ->orWhere('last_name', 'like', '%'.$search.'%')
-                    ->orWhere('email', 'like', '%'.$search.'%')
-                    ->orWhere('mobile_number', 'like', '%'.$search.'%')
-                    ->orWhere('plan_code', 'like', '%'.$search.'%')
-                    ->orWhereHas('user', function ($userQuery) use ($search) {
-                        $userQuery->where('name', 'like', '%'.$search.'%');
-                    });
-            });
-        }
+        $this->applyApplicationSearch($query, $search);
 
         $applications = $query->paginate(10)->withQueryString();
 
-        return view('admin.applications.index', compact('applications', 'status', 'search'));
+        $summaryQuery = Application::query();
+        $this->applyApplicationSearch($summaryQuery, $search);
+
+        $applicationSummary = [
+            Application::STATUS_SUBMITTED => (clone $summaryQuery)->where('status', Application::STATUS_SUBMITTED)->count(),
+            Application::STATUS_UNDER_REVIEW => (clone $summaryQuery)->where('status', Application::STATUS_UNDER_REVIEW)->count(),
+            Application::STATUS_APPROVED => (clone $summaryQuery)->where('status', Application::STATUS_APPROVED)->count(),
+            Application::STATUS_SCHEDULED => (clone $summaryQuery)->where('status', Application::STATUS_SCHEDULED)->count(),
+            'reschedule' => $this->applyRescheduleFilter(clone $summaryQuery)->count(),
+            Application::STATUS_CANCELLATION_REQUESTED => (clone $summaryQuery)->where('status', Application::STATUS_CANCELLATION_REQUESTED)->count(),
+        ];
+
+        return view('admin.applications.index', compact('applications', 'applicationSummary', 'status', 'search'));
+    }
+
+    private function applyApplicationSearch($query, string $search)
+    {
+        if ($search === '') {
+            return $query;
+        }
+
+        return $query->where(function ($builder) use ($search) {
+            $builder
+                ->where('reference_no', 'like', '%'.$search.'%')
+                ->orWhere('first_name', 'like', '%'.$search.'%')
+                ->orWhere('last_name', 'like', '%'.$search.'%')
+                ->orWhere('email', 'like', '%'.$search.'%')
+                ->orWhere('mobile_number', 'like', '%'.$search.'%')
+                ->orWhere('plan_code', 'like', '%'.$search.'%')
+                ->orWhereHas('user', function ($userQuery) use ($search) {
+                    $userQuery->where('name', 'like', '%'.$search.'%');
+                });
+        });
+    }
+
+    private function applyRescheduleFilter($query)
+    {
+        return $query->whereHas('installation', function ($installationQuery) {
+            $installationQuery
+                ->where('status', Installation::STATUS_RESCHEDULE_REQUIRED)
+                ->orWhere(function ($requestQuery) {
+                    $requestQuery
+                        ->whereNotNull('reschedule_requested_at')
+                        ->whereNull('reschedule_reviewed_at');
+                });
+        });
     }
 
     public function show(Application $application)
     {
-        $application->load(['installation.technician', 'installation.logs.user', 'assessor']);
+        $application->load(['installation.technician', 'installation.logs.user', 'assessor', 'idVerifier', 'idVerificationEvents.actor']);
         $technicians = User::query()
             ->where('role', 'technician')
             ->whereNull('disabled_at')
@@ -67,13 +121,26 @@ class AdminApplicationController extends Controller
             $application,
             now()->startOfDay(),
             now()->addDays(89)->startOfDay(),
-            $application->installation?->id
+            $application->installation?->id,
+            includeRouteDetails: true
         );
+
+        $identityDuplicates = collect();
+        if ($application->id_image_hash) {
+            $identityDuplicates = Application::query()
+                ->with('user')
+                ->whereKeyNot($application->id)
+                ->where('user_id', '!=', $application->user_id)
+                ->where('id_image_hash', $application->id_image_hash)
+                ->latest()
+                ->get();
+        }
 
         return view('admin.applications.show', compact(
             'application',
             'technicians',
-            'scheduleAvailability'
+            'scheduleAvailability',
+            'identityDuplicates'
         ));
     }
 
@@ -106,6 +173,14 @@ class AdminApplicationController extends Controller
         $validated = $request->validate([
             'status' => ['required', 'in:approved,under_review,rejected'],
         ]);
+
+        if ($validated['status'] === Application::STATUS_APPROVED
+            && $application->id_verification_status !== null
+            && $application->id_verification_status !== ApplicationIdentity::STATUS_VERIFIED) {
+            return back()->withErrors([
+                'status' => 'Verify the submitted identity documents before approving this application.',
+            ])->withInput();
+        }
 
         $updateData = ['status' => $validated['status']];
 
@@ -577,6 +652,92 @@ class AdminApplicationController extends Controller
         }
 
         return back()->with('success', 'Reschedule request approved and installation schedule updated.');
+    }
+
+    public function updateIdentityVerification(Request $request, Application $application)
+    {
+        return WorkflowTransaction::application($application, function (Application $application) use ($request) {
+            $requestedStatus = (string) $request->input('id_verification_status');
+            $isVerification = $requestedStatus === ApplicationIdentity::STATUS_VERIFIED;
+            $possibleDuplicate = $application->duplicate_id_image_detected;
+            $reasonRequired = $requestedStatus === ApplicationIdentity::STATUS_REJECTED
+                || ($isVerification && $possibleDuplicate);
+
+            $validated = $request->validate([
+                'id_verification_status' => ['required', Rule::in([
+                    ApplicationIdentity::STATUS_VERIFIED,
+                    ApplicationIdentity::STATUS_REJECTED,
+                ])],
+                'review_document_readable' => [Rule::excludeIf(! $isVerification), 'required', 'accepted'],
+                'review_name_matches' => [Rule::excludeIf(! $isVerification), 'required', 'accepted'],
+                'review_photo_matches' => [Rule::excludeIf(! $isVerification), 'required', 'accepted'],
+                'id_verification_reason' => [Rule::requiredIf($reasonRequired), 'nullable', 'string', 'max:1000'],
+            ], [
+                'review_document_readable.required' => 'Confirm that the submitted ID is readable before verifying.',
+                'review_document_readable.accepted' => 'Confirm that the submitted ID is readable before verifying.',
+                'review_name_matches.required' => 'Confirm that the applicant name is consistent with the ID before verifying.',
+                'review_name_matches.accepted' => 'Confirm that the applicant name is consistent with the ID before verifying.',
+                'review_photo_matches.required' => 'Confirm that the ID portrait reasonably matches the holding-ID photo before verifying.',
+                'review_photo_matches.accepted' => 'Confirm that the ID portrait reasonably matches the holding-ID photo before verifying.',
+                'id_verification_reason.required' => $requestedStatus === ApplicationIdentity::STATUS_REJECTED
+                    ? 'Record why the submitted identity document was rejected.'
+                    : 'Explain why this possible duplicate is safe to verify.',
+            ]);
+
+            if (! $application->idImageUrl() && ! $application->idSelfieImageUrl()) {
+                return back()->withErrors(['id_verification_status' => 'No identity document is available to verify.']);
+            }
+
+            $previousStatus = $application->id_verification_status;
+            $reason = filled($validated['id_verification_reason'] ?? null)
+                ? trim($validated['id_verification_reason'])
+                : null;
+            // Discard unconfirmed OCR-era suggestions. Confirmed legacy values retain
+            // their fingerprint for compatibility but are no longer shown or required.
+            $identityUpdates = $application->valid_id_number_fingerprint ? [] : [
+                'valid_id_number' => null,
+                'duplicate_id_number_detected' => false,
+            ];
+
+            $application->update($identityUpdates + [
+                'id_verification_status' => $validated['id_verification_status'],
+                'id_verification_reason' => $reason,
+                'id_verified_by' => auth()->id(),
+                'id_verified_at' => now(),
+            ]);
+
+            ApplicationIdVerificationEvent::create([
+                'application_id' => $application->id,
+                'actor_id' => auth()->id(),
+                'from_status' => $previousStatus,
+                'to_status' => $validated['id_verification_status'],
+                'reason' => $reason ?: ($isVerification
+                    ? 'ID type, identity photos, and applicant details confirmed during administrator review.'
+                    : null),
+            ]);
+
+            $label = ucfirst($validated['id_verification_status']);
+            if ($application->user) {
+                AppNotificationSender::send(
+                    $application->user,
+                    'Identity document '.$validated['id_verification_status'],
+                    $validated['id_verification_status'] === ApplicationIdentity::STATUS_VERIFIED
+                        ? 'The identity documents for '.$application->reference_no.' were verified.'
+                        : 'The identity documents for '.$application->reference_no.' need attention. Review the recorded reason.',
+                    route('customer.application.show'),
+                    'application_identity_'.$validated['id_verification_status'],
+                    ['application_id' => $application->id, 'id_verification_status' => $validated['id_verification_status']],
+                    auth()->id()
+                );
+            }
+
+            system_log(
+                'Application Identity '.$label,
+                'Identity documents for '.$application->reference_no.' were marked '.$validated['id_verification_status'].' by '.auth()->user()->name.'.'
+            );
+
+            return back()->with('success', 'Identity document marked as '.$label.'.');
+        });
     }
 
     private function supportsAssessmentFields(): bool

@@ -4,38 +4,30 @@
 
 @push('styles')
 <style>
-    .admin-install-kpis {
+    .installation-filter-toolbar {
+        grid-template-columns: minmax(24rem, 1fr) auto;
+    }
+    .installation-filter-toolbar .toolbar-actions {
+        flex-wrap: nowrap;
+    }
+    .admin-install-live-status {
+        min-height: 1.1rem;
+        margin: 0.55rem 0 0;
+        color: var(--color-text-muted);
+        font-size: 0.8rem;
+    }
+    .admin-install-live-status.is-error {
+        color: #b42318;
+    }
+    [data-installation-results] {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 1rem;
+        transition: opacity 0.18s ease;
     }
-    .admin-install-kpi {
-        display: block;
-        padding: 1rem 1.1rem;
-        border-radius: 1rem;
-        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94));
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        text-decoration: none;
-        color: inherit;
-        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-    }
-    .admin-install-kpi:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 14px 28px rgba(37, 99, 235, 0.10);
-        border-color: rgba(37, 99, 235, 0.26);
-    }
-    .admin-install-kpi.active {
-        background: linear-gradient(180deg, rgba(232, 240, 255, 0.98), rgba(219, 234, 254, 0.94));
-        border-color: rgba(37, 99, 235, 0.34);
-        box-shadow: 0 14px 28px rgba(37, 99, 235, 0.12);
-    }
-    .admin-install-kpi-label {
-        display: block;
-    }
-    .admin-install-kpi strong {
-        display: block;
-        font-size: 1.5rem;
-        margin-top: 0.35rem;
+    [data-installation-results][aria-busy="true"],
+    [data-installation-status-nav][aria-busy="true"] {
+        opacity: 0.55;
+        pointer-events: none;
     }
     .admin-installations-table th:nth-child(2) { width: 14%; }
     .admin-installations-table th:nth-child(4) { width: 15%; }
@@ -83,6 +75,23 @@
     .admin-installations-table .badge {
         white-space: nowrap;
     }
+    @media (max-width: 767px) {
+        .installation-filter-toolbar {
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .installation-filter-toolbar .toolbar-actions {
+            justify-content: flex-start;
+        }
+    }
+    @media (max-width: 520px) {
+        .installation-filter-toolbar .toolbar-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+        .installation-filter-toolbar .toolbar-actions .btn {
+            width: 100%;
+        }
+    }
     @media (max-width: 980px) {
         .admin-installations-table .address-preview {
             max-width: 18rem;
@@ -93,14 +102,22 @@
 
 @section('content')
 @php
-    $emptyMessage = match ($status) {
-        'in_progress' => 'No in-progress installation jobs yet.',
-        'activated' => 'No activated installation jobs yet.',
-        'completed' => 'No installed installation jobs yet.',
-        default => $selectedGroup === 'completed'
-            ? 'No installed installation jobs yet.'
-            : 'No scheduled or pending installation jobs yet.',
-    };
+    $emptyMessage = $search !== ''
+        ? 'No installations matched your search.'
+        : match ($status) {
+            'in_progress' => 'No in-progress installation jobs yet.',
+            'reschedule_required' => 'No installation jobs currently require rescheduling.',
+            'activated' => 'No activated installation jobs yet.',
+            'completed' => 'No installed installation jobs yet.',
+            default => match ($selectedGroup) {
+                'completed' => 'No installed installation jobs yet.',
+                'scheduled' => 'No scheduled installation jobs yet.',
+                default => 'No installation records yet.',
+            },
+        };
+    $activeFilterParameters = $status
+        ? ['status' => $status]
+        : ['group' => $selectedGroup];
 @endphp
 <div class="page-stack">
     <section class="card section-title-card">
@@ -110,25 +127,92 @@
         </div>
     </section>
 
-    <section class="admin-install-kpis">
-        <a href="{{ route('admin.installations.index', array_filter(['group' => 'scheduled', 'search' => $search])) }}" class="admin-install-kpi card {{ ! $status && $selectedGroup === 'scheduled' ? 'active' : '' }}">
-            <span class="record-muted admin-install-kpi-label">Scheduled</span>
-            <strong>{{ $scheduledCount }}</strong>
-        </a>
-        <a href="{{ route('admin.installations.index', array_filter(['status' => 'in_progress', 'search' => $search])) }}" class="admin-install-kpi card {{ $status === 'in_progress' ? 'active' : '' }}">
-            <span class="record-muted admin-install-kpi-label">In Progress</span>
-            <strong>{{ $inProgressCount }}</strong>
-        </a>
-        <a href="{{ route('admin.installations.index', array_filter(['group' => 'completed', 'search' => $search])) }}" class="admin-install-kpi card {{ ! $status && $selectedGroup === 'completed' ? 'active' : '' }}">
-            <span class="record-muted admin-install-kpi-label">Installed</span>
-            <strong>{{ $completedCount }}</strong>
-        </a>
-        <a href="{{ route('admin.installations.index', array_filter(['status' => 'activated', 'search' => $search])) }}" class="admin-install-kpi card {{ $status === 'activated' ? 'active' : '' }}">
-            <span class="record-muted admin-install-kpi-label">Activated</span>
-            <strong>{{ $activatedCount }}</strong>
-        </a>
+    <section class="card ticket-queue-overview installation-queue-overview">
+        <div class="ticket-queue-overview__head">
+            <form method="GET" action="{{ route('admin.installations.index') }}" class="toolbar-row ticket-filter-toolbar installation-filter-toolbar" role="search" data-live-installation-search>
+                @foreach($activeFilterParameters as $name => $value)
+                    <input type="hidden" name="{{ $name }}" value="{{ $value }}" data-installation-filter-param>
+                @endforeach
+                <div class="toolbar-field grow ticket-filter-search">
+                    <label for="installation_search">Search Installations</label>
+                    <input
+                        id="installation_search"
+                        type="search"
+                        name="search"
+                        value="{{ $search }}"
+                        placeholder="Job number, customer, contact, address, plan, technician, or status"
+                        autocomplete="off"
+                        aria-controls="installationResults"
+                        data-live-installation-search-input
+                    >
+                </div>
+                <div class="toolbar-actions">
+                    <button type="submit" class="btn">Search</button>
+                    <button type="button" class="btn secondary" data-live-installation-search-clear @if($search === '') hidden @endif>Reset</button>
+                </div>
+            </form>
+            <p class="admin-install-live-status" data-live-installation-search-status aria-live="polite">Results update automatically.</p>
+        </div>
+
+        <nav class="ticket-queue-overview__grid installation-progress-grid" aria-label="Filter installations by status" data-installation-status-nav aria-busy="false">
+            <a
+                href="{{ route('admin.installations.index', array_filter(['group' => 'all', 'search' => $search])) }}"
+                class="ticket-queue-metric {{ ! $status && $selectedGroup === 'all' ? 'is-active' : '' }}"
+                data-installation-status-card
+                @if(! $status && $selectedGroup === 'all') aria-current="page" @endif
+            >
+                <span class="ticket-queue-metric__label">All</span>
+                <strong class="ticket-queue-metric__value">{{ $allCount }}</strong>
+            </a>
+            <a
+                href="{{ route('admin.installations.index', array_filter(['group' => 'scheduled', 'search' => $search])) }}"
+                class="ticket-queue-metric {{ ! $status && $selectedGroup === 'scheduled' ? 'is-active' : '' }}"
+                data-installation-status-card
+                @if(! $status && $selectedGroup === 'scheduled') aria-current="page" @endif
+            >
+                <span class="ticket-queue-metric__label">Scheduled</span>
+                <strong class="ticket-queue-metric__value">{{ $scheduledCount }}</strong>
+            </a>
+            <a
+                href="{{ route('admin.installations.index', array_filter(['status' => 'in_progress', 'search' => $search])) }}"
+                class="ticket-queue-metric {{ $status === 'in_progress' ? 'is-active' : '' }}"
+                data-installation-status-card
+                @if($status === 'in_progress') aria-current="page" @endif
+            >
+                <span class="ticket-queue-metric__label">In Progress</span>
+                <strong class="ticket-queue-metric__value">{{ $inProgressCount }}</strong>
+            </a>
+            <a
+                href="{{ route('admin.installations.index', array_filter(['status' => 'reschedule_required', 'search' => $search])) }}"
+                class="ticket-queue-metric {{ $status === 'reschedule_required' ? 'is-active' : '' }}"
+                data-installation-status-card
+                @if($status === 'reschedule_required') aria-current="page" @endif
+            >
+                <span class="ticket-queue-metric__label">Reschedule</span>
+                <strong class="ticket-queue-metric__value">{{ $rescheduleCount }}</strong>
+            </a>
+            <a
+                href="{{ route('admin.installations.index', array_filter(['group' => 'completed', 'search' => $search])) }}"
+                class="ticket-queue-metric {{ ! $status && $selectedGroup === 'completed' ? 'is-active' : '' }}"
+                data-installation-status-card
+                @if(! $status && $selectedGroup === 'completed') aria-current="page" @endif
+            >
+                <span class="ticket-queue-metric__label">Installed</span>
+                <strong class="ticket-queue-metric__value">{{ $completedCount }}</strong>
+            </a>
+            <a
+                href="{{ route('admin.installations.index', array_filter(['status' => 'activated', 'search' => $search])) }}"
+                class="ticket-queue-metric {{ $status === 'activated' ? 'is-active' : '' }}"
+                data-installation-status-card
+                @if($status === 'activated') aria-current="page" @endif
+            >
+                <span class="ticket-queue-metric__label">Activated</span>
+                <strong class="ticket-queue-metric__value">{{ $activatedCount }}</strong>
+            </a>
+        </nav>
     </section>
 
+    <div id="installationResults" data-installation-results aria-busy="false">
     <section class="card table-card">
         <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
             <table class="telecom-table admin-installations-table" data-mobile-cards>
@@ -208,8 +292,6 @@
                             <td class="actions-cell">
                                 @if($application)
                                     <a href="{{ route('admin.applications.show', $application) }}" class="btn secondary">View</a>
-                                @else
-                                    <span class="record-muted">No detail</span>
                                 @endif
                             </td>
                         </tr>
@@ -227,9 +309,13 @@
 
     @if(method_exists($installations, 'hasPages') && $installations->hasPages())
         <section class="card toolbar-card">
-            {{ $installations->links() }}
+            <x-ui.pagination :paginator="$installations" />
         </section>
     @endif
+    </div>
 </div>
 @endsection
 
+@push('scripts')
+    <script defer src="{{ asset('js/admin-installations.js') }}?v={{ filemtime(public_path('js/admin-installations.js')) }}"></script>
+@endpush

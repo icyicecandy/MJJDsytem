@@ -9,9 +9,12 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
+use Throwable;
 
 class RegisteredUserController extends Controller
 {
@@ -26,7 +29,7 @@ class RegisteredUserController extends Controller
             'email' => ['nullable', 'string', 'email', 'max:255'],
         ]);
 
-        $email = trim((string) ($validated['email'] ?? ''));
+        $email = Str::lower(trim((string) ($validated['email'] ?? '')));
         $exists = $email !== '' && User::query()->where('email', $email)->exists();
 
         return response()->json([
@@ -39,10 +42,14 @@ class RegisteredUserController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $request->merge([
+            'email' => Str::lower(trim((string) $request->input('email'))),
+        ]);
+
         $validator = Validator::make($request->all(), [
             'first_name' => ['required', 'string', 'max:255', 'regex:/^[\p{L}][\p{L}\p{M}\s\'.-]*$/u'],
             'last_name' => ['required', 'string', 'max:255', 'regex:/^[\p{L}][\p{L}\p{M}\s\'.-]*$/u'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:' . User::class],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'agreed_to_terms' => ['accepted'],
             'agreed_to_privacy' => ['accepted'],
@@ -65,7 +72,7 @@ class RegisteredUserController extends Controller
 
         $validated = $validator->validated();
 
-        $fullName = trim($validated['first_name'] . ' ' . $validated['last_name']);
+        $fullName = trim($validated['first_name'].' '.$validated['last_name']);
         $consentedAt = now();
 
         $user = User::create([
@@ -81,14 +88,24 @@ class RegisteredUserController extends Controller
             'privacy_version' => $validated['privacy_version'] ?? config('legal.privacy_version'),
         ]);
 
-        event(new Registered($user));
+        $verificationStatus = 'verification-link-sent';
+
+        try {
+            event(new Registered($user));
+        } catch (Throwable $exception) {
+            $verificationStatus = 'verification-link-failed';
+
+            Log::warning('Customer verification email failed to send after registration.', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         Auth::login($user);
 
-        if (session()->has('url.intended')) {
-            return redirect()->intended();
-        }
-
-        return redirect()->route('customer.dashboard');
+        return redirect()
+            ->route('verification.notice')
+            ->with('status', $verificationStatus);
     }
 }

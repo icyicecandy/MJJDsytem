@@ -1,0 +1,590 @@
+/*
+ * MJJD shared application UI system.
+ * Every authenticated/public-portal selector is scoped away from .is-landing so
+ * the approved landing page remains visually unchanged.
+ */
+body.layout.is-application-page {
+    --ui-space-1: 0.35rem;
+    --ui-space-2: 0.65rem;
+    --ui-space-3: 0.9rem;
+    --ui-space-4: 1.2rem;
+    --ui-space-5: 1.6rem;
+    --ui-radius: 14px;
+    --ui-control-height: 44px;
+    --ui-focus: #2563eb;
+    --ui-danger: #b91c1c;
+    --ui-warning: #b45309;
+    --ui-success: #047857;
+}
+
+body.layout.is-application-page :is(.card, .panel-card, .ticket-detail-card, .metric-card) {
+    min-width: 0;
+}
+
+body.layout.is-application-page :is(.record-strong, .record-muted, .panel-title, .panel-subtitle, .metric-label, .metric-meta, td, th, p, a, span) {
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+body.layout.is-application-page :is(button, a, input, select, textarea):focus-visible,
+body.auth-layout :is(button, a, input, select, textarea):focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.45);
+    outline-offset: 2px;
+}
+
+body.layout.is-application-page :is(button, .btn, input:not([type="checkbox"]):not([type="radio"]), select) {
+    min-height: var(--ui-control-height);
+}
+
+body.layout.is-application-page textarea {
+    min-height: 7rem;
+    resize: vertical;
+}
+
+body.layout.is-application-page .ui-page-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--ui-space-4);
+}
+
+body.layout.is-application-page .ui-page-heading__copy {
+    min-width: 0;
+}
+
+body.layout.is-application-page .ui-page-heading__copy :is(h1, p) {
+    margin-top: 0;
+}
+
+body.layout.is-application-page .ui-page-heading__copy p {
+    margin-bottom: 0;
+}
+
+body.layout.is-application-page .ui-page-heading__actions,
+body.layout.is-application-page :is(.form-actions, .ticket-form-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ui-space-2);
+}
+
+body.layout.is-application-page .metrics-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+    align-items: stretch;
+}
+
+body.layout.is-application-page .metric-card,
+body.layout.is-application-page .metric-head {
+    height: 100%;
+}
+
+body.layout.is-application-page .metric-head > * {
+    min-width: 0;
+}
+
+body.layout.is-application-page .ui-empty-state {
+    display: grid;
+    justify-items: center;
+    gap: var(--ui-space-2);
+    text-align: center;
+}
+
+body.layout.is-application-page .ui-empty-state > span {
+    color: var(--color-text-muted);
+}
+
+body.layout.is-application-page .ui-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+}
+
+body.layout.is-application-page .ui-status-badge__dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+body.layout.is-application-page .ui-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ui-space-3);
+    padding: 1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+body.layout.is-application-page .ui-pagination .is-disabled {
+    opacity: 0.48;
+    pointer-events: none;
+}
+
+body.layout.is-application-page .ui-pagination__summary {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+body.layout.is-application-page .ui-operations-alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.15rem;
+    border: 1px solid #fdba74;
+    border-left: 5px solid #f97316;
+    border-radius: var(--ui-radius);
+    background: #fff7ed;
+    color: #7c2d12;
+}
+
+body.layout.is-application-page .ui-operations-alert__copy {
+    min-width: 0;
+}
+
+body.layout.is-application-page .ui-operations-alert__copy strong,
+body.layout.is-application-page .ui-operations-alert__copy span {
+    display: block;
+}
+
+body.layout.is-application-page .ui-operations-alert__copy span {
+    margin-top: 0.2rem;
+    color: #9a3412;
+}
+
+body.layout.is-application-page .ui-log-description {
+    max-width: 42rem;
+}
+
+body.layout.is-application-page .ui-log-description summary {
+    cursor: pointer;
+    list-style-position: outside;
+    color: var(--color-primary);
+}
+
+body.layout.is-application-page .ui-log-description__preview {
+    display: inline;
+}
+
+body.layout.is-application-page .ui-log-description[open] .ui-log-description__preview {
+    display: none;
+}
+
+body.layout.is-application-page .ui-log-description__full {
+    display: block;
+    margin-top: 0.55rem;
+    color: var(--color-text);
+    white-space: pre-wrap;
+}
+
+body.layout.is-application-page .ui-technical-id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+}
+
+body.layout.is-application-page [role="dialog"][aria-modal="true"] {
+    max-width: 100%;
+    max-height: calc(100dvh - 2rem);
+}
+
+body.layout.is-application-page :is(
+    .admin-ticket-modal__dialog,
+    .customer-ticket-modal__dialog,
+    .technician-account-modal__dialog,
+    .photo-gallery-modal__dialog,
+    .admin-app-map-modal__dialog,
+    .notifications-overlay__dialog,
+    .chat-ui__modal-dialog
+) {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
+}
+
+body.layout.is-application-page :is(
+    .admin-ticket-modal__dialog,
+    .customer-ticket-modal__dialog,
+    .technician-account-modal__dialog,
+    .photo-gallery-modal__dialog,
+    .admin-app-map-modal__dialog,
+    .notifications-overlay__dialog,
+    .chat-ui__modal-dialog
+) > :is(
+    .modal-body,
+    .panel-body,
+    .admin-ticket-modal__shell,
+    .customer-ticket-modal__shell,
+    .admin-app-map-modal__shell,
+    .notifications-overlay__shell,
+    .chat-ui__modal-body
+) {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+body.layout.is-application-page .photo-gallery-modal__dialog {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+body.layout.is-application-page .technician-account-modal__dialog > .technician-create-form {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+body.ui-dialog-open {
+    overflow: hidden;
+}
+
+body.layout.is-application-page .ui-toast-region {
+    position: fixed;
+    z-index: 10050;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    display: grid;
+    gap: 0.65rem;
+    width: min(92vw, 24rem);
+    pointer-events: none;
+}
+
+body.layout.is-application-page .ui-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #2563eb;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.2);
+    color: var(--color-primary);
+    pointer-events: auto;
+}
+
+body.layout.is-application-page .ui-toast--success { border-left-color: #059669; }
+body.layout.is-application-page .ui-toast--error { border-left-color: #dc2626; }
+body.layout.is-application-page .ui-toast--warning { border-left-color: #d97706; }
+
+body.layout.is-application-page .ui-toast__message {
+    flex: 1;
+    min-width: 0;
+}
+
+body.layout.is-application-page .ui-toast__close {
+    min-width: 44px;
+    min-height: 44px;
+    margin: -0.65rem -0.7rem -0.65rem 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+body.layout.is-application-page [data-ui-submitting="true"] [type="submit"] {
+    cursor: wait;
+    opacity: 0.72;
+}
+
+body.layout.is-application-page .ui-button-spinner {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin-right: 0.45rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    vertical-align: -0.15em;
+    animation: ui-spin 0.7s linear infinite;
+}
+
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+body.auth-layout :is(input:not([type="checkbox"]):not([type="radio"]), select, button, .btn) {
+    min-height: 44px;
+}
+
+body.auth-layout :is(.auth-center-panel, form, .form-group, .auth-field) {
+    min-width: 0;
+}
+
+body.auth-layout :is(input, select, textarea, button) {
+    max-width: 100%;
+}
+
+@media (max-width: 767px) {
+    body.layout.is-application-page .ui-page-heading,
+    body.layout.is-application-page .ui-operations-alert {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    body.layout.is-application-page .ui-page-heading__actions > *,
+    body.layout.is-application-page .ui-operations-alert > .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    body.layout.is-application-page .apply-step-actions {
+        position: sticky;
+        z-index: 20;
+        bottom: 0;
+        margin: 1rem -0.9rem -0.9rem;
+        padding: 0.8rem max(0.9rem, env(safe-area-inset-right)) max(0.8rem, env(safe-area-inset-bottom)) max(0.9rem, env(safe-area-inset-left));
+        border-top: 1px solid var(--color-border);
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 -10px 25px rgba(15, 23, 42, 0.08);
+        backdrop-filter: blur(8px);
+    }
+
+    body.layout.is-application-page .ticket-reply-card {
+        scroll-margin-bottom: 5rem;
+    }
+
+    body.layout.is-application-page .ticket-reply-card .ticket-form-actions {
+        position: sticky;
+        z-index: 12;
+        bottom: 0;
+        margin-inline: -0.35rem;
+        padding: 0.65rem max(0.35rem, env(safe-area-inset-right)) max(0.65rem, env(safe-area-inset-bottom)) max(0.35rem, env(safe-area-inset-left));
+        background: rgba(255, 255, 255, 0.97);
+    }
+
+    body.layout.is-application-page .chat-ui {
+        min-height: calc(100dvh - var(--header-height, 74px));
+    }
+
+    body.layout.is-application-page .chat-ui__composer {
+        position: sticky;
+        z-index: 15;
+        bottom: 0;
+        padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
+
+    body.layout.is-application-page .chat-ui :is(img, video, .chat-ui__attachment, .chat-ui__message-bubble) {
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    body.layout.is-application-page :is(
+        .admin-ticket-modal,
+        .customer-ticket-modal,
+        .technician-account-modal,
+        .photo-gallery-modal,
+        .admin-app-map-modal,
+        .notifications-overlay,
+        .chat-ui__modal
+    ) {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    body.layout.is-application-page :is(
+        .admin-ticket-modal__dialog,
+        .customer-ticket-modal__dialog,
+        .technician-account-modal__dialog,
+        .photo-gallery-modal__dialog,
+        .admin-app-map-modal__dialog,
+        .notifications-overlay__dialog,
+        .chat-ui__modal-dialog
+    ) {
+        width: 100%;
+        max-width: none;
+        max-height: min(92dvh, 54rem);
+        border-radius: 20px 20px 0 0;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+@media (max-width: 639px) {
+    body.layout.is-application-page .telecom-table.mobile-card-ready[data-mobile-cards][data-mobile-cards-expandable] tbody td[data-mobile-secondary] {
+        display: none;
+    }
+
+    body.layout.is-application-page .telecom-table.mobile-card-ready[data-mobile-cards][data-mobile-cards-expandable] tbody tr.is-expanded td[data-mobile-secondary] {
+        display: grid;
+    }
+
+    body.layout.is-application-page .telecom-table.mobile-card-ready .mobile-card-toggle {
+        display: block !important;
+        border-bottom: 0 !important;
+    }
+
+    body.layout.is-application-page .telecom-table.mobile-card-ready .mobile-card-toggle::before {
+        content: none !important;
+    }
+
+    body.layout.is-application-page .mobile-card-toggle button {
+        width: 100%;
+        min-height: 44px;
+        border: 0;
+        background: transparent;
+        color: #1d4ed8;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    body.layout.is-application-page .ui-pagination {
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    body.layout.is-application-page .ui-pagination__summary {
+        order: -1;
+        width: 100%;
+        text-align: center;
+    }
+
+    body.layout.is-application-page .ui-toast-region {
+        right: max(0.65rem, env(safe-area-inset-right));
+        bottom: max(0.65rem, env(safe-area-inset-bottom));
+        left: max(0.65rem, env(safe-area-inset-left));
+        width: auto;
+    }
+}
+
+@media (min-width: 640px) {
+    body.layout.is-application-page .mobile-card-toggle {
+        display: none !important;
+    }
+}
+
+@media (max-width: 479px) {
+    body.layout.is-application-page .main-content {
+        padding-inline: 0.65rem;
+    }
+
+    body.layout.is-application-page :is(.section-title-card, .panel-body, .panel-header, .card) {
+        padding-inline: clamp(0.8rem, 4vw, 1rem);
+    }
+
+    body.layout.is-application-page .apply-step-actions > *,
+    body.layout.is-application-page .ticket-form-actions > * {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+}
+
+@media (max-width: 1023px) {
+    body.layout.is-application-page .table-wrap:not(.mobile-card-wrap) {
+        overscroll-behavior-inline: contain;
+        scrollbar-gutter: stable;
+    }
+}
+
+@media (min-width: 1600px) {
+    body.layout.is-application-page .page-body {
+        width: min(100%, 1680px);
+        margin-inline: auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.layout.is-application-page *,
+    body.layout.is-application-page *::before,
+    body.layout.is-application-page *::after,
+    body.auth-layout *,
+    body.auth-layout *::before,
+    body.auth-layout *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media (min-resolution: 1dppx) and (max-width: 1024px) {
+    body.auth-layout .auth-center-panel {
+        max-width: min(100%, 38rem);
+    }
+}
+
+body.layout.is-application-page .notifications-date-heading { position: sticky; top: 0; z-index: 2; padding: 0.65rem 0.9rem 0.45rem; background: rgba(248, 250, 252, 0.96); color: var(--color-text-muted); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; backdrop-filter: blur(6px); }
+
+body.layout.is-application-page .chat-ui__connection-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 32px;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 999px;
+    color: #cbd5e1;
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+body.layout.is-application-page .chat-ui__connection-status > span {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: #ef4444;
+}
+body.layout.is-application-page .chat-ui__connection-status.is-online > span { background: #22c55e; }
+
+body.layout.is-application-page .id-photo-preview[hidden] {
+    display: none;
+}
+body.layout.is-application-page .id-photo-preview {
+    display: block;
+    max-width: 100%;
+    max-height: min(55dvh, 32rem);
+    object-fit: contain;
+    cursor: zoom-in;
+}
+body.layout.is-application-page .id-photo-preview.is-zoomed {
+    position: fixed;
+    z-index: 10060;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    background: rgba(2, 6, 23, 0.94);
+    object-fit: contain;
+    cursor: zoom-out;
+}
+
+@media (max-width: 767px) {
+    body.layout.is-application-page .workflow-primary-action {
+        position: sticky;
+        z-index: 14;
+        bottom: 0;
+        padding: 0.75rem max(0.5rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
+        border-top: 1px solid var(--color-border);
+        background: rgba(255,255,255,0.97);
+        box-shadow: 0 -8px 22px rgba(15,23,42,0.08);
+    }
+    body.layout.is-application-page .profile-avatar-editor,
+    body.layout.is-application-page .profile-avatar-controls {
+        align-items: stretch;
+        grid-template-columns: minmax(0, 1fr);
+        flex-direction: column;
+    }
+    body.layout.is-application-page .profile-avatar-controls .btn { width: 100%; }
+}
+
+/* Shared live search and filter feedback */
+.live-filter-status {
+    min-height: 1.1rem;
+    margin: 0.55rem 0 0;
+    color: var(--color-text-muted, #64748b);
+    font-size: 0.8rem;
+}
+
+.live-filter-status.is-error {
+    color: #b42318;
+}
+
+[data-live-filter-results] {
+    transition: opacity 0.18s ease;
+}
+
+[data-live-filter-results][aria-busy="true"] {
+    opacity: 0.55;
+    pointer-events: none;
+}

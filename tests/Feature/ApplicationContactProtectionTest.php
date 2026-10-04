@@ -39,9 +39,7 @@ test('equivalent Philippine phone formats are blocked in live checks and final s
     $customer = User::factory()->create(['role' => 'customer']);
     $this->actingAs($customer)->getJson(route('customer.apply.contact-check', ['mobile_number' => $number]))
         ->assertOk()->assertJsonPath('mobile_number.duplicate', true);
-    $this->post(route('customer.apply.store'), contactPayload(['email' => 'new@example.test', 'mobile_number' => $number]) + [
-        'id_selfie_image' => UploadedFile::fake()->image('holding.png'),
-    ])->assertSessionHasErrors('mobile_number');
+    $this->post(route('customer.apply.store'), contactPayload(['email' => 'new@example.test', 'mobile_number' => $number]) + validApplicationIdentity())->assertSessionHasErrors('mobile_number');
     expect(Application::count())->toBe(1)->and(Storage::disk('local')->allFiles())->toBeEmpty();
 })->with(['09171234567', '+639171234567', '639171234567', '0917 123 4567', '+63 (917) 123-4567']);
 
@@ -50,9 +48,7 @@ test('email capitalization and boundary spaces cannot bypass duplicate protectio
     $customer = User::factory()->create(['role' => 'customer']);
     $this->actingAs($customer)->getJson(route('customer.apply.contact-check', ['email' => ' CONTACT@EXAMPLE.TEST ']))
         ->assertOk()->assertJsonPath('email.duplicate', true);
-    $this->post(route('customer.apply.store'), contactPayload(['email' => ' CONTACT@EXAMPLE.TEST ', 'mobile_number' => '09179876543']) + [
-        'id_selfie_image' => UploadedFile::fake()->image('holding.png'),
-    ])->assertSessionHasErrors('email');
+    $this->post(route('customer.apply.store'), contactPayload(['email' => ' CONTACT@EXAMPLE.TEST ', 'mobile_number' => '09179876543']) + validApplicationIdentity())->assertSessionHasErrors('email');
     expect(Application::count())->toBe(1);
 });
 
@@ -60,7 +56,7 @@ test('valid submission normalizes contacts and keeps private ID accessible to it
     $customer = User::factory()->create(['role' => 'customer']);
     $this->actingAs($customer)->post(route('customer.apply.store'), contactPayload([
         'email' => ' CONTACT@EXAMPLE.TEST ', 'mobile_number' => '+63 (917) 123-4567',
-    ]) + ['id_selfie_image' => UploadedFile::fake()->image('holding.png')])->assertSessionHasNoErrors()->assertRedirect();
+    ]) + validApplicationIdentity())->assertSessionHasNoErrors()->assertRedirect();
     $application = Application::sole();
     expect($application->email)->toBe('contact@example.test')->and($application->email_key)->toBe('contact@example.test')
         ->and($application->mobile_number)->toBe('09171234567')->and($application->mobile_number_key)->toBe('09171234567');
@@ -72,9 +68,7 @@ test('owner may reapply using equivalent contact formats on their existing recor
     $this->actingAs($application->user)->getJson(route('customer.apply.contact-check', [
         'email' => 'CONTACT@EXAMPLE.TEST', 'mobile_number' => '+639171234567',
     ]))->assertOk()->assertJsonPath('email.duplicate', false)->assertJsonPath('mobile_number.duplicate', false);
-    $this->post(route('customer.apply.store'), contactPayload(['mobile_number' => '+639171234567']) + [
-        'id_selfie_image' => UploadedFile::fake()->image('holding.png'),
-    ])->assertSessionHasNoErrors();
+    $this->post(route('customer.apply.store'), contactPayload(['mobile_number' => '+639171234567']) + validApplicationIdentity())->assertSessionHasNoErrors();
     expect(Application::count())->toBe(2)
         ->and($application->fresh()->status)->toBe($status)
         ->and($application->user->refresh()->application->status)->toBe('submitted')
@@ -98,9 +92,7 @@ test('malformed contact values are rejected instead of silently changing identit
 
 test('draft contacts do not reserve identities and rejected submission preserves the draft and photo', function () {
     $customer = User::factory()->create(['role' => 'customer']);
-    $this->actingAs($customer)->post(route('customer.apply.draft.save'), contactPayload() + [
-        'draft_step' => 4, 'id_selfie_image' => UploadedFile::fake()->image('holding.png'),
-    ])->assertOk();
+    $this->actingAs($customer)->post(route('customer.apply.draft.save'), contactPayload() + ['draft_step' => 4] + validApplicationIdentity())->assertOk();
     $draft = ApplicationDraft::sole();
     $other = User::factory()->create(['role' => 'customer']);
     $this->actingAs($other)->getJson(route('customer.apply.contact-check', ['email' => 'contact@example.test']))
@@ -124,17 +116,13 @@ test('migration preserves historical duplicate contacts and unrelated status cha
     $first->refresh()->update(['status' => 'under_review']);
     expect($first->fresh()->mobile_number)->toBe('+63 917 123 4567');
     $customer = User::factory()->create(['role' => 'customer']);
-    $this->actingAs($customer)->post(route('customer.apply.store'), contactPayload(['email' => 'new@example.test']) + [
-        'id_selfie_image' => UploadedFile::fake()->image('holding.png'),
-    ])->assertSessionHasErrors('mobile_number');
+    $this->actingAs($customer)->post(route('customer.apply.store'), contactPayload(['email' => 'new@example.test']) + validApplicationIdentity())->assertSessionHasErrors('mobile_number');
 });
 
 test('submission takes the shared contact guard before reading contact identities', function () {
     $customer = User::factory()->create(['role' => 'customer']);
     DB::enableQueryLog();
-    $this->actingAs($customer)->post(route('customer.apply.store'), contactPayload() + [
-        'id_selfie_image' => UploadedFile::fake()->image('holding.png'),
-    ])->assertSessionHasNoErrors();
+    $this->actingAs($customer)->post(route('customer.apply.store'), contactPayload() + validApplicationIdentity())->assertSessionHasNoErrors();
     $queries = array_column(DB::getQueryLog(), 'query');
     $guard = collect($queries)->search( fn ($sql) => str_contains($sql, 'application_contact_guard'));
     $contact = collect($queries)->search( fn ($sql) => str_contains($sql, 'email_key') && str_starts_with($sql, 'select'));

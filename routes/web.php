@@ -1,24 +1,28 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ApplicationDraftController;
-use App\Http\Controllers\ApplicationIdPhotoController;
-use App\Http\Controllers\CustomerApplicationController;
-use App\Http\Controllers\AdminApplicationController;
-use App\Http\Controllers\TechnicianDashboardController;
-use App\Http\Controllers\PublicTrackingController;
-use App\Http\Controllers\TicketController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\AdminTicketController;
-use App\Http\Controllers\TechnicianTicketController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\InstallationController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SystemLogController;
 use App\Http\Controllers\Admin\TechnicianController;
-use App\Models\Application;
+use App\Http\Controllers\AdminApplicationController;
+use App\Http\Controllers\AdminTicketController;
+use App\Http\Controllers\ApplicationDraftController;
+use App\Http\Controllers\ApplicationIdPhotoController;
+use App\Http\Controllers\Auth\FirstLoginPasswordController;
+use App\Http\Controllers\ChatController;
+use App\Http\Controllers\CustomerApplicationController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicTrackingController;
+use App\Http\Controllers\TechnicianDashboardController;
+use App\Http\Controllers\TechnicianTicketController;
+use App\Http\Controllers\TicketController;
+use App\Http\Controllers\TicketMessageController;
 use App\Models\Installation;
 use App\Models\Ticket;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     if (auth()->check()) {
@@ -32,6 +36,14 @@ Route::get('/track-application', [PublicTrackingController::class, 'form'])->nam
 Route::post('/track-application', [PublicTrackingController::class, 'search'])->name('track.search');
 Route::get('/track-ticket', [PublicTrackingController::class, 'ticketForm'])->name('track.ticket.form');
 Route::post('/track-ticket', [PublicTrackingController::class, 'ticketSearch'])->name('track.ticket.search');
+
+Route::middleware(['auth', 'account.active'])->group(function () {
+    Route::get('/technician/first-login/password', [FirstLoginPasswordController::class, 'edit'])
+        ->name('technician.password.change');
+    Route::put('/technician/first-login/password', [FirstLoginPasswordController::class, 'update'])
+        ->middleware('throttle:6,1')
+        ->name('technician.password.change.update');
+});
 
 Route::get('/dashboard', function () {
     $user = auth()->user();
@@ -54,7 +66,7 @@ Route::get('/dashboard', function () {
     }
 
     return view('dashboard');
-})->middleware(['auth', 'account.active', 'verified', 'track.staff.presence'])->name('dashboard');
+})->middleware(['auth', 'account.active', 'customer.verified', 'track.staff.presence'])->name('dashboard');
 
 Route::middleware(['auth', 'account.active', 'track.staff.presence'])->group(function () {
     Route::get('/applications/{application}/id-photo/{photo}', ApplicationIdPhotoController::class)
@@ -73,7 +85,7 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence'])->group(fun
     Route::get('/notifications/{notification}/go', [NotificationController::class, 'redirect'])->name('notifications.redirect');
 });
 
-Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:customer'])->group(function () {
+Route::middleware(['auth', 'account.active', 'customer.verified', 'track.staff.presence', 'role:customer'])->group(function () {
     Route::get('/customer/dashboard', function () {
         $user = auth()->user();
         $latestApplication = $user->application()->with('installation')->first();
@@ -90,11 +102,13 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:custo
     Route::get('/customer/apply', [CustomerApplicationController::class, 'create'])->name('customer.apply');
     Route::post('/customer/apply/draft', [ApplicationDraftController::class, 'store'])->middleware('throttle:20,1')->name('customer.apply.draft.save');
     Route::delete('/customer/apply/draft', [ApplicationDraftController::class, 'destroy'])->name('customer.apply.draft.destroy');
-    Route::get('/customer/apply/draft/photo', [ApplicationDraftController::class, 'photo'])->name('customer.apply.draft.photo');
+    Route::get('/customer/apply/draft/photo/{photo?}', [ApplicationDraftController::class, 'photo'])
+        ->whereIn('photo', ['id', 'selfie'])->name('customer.apply.draft.photo');
     Route::get('/customer/apply/contact-check', [CustomerApplicationController::class, 'contactCheck'])->name('customer.apply.contact-check');
     Route::post('/customer/apply', [CustomerApplicationController::class, 'store'])->name('customer.apply.store');
     Route::get('/customer/apply/done', [CustomerApplicationController::class, 'done'])->name('customer.apply.done');
     Route::get('/customer/application', [CustomerApplicationController::class, 'show'])->name('customer.application.show');
+    Route::patch('/customer/application/identity', [CustomerApplicationController::class, 'resubmitIdentity'])->name('customer.application.identity.resubmit');
     Route::patch('/customer/application/cancellation', [CustomerApplicationController::class, 'requestCancellation'])->name('customer.application.cancel');
     Route::patch('/customer/application/reschedule', [CustomerApplicationController::class, 'requestReschedule'])->name('customer.application.reschedule');
     Route::get('/customer/tickets', [TicketController::class, 'index'])->name('customer.tickets.index');
@@ -110,10 +124,17 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:custo
 
 Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin'])->group(function () {
     Route::get('/admin/dashboard', DashboardController::class)->name('admin.dashboard');
+    Route::get('/admin/reports', [ReportController::class, 'index'])->name('admin.reports.index');
+    Route::get('/admin/reports/export/csv', [ReportController::class, 'csv'])->name('admin.reports.csv');
+    Route::get('/admin/reports/print/applications/{application}', [ReportController::class, 'printApplication'])->name('admin.reports.print.application');
+    Route::get('/admin/reports/print/installations/{installation}', [ReportController::class, 'printInstallation'])->name('admin.reports.print.installation');
+    Route::get('/admin/reports/print/customers/{customer}', [ReportController::class, 'printCustomer'])->name('admin.reports.print.customer');
+    Route::get('/admin/reports/print/technicians/{technician}', [ReportController::class, 'printTechnician'])->name('admin.reports.print.technician');
 
     Route::get('/admin/applications', [AdminApplicationController::class, 'index'])->name('admin.applications.index');
     Route::get('/admin/applications/{application}', [AdminApplicationController::class, 'show'])->name('admin.applications.show');
     Route::patch('/admin/applications/{application}/status', [AdminApplicationController::class, 'updateStatus'])->name('admin.applications.status');
+    Route::patch('/admin/applications/{application}/identity-verification', [AdminApplicationController::class, 'updateIdentityVerification'])->name('admin.applications.identity-verification');
     Route::post('/admin/applications/{application}/schedule', [AdminApplicationController::class, 'schedule'])->name('admin.applications.schedule');
     Route::patch('/admin/applications/{application}/cancellation', [AdminApplicationController::class, 'cancellationDecision'])->name('admin.applications.cancellation');
     Route::patch('/admin/applications/{application}/reschedule', [AdminApplicationController::class, 'rescheduleDecision'])->name('admin.applications.reschedule');
@@ -121,14 +142,18 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin
     Route::patch('/admin/tickets/{ticket}', [AdminTicketController::class, 'update'])->name('admin.tickets.update');
     Route::get('/admin/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('admin.tickets.show');
     Route::post('/admin/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])->name('admin.tickets.reply');
+    Route::patch('/admin/tickets/{ticket}/start', [AdminTicketController::class, 'start'])->name('admin.tickets.start');
+    Route::patch('/admin/tickets/{ticket}/resolve', [AdminTicketController::class, 'resolve'])->name('admin.tickets.resolve');
     Route::patch('/admin/tickets/{ticket}/reopen-request', [AdminTicketController::class, 'approveReopenRequest'])->name('admin.tickets.reopen-request.approve');
     Route::patch('/admin/tickets/{ticket}/cancellation/approve', [AdminTicketController::class, 'approveCancellation'])->name('admin.tickets.cancellation.approve');
     Route::patch('/admin/tickets/{ticket}/cancellation/reject', [AdminTicketController::class, 'rejectCancellation'])->name('admin.tickets.cancellation.reject');
     Route::get('/admin/system-logs', [SystemLogController::class, 'index'])->name('admin.system-logs.index');
-    Route::get('/admin/installations', [\App\Http\Controllers\Admin\InstallationController::class, 'index'])->name('admin.installations.index');
-    Route::patch('/admin/installations/{installation}/reassign', [\App\Http\Controllers\Admin\InstallationController::class, 'reassign'])->name('admin.installations.reassign');
-    Route::patch('/admin/installations/{installation}/reschedule', [\App\Http\Controllers\Admin\InstallationController::class, 'reschedule'])->name('admin.installations.reschedule');
+    Route::get('/admin/installations', [InstallationController::class, 'index'])->name('admin.installations.index');
+    Route::patch('/admin/installations/{installation}/reassign', [InstallationController::class, 'reassign'])->name('admin.installations.reassign');
+    Route::patch('/admin/installations/{installation}/reschedule', [InstallationController::class, 'reschedule'])->name('admin.installations.reschedule');
     Route::get('/admin/customers', [CustomerController::class, 'index'])->name('admin.customers.index');
+    Route::patch('/admin/customers/{customer}/disable', [CustomerController::class, 'disableAccount'])->name('admin.customers.disable');
+    Route::patch('/admin/customers/{customer}/enable', [CustomerController::class, 'enableAccount'])->name('admin.customers.enable');
     Route::get('/admin/customers/{customer}', [CustomerController::class, 'show'])->name('admin.customers.show');
     Route::get('/admin/technicians', [TechnicianController::class, 'index'])->name('admin.technicians.index');
     Route::post('/admin/technicians', [TechnicianController::class, 'store'])->name('admin.technicians.store');
@@ -158,6 +183,14 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:techn
         $pendingInstallations = Installation::where('technician_id', $technicianId)->where('status', 'scheduled')->count();
         $completedInstallations = Installation::where('technician_id', $technicianId)->whereIn('status', Installation::completedStatuses())->count();
         $assignedTickets = $tickets->count();
+        $overdueTickets = $tickets->filter(fn (Ticket $ticket) => $ticket->response_due_at?->lte(now()))->count();
+        $overdueInstallations = Installation::query()
+            ->where('technician_id', $technicianId)
+            ->whereIn('status', Installation::activeSchedulingStatuses())
+            ->whereDate('installation_date', '<=', today())
+            ->get()
+            ->filter(fn (Installation $installation) => $installation->scheduledEndAt()?->lte(now()))
+            ->count();
         $todayWorkloadDate = now(config('app.timezone', 'Asia/Manila'));
         $todayInstallations = Installation::with('application')
             ->where('technician_id', $technicianId)
@@ -168,10 +201,15 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:techn
             ->orderBy('id')
             ->get();
 
-        return view('technician.dashboard', compact('totalInstallations', 'pendingInstallations', 'completedInstallations', 'assignedTickets', 'tickets', 'todayInstallations', 'todayWorkloadDate'));
+        return view('technician.dashboard', compact('totalInstallations', 'pendingInstallations', 'completedInstallations', 'assignedTickets', 'tickets', 'todayInstallations', 'todayWorkloadDate', 'overdueTickets', 'overdueInstallations'));
     })->name('technician.dashboard');
 
+    Route::get('/technician/customers', [CustomerController::class, 'index'])->name('technician.customers.index');
+    Route::get('/technician/customers/{customer}/print', [ReportController::class, 'printCustomer'])->name('technician.customers.print');
+    Route::get('/technician/customers/{customer}', [CustomerController::class, 'show'])->name('technician.customers.show');
+
     Route::get('/technician/installations', [TechnicianDashboardController::class, 'installations'])->name('technician.installations.index');
+    Route::get('/technician/installations/{installation}/print', [TechnicianDashboardController::class, 'printInstallation'])->name('technician.installations.print');
     Route::get('/technician/installations/{installation}', [TechnicianDashboardController::class, 'showInstallation'])->name('technician.installations.show');
     Route::patch('/technician/installations/{installation}/status', [TechnicianDashboardController::class, 'updateInstallationStatus'])->name('technician.installations.status');
     Route::patch('/technician/installations/{installation}/stop-work-notes', [TechnicianDashboardController::class, 'addStopWorkNotes'])->name('technician.installations.stop-work-notes');
@@ -184,27 +222,26 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:techn
     Route::post('/technician/tickets/{ticket}/reply', [TechnicianTicketController::class, 'reply'])->name('technician.tickets.reply');
 });
 
-Route::middleware(['auth', 'account.active', 'track.staff.presence'])->group(function () {
-    Route::post('/tickets/{ticket}/message', [\App\Http\Controllers\TicketMessageController::class, 'store'])->name('tickets.messages.store');
-    Route::get('/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('chat.index');
-    Route::post('/chat/availability', [\App\Http\Controllers\ChatController::class, 'updateAvailability'])->name('chat.availability');
-    Route::get('/chat/{user}', [\App\Http\Controllers\ChatController::class, 'conversation'])->name('chat.conversation');
-    Route::get('/chat/{user}/snapshot', [\App\Http\Controllers\ChatController::class, 'snapshot'])->name('chat.snapshot');
-    Route::post('/chat/{user}', [\App\Http\Controllers\ChatController::class, 'send'])->name('chat.send');
+Route::middleware(['auth', 'account.active', 'customer.verified', 'track.staff.presence'])->group(function () {
+    Route::post('/tickets/{ticket}/message', [TicketMessageController::class, 'store'])->name('tickets.messages.store');
+    Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
+    Route::post('/chat/availability', [ChatController::class, 'updateAvailability'])->name('chat.availability');
+    Route::get('/chat/{user}', [ChatController::class, 'conversation'])->name('chat.conversation');
+    Route::get('/chat/{user}/snapshot', [ChatController::class, 'snapshot'])->name('chat.snapshot');
+    Route::post('/chat/{user}', [ChatController::class, 'send'])->name('chat.send');
 });
 
 Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin,technician'])->group(function () {
-    Route::get('/{role}/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('role.chat.index');
-    Route::post('/{role}/chat/availability', [\App\Http\Controllers\ChatController::class, 'updateAvailability'])->name('role.chat.availability');
-    Route::get('/{role}/chat/{user}', [\App\Http\Controllers\ChatController::class, 'conversation'])->name('role.chat.conversation');
-    Route::get('/{role}/chat/{user}/snapshot', [\App\Http\Controllers\ChatController::class, 'snapshot'])->name('role.chat.snapshot');
-    Route::post('/{role}/chat/{user}', [\App\Http\Controllers\ChatController::class, 'send'])->name('role.chat.send');
-    Route::post('/{role}/chat/{user}/note', [\App\Http\Controllers\ChatController::class, 'addNote'])->name('role.chat.note');
-    Route::post('/{role}/chat/{user}/close', [\App\Http\Controllers\ChatController::class, 'closeConversation'])->name('role.chat.close');
-    Route::post('/{role}/chat/{user}/reopen', [\App\Http\Controllers\ChatController::class, 'reopenConversation'])->name('role.chat.reopen');
-    Route::post('/{role}/chat/{user}/takeover', [\App\Http\Controllers\ChatController::class, 'takeOver'])->name('role.chat.takeover');
-    Route::post('/{role}/chat/{user}/assign', [\App\Http\Controllers\ChatController::class, 'assign'])->name('role.chat.assign');
+    Route::get('/{role}/chat', [ChatController::class, 'index'])->name('role.chat.index');
+    Route::post('/{role}/chat/availability', [ChatController::class, 'updateAvailability'])->name('role.chat.availability');
+    Route::get('/{role}/chat/{user}', [ChatController::class, 'conversation'])->name('role.chat.conversation');
+    Route::get('/{role}/chat/{user}/snapshot', [ChatController::class, 'snapshot'])->name('role.chat.snapshot');
+    Route::post('/{role}/chat/{user}', [ChatController::class, 'send'])->name('role.chat.send');
+    Route::post('/{role}/chat/{user}/note', [ChatController::class, 'addNote'])->name('role.chat.note');
+    Route::post('/{role}/chat/{user}/close', [ChatController::class, 'closeConversation'])->name('role.chat.close');
+    Route::post('/{role}/chat/{user}/reopen', [ChatController::class, 'reopenConversation'])->name('role.chat.reopen');
+    Route::post('/{role}/chat/{user}/takeover', [ChatController::class, 'takeOver'])->name('role.chat.takeover');
+    Route::post('/{role}/chat/{user}/assign', [ChatController::class, 'assign'])->name('role.chat.assign');
 });
 
 require __DIR__.'/auth.php';
-

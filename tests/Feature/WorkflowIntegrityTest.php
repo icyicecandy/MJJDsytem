@@ -32,11 +32,16 @@ function integrityApplication(array $attributes = []): Application
     ], $attributes));
 }
 
+function integrityInstallationDate(): string
+{
+    return now()->next('Monday')->toDateString();
+}
+
 function integrityInstallation(Application $application, User $technician, array $attributes = []): Installation
 {
     return Installation::create(array_merge([
         'application_id' => $application->id, 'technician_id' => $technician->id,
-        'installation_date' => now()->addDays(7)->toDateString(),
+        'installation_date' => integrityInstallationDate(),
         'installation_time' => '08:00', 'status' => Installation::STATUS_SCHEDULED,
     ], $attributes));
 }
@@ -51,7 +56,7 @@ test('a failed scheduling audit rolls back installation application history and 
 
     expect(fn () => $this->post(route('admin.applications.schedule', $application), [
         'technician_id' => $technician->id,
-        'installation_date' => now()->addDays(7)->toDateString(),
+        'installation_date' => integrityInstallationDate(),
         'installation_time' => '08:00',
     ]))->toThrow(RuntimeException::class, 'Forced audit failure');
 
@@ -131,7 +136,7 @@ test('duplicate scheduling with the same stale route model creates only one book
     $this->actingAs(User::factory()->create(['role' => 'admin']));
     $request = Request::create('/admin/applications/'.$application->id.'/schedule', 'POST', [
         'technician_id' => $technician->id,
-        'installation_date' => now()->addDays(7)->toDateString(), 'installation_time' => '08:00',
+        'installation_date' => integrityInstallationDate(), 'installation_time' => '08:00',
     ]);
     $controller = app(AdminApplicationController::class);
     $controller->schedule($request, $application);

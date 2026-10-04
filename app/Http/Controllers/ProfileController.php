@@ -30,6 +30,8 @@ class ProfileController extends Controller
 
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
+        $emailChanged = $request->validated('email') !== $request->user()->email;
+
         $obsoleteAvatar = WorkflowTransaction::run(function () use ($request) {
             $user = User::query()->lockForUpdate()->findOrFail($request->user()->id);
             $validated = $request->validated();
@@ -79,6 +81,13 @@ class ProfileController extends Controller
             } catch (Throwable $exception) {
                 report($exception);
             }
+        }
+
+        if ($emailChanged && $request->user()->isCustomer()) {
+            $request->user()->refresh()->sendEmailVerificationNotification();
+
+            return Redirect::route('verification.notice')
+                ->with('status', 'verification-link-sent');
         }
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');

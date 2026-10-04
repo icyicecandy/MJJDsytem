@@ -42,12 +42,20 @@ class AuthenticatedSessionController extends Controller
                 ->with('auth_modal', 'login');
         }
 
+        system_log('Account Login', 'Signed in using email and password.');
+
         if ($user->isAdmin() || $user->isTechnician()) {
+            $requiresPasswordChange = $user->requiresPasswordChange();
+
             $user->forceFill([
-                'is_online' => true,
-                'last_seen' => now(),
-                'chat_available' => true,
+                'is_online' => ! $requiresPasswordChange,
+                'last_seen' => $requiresPasswordChange ? null : now(),
+                'chat_available' => ! $requiresPasswordChange,
             ])->save();
+
+            if ($requiresPasswordChange) {
+                return redirect()->route('technician.password.change');
+            }
         }
 
         // If user originally tried to access a protected page
@@ -76,6 +84,10 @@ class AuthenticatedSessionController extends Controller
     public function destroy(Request $request): RedirectResponse
     {
         $user = $request->user();
+
+        if ($user) {
+            system_log('Account Logout', 'Signed out of the system.');
+        }
 
         if ($user && ($user->isAdmin() || $user->isTechnician())) {
             $user->forceFill([

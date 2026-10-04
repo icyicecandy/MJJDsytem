@@ -15,6 +15,9 @@
         'activated' => 'Activated',
         'without_application' => 'No Application',
     ];
+    $isTechnicianView = auth()->user()?->isTechnician() ?? false;
+    $customerIndexRoute = $isTechnicianView ? 'technician.customers.index' : 'admin.customers.index';
+    $customerShowRoute = $isTechnicianView ? 'technician.customers.show' : 'admin.customers.show';
 @endphp
 
 @push('styles')
@@ -42,12 +45,12 @@
     <section class="card section-title-card">
         <div>
             <h1>Customers</h1>
-            <p>Review customer records, contact details, application status, service location, and support activity from one admin operations list.</p>
+            <p>Review customer records, contact details, application status, service location, and support activity from one shared operations list.</p>
         </div>
     </section>
 
     <section class="card toolbar-card">
-        <form method="GET" action="{{ route('admin.customers.index') }}" class="toolbar-row" data-mobile-filter>
+        <form method="GET" action="{{ route($customerIndexRoute) }}" class="toolbar-row" data-mobile-filter data-live-filter data-live-filter-target="#customerResults">
             <div class="toolbar-field">
                 <label for="status">Application Status</label>
                 <select name="status" id="status">
@@ -66,12 +69,13 @@
             <div class="toolbar-actions">
                 <button class="btn">Filter</button>
                 @if($search !== '' || $status !== '')
-                    <a href="{{ route('admin.customers.index') }}" class="btn secondary">Reset</a>
+                    <a href="{{ route($customerIndexRoute) }}" class="btn secondary">Reset</a>
                 @endif
             </div>
         </form>
     </section>
 
+    <div id="customerResults" data-live-filter-results aria-busy="false">
     <section class="card table-card">
         <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable records table">
             <table class="telecom-table admin-customers-table" data-mobile-cards>
@@ -126,7 +130,7 @@
                                 </div>
                             </td>
                             <td class="actions-cell">
-                                <a href="{{ route('admin.customers.show', $customer) }}" class="btn secondary">View</a>
+                                <a href="{{ route($customerShowRoute, $customer) }}" class="btn secondary">View</a>
                             </td>
                         </tr>
                     @empty
@@ -140,7 +144,8 @@
     </section>
 
     <section class="card toolbar-card">
-        {{ $customers->links() }}
+        <x-ui.pagination :paginator="$customers" />
     </section>
+    </div>
 </div>
 @endsection

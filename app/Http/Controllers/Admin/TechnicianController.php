@@ -157,7 +157,8 @@ class TechnicianController extends Controller
             'technician_status' => 'available',
             'role' => 'technician',
             'password' => $validated['temporary_password'],
-            'password_set_at' => now(),
+            'password_set_at' => null,
+            'must_change_password' => true,
             'email_verified_at' => now(),
             'is_online' => false,
             'chat_available' => false,
@@ -250,6 +251,11 @@ class TechnicianController extends Controller
             'technician_status' => 'off_duty',
         ])->save();
 
+        system_log(
+            'Technician Account Disabled',
+            $technician->displayTechnicianRecordId().' was disabled. Reason: '.$technician->disabled_reason
+        );
+
         return redirect()
             ->route('admin.technicians.show', $technician)
             ->with('status', 'technician-disabled');
@@ -259,12 +265,16 @@ class TechnicianController extends Controller
     {
         abort_unless($technician->isTechnician(), 404);
 
+        $technicianReference = $technician->displayTechnicianRecordId();
+
         $technician->forceFill([
             'disabled_at' => null,
             'disabled_by' => null,
             'disabled_reason' => null,
             'technician_status' => 'available',
         ])->save();
+
+        system_log('Technician Account Enabled', $technicianReference.' was enabled.');
 
         return redirect()
             ->route('admin.technicians.show', $technician)

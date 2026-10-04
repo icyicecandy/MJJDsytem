@@ -28,9 +28,9 @@ class InstallationController extends Controller
             $status = null;
         }
         $search = trim((string) $request->query('search', ''));
-        $selectedGroup = $request->query('group', 'scheduled');
-        if (! in_array($selectedGroup, ['scheduled', 'completed'], true)) {
-            $selectedGroup = 'scheduled';
+        $selectedGroup = $request->query('group', 'all');
+        if (! in_array($selectedGroup, ['all', 'scheduled', 'completed'], true)) {
+            $selectedGroup = 'all';
         }
 
         $query = Installation::query()
@@ -43,30 +43,48 @@ class InstallationController extends Controller
             $query->where('status', $status);
         } elseif ($selectedGroup === 'completed') {
             $query->where('status', Installation::STATUS_COMPLETED);
-        } else {
-            $query->whereIn('status', [
-                Installation::STATUS_SCHEDULED,
-                Installation::STATUS_RESCHEDULE_REQUIRED,
-            ]);
+        } elseif ($selectedGroup === 'scheduled') {
+            $query->where('status', Installation::STATUS_SCHEDULED);
         }
 
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('id', $search)
-                    ->orWhereHas('application', function ($applicationQuery) use ($search) {
-                        $applicationQuery->where('id', $search)
-                            ->orWhere('reference_no', 'like', "%{$search}%")
-                            ->orWhere('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('mobile_number', 'like', "%{$search}%")
-                            ->orWhere('street_landmark', 'like', "%{$search}%")
-                            ->orWhere('barangay', 'like', "%{$search}%")
-                            ->orWhere('municipality', 'like', "%{$search}%")
-                            ->orWhere('province', 'like', "%{$search}%")
-                            ->orWhere('region', 'like', "%{$search}%")
-                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
-                    })
+            $jobId = preg_match('/^JOB-\d{4}-(\d+)$/i', $search, $jobMatch)
+                ? (int) $jobMatch[1]
+                : (ctype_digit($search) ? (int) $search : null);
+            $normalizedStatus = preg_replace('/[^a-z0-9]+/', '_', strtolower($search));
+            $normalizedStatus = $normalizedStatus === 'installed' ? Installation::STATUS_COMPLETED : $normalizedStatus;
+            $nameParts = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+            $firstNameSearch = $nameParts[0] ?? null;
+            $lastNameSearch = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : null;
+
+            $query->where(function ($q) use ($search, $jobId, $normalizedStatus, $firstNameSearch, $lastNameSearch) {
+                if ($jobId !== null) {
+                    $q->where('id', $jobId);
+                } else {
+                    $q->where('status', 'like', "%{$normalizedStatus}%");
+                }
+
+                $q->orWhereHas('application', function ($applicationQuery) use ($search, $firstNameSearch, $lastNameSearch) {
+                    $applicationQuery->where('id', $search)
+                        ->orWhere('reference_no', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('mobile_number', 'like', "%{$search}%")
+                        ->orWhere('plan_code', 'like', "%{$search}%")
+                        ->orWhere('street_landmark', 'like', "%{$search}%")
+                        ->orWhere('barangay', 'like', "%{$search}%")
+                        ->orWhere('municipality', 'like', "%{$search}%")
+                        ->orWhere('province', 'like', "%{$search}%")
+                        ->orWhere('region', 'like', "%{$search}%");
+
+                    if ($firstNameSearch && $lastNameSearch) {
+                        $applicationQuery->orWhere(function ($fullNameQuery) use ($firstNameSearch, $lastNameSearch) {
+                            $fullNameQuery->where('first_name', 'like', "%{$firstNameSearch}%")
+                                ->where('last_name', 'like', "%{$lastNameSearch}%");
+                        });
+                    }
+                })
                     ->orWhereHas('technician', function ($technicianQuery) use ($search) {
                         $technicianQuery->where('name', 'like', "%{$search}%")
                             ->orWhere('email', 'like', "%{$search}%");
@@ -74,11 +92,14 @@ class InstallationController extends Controller
             });
         }
 
+        $allCount = Installation::query()->count();
+
         $scheduledCount = Installation::query()
-            ->whereIn('status', [
-                Installation::STATUS_SCHEDULED,
-                Installation::STATUS_RESCHEDULE_REQUIRED,
-            ])
+            ->where('status', Installation::STATUS_SCHEDULED)
+            ->count();
+
+        $rescheduleCount = Installation::query()
+            ->where('status', Installation::STATUS_RESCHEDULE_REQUIRED)
             ->count();
 
         $inProgressCount = Installation::query()
@@ -100,7 +121,9 @@ class InstallationController extends Controller
             'status',
             'search',
             'selectedGroup',
+            'allCount',
             'scheduledCount',
+            'rescheduleCount',
             'inProgressCount',
             'completedCount',
             'activatedCount'

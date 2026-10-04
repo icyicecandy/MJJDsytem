@@ -36,6 +36,7 @@ class PasswordController extends Controller
         $user->forceFill([
             'password' => Hash::make($validated['password']),
             'password_set_at' => now(),
+            'must_change_password' => false,
         ])->save();
 
         return back()->with('status', $canSetInitialPassword ? 'password-set' : 'password-updated');

@@ -45,3 +45,23 @@ function something()
 {
     // ..
 }
+
+function applicationIdentityPhoto(string $name = 'holding-id.png', string $fixture = 'holding-id.png'): Illuminate\Http\UploadedFile
+{
+    return new Illuminate\Http\UploadedFile(
+        base_path('tests/Fixtures/application-id/'.$fixture),
+        $name,
+        null,
+        null,
+        true,
+    );
+}
+
+function validApplicationIdentity(array $overrides = []): array
+{
+    return array_replace([
+        'valid_id_type' => 'national_id',
+        'id_image' => applicationIdentityPhoto('id-close-up.png'),
+        'id_selfie_image' => applicationIdentityPhoto('holding-id.png'),
+    ], $overrides);
+}

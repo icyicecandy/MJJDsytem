@@ -22,6 +22,72 @@ function makeSupportUser(string $role, array $attributes = []): User
     ], $attributes));
 }
 
+test('shared chat composer starts compact and exposes automatic growth behavior', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+
+    $this->actingAs($customer)
+        ->get(route('chat.index', absolute: false))
+        ->assertOk()
+        ->assertSee('data-chat-autogrow', false)
+        ->assertSee('rows="1"', false)
+        ->assertSee('data-chat-attachment-meta', false)
+        ->assertSee('function resizeComposer()', false)
+        ->assertSee("textarea.addEventListener('input', resizeComposer)", false);
+
+    $css = file_get_contents(public_path('css/chat.css'));
+
+    expect($css)
+        ->toContain('body.layout.is-application-page .chat-ui .chat-ui__composer .chat-ui__composer-input textarea[data-chat-autogrow]')
+        ->toContain('min-height: 3rem;')
+        ->toContain('min-width: 0;')
+        ->toContain('.chat-ui__send-button {')
+        ->toContain('align-self: center;')
+        ->toContain('.chat-ui__panel-head {')
+        ->toContain('flex: 0 0 auto;')
+        ->toContain('background: rgba(11, 24, 48, 0.98);')
+        ->toContain('.chat-ui__panel-grid {')
+        ->toContain('grid-template-rows: minmax(0, 1fr);')
+        ->toContain('body.layout.is-application-page .chat-ui .chat-ui__composer {')
+        ->toContain('position: relative;')
+        ->toContain('inset: auto;');
+
+    $responsiveCss = file_get_contents(public_path('css/responsive.css'));
+
+    expect($responsiveCss)
+        ->toContain('body.layout .chat-ui .chat-ui__thread-card {')
+        ->toContain('height: 100%;')
+        ->toContain('max-height: 100%;')
+        ->not->toContain('height: clamp(22rem, calc(100dvh - 13rem), 40rem);');
+});
+
+test('shared customer queue keeps filters fixed while the conversation list scrolls', function () {
+    $css = file_get_contents(public_path('css/chat.css'));
+
+    expect($css)
+        ->toContain('.chat-ui__sidebar-shell {')
+        ->toContain('position: relative;')
+        ->toContain('.chat-ui__sidebar {')
+        ->toContain('position: absolute;')
+        ->toContain('.chat-ui__conversation-list {')
+        ->toContain('flex: 1 1 0;')
+        ->toContain('overflow-y: auto;')
+        ->toContain('overscroll-behavior-y: contain;')
+        ->toContain('scrollbar-gutter: stable;')
+        ->toContain('.chat-ui__sidebar-shell[open] .chat-ui__sidebar');
+});
+
+test('customer details disclosure uses directional chevrons instead of show and hide text', function () {
+    $css = file_get_contents(public_path('css/chat.css'));
+
+    expect($css)
+        ->toContain(".chat-ui__context-card[open] .chat-ui__context-summary > span::before")
+        ->toContain("content: '<';")
+        ->toContain(".chat-ui__context-card:not([open]) .chat-ui__context-summary > span::before")
+        ->toContain("content: '>';")
+        ->not->toContain("content: 'Hide';")
+        ->not->toContain("content: 'Show';");
+});
+
 test('no staff online sends customer to ai assistant', function () {
     $customer = User::factory()->create(['role' => 'customer']);
 
@@ -426,7 +492,7 @@ test('programmed greeting response is returned before external ai fallback', fun
     $reply = app(SupportAiService::class)->generateSupportReply($customer, 'hi');
 
     expect($reply['source'])->toBe('programmed')
-        ->and($reply['answer'])->toBe('Hello! I\'m the MJJD Telecom assistant. I can help with common questions while our support team is unavailable or assisting other customers.');
+        ->and($reply['answer'])->toBe('Hello! I can help with applications, installation schedules, support tickets, account concerns, and service questions. What do you need help with?');
 });
 
 test('programmed availability response is returned for support availability questions', function () {
@@ -436,7 +502,7 @@ test('programmed availability response is returned for support availability ques
     $reply = app(SupportAiService::class)->generateSupportReply($customer, 'is anyone available?');
 
     expect($reply['source'])->toBe('programmed')
-        ->and($reply['answer'])->toBe('Our support team may be unavailable or assisting other customers right now. I can help with common questions while you wait, and a staff member can take over when available.');
+        ->and($reply['answer'])->toBe('Support staff may be unavailable or assisting other customers. I can help with common questions while you wait, and a staff member can take over when available.');
 });
 
 test('programmed application response is returned for application questions', function () {
@@ -446,7 +512,7 @@ test('programmed application response is returned for application questions', fu
     $reply = app(SupportAiService::class)->generateSupportReply($customer, 'how to apply?');
 
     expect($reply['source'])->toBe('programmed')
-        ->and($reply['answer'])->toBe('To apply, submit your contact information, service address, selected plan, and one clear photo of yourself holding your valid ID beside your face (JPG, PNG, or WebP, up to 5 MB). The admin will review serviceability before scheduling installation.');
+        ->and($reply['answer'])->toBe('You can submit a service application from the Apply page. The form will guide you through the required customer information, service address, plan, and identity documents.');
 });
 
 test('programmed ticket response is returned for service issue questions', function () {
@@ -456,7 +522,66 @@ test('programmed ticket response is returned for service issue questions', funct
     $reply = app(SupportAiService::class)->generateSupportReply($customer, 'no internet');
 
     expect($reply['source'])->toBe('programmed')
-        ->and($reply['answer'])->toBe('You can submit a support ticket with your issue details. Our staff will review it and update the ticket status.');
+        ->and($reply['answer'])->toBe('Check that the modem or router has power and all cables are securely connected. Restart the router once. If service does not return, create a support ticket for investigation.');
+});
+
+test('expanded programmed matcher recognizes support intents without changing quick replies', function () {
+    Http::preventStrayRequests();
+
+    $customer = User::factory()->create(['role' => 'customer']);
+    $ai = app(SupportAiService::class);
+    $cases = [
+        'why was my application rejected?' => 'rejected_application',
+        'can I apply again?' => 'reapply',
+        'the scan id says it cannot read id' => 'ocr_id_reading',
+        'how do I upload id picture?' => 'id_upload',
+        'what documents do I need?' => 'application_requirements',
+        'it says I already applied' => 'duplicate_application',
+        'how do I track my application?' => 'application_status',
+        'I need a new connection' => 'apply_for_service',
+        'is the service available in my area?' => 'coverage_availability',
+        'the installer is not here' => 'technician_late',
+        'why is there no technician available?' => 'no_technician_available',
+        'can I change schedule?' => 'reschedule_installation',
+        'who is assigned to install it?' => 'technician_assigned',
+        'when is my installation date?' => 'installation_schedule',
+        'my ticket is not assigned' => 'ticket_queued',
+        'what is my ticket status?' => 'ticket_status',
+        'my internet keeps disconnecting' => 'intermittent_connection',
+        'the router has a red light' => 'router_issue',
+        'the connection is buffering' => 'slow_internet',
+        'I forgot my password' => 'forgot_password',
+        'I cannot login' => 'login_problem',
+        'where can I update profile?' => 'update_profile',
+        'there is nobody online' => 'no_staff_online',
+        'are you a bot?' => 'ai_limitations',
+        'please transfer chat to another staff member' => 'chat_transfer',
+        'this is an urgent issue' => 'emergency_urgent',
+        'I want to cancel installation' => 'cancellation',
+    ];
+
+    foreach ($cases as $message => $intent) {
+        $reply = $ai->generateSupportReply($customer, $message);
+        expect($reply['source'])->toBe('programmed')
+            ->and($reply['metadata']['intent'])->toBe($intent);
+    }
+
+    expect($ai->quickReplies())->toBe([
+        'What internet plans do you offer?',
+        'How long does installation take?',
+        'How do I track my application?',
+        'How do I file a support ticket?',
+        'What areas do you serve?',
+    ]);
+});
+
+test('short keywords use phrase boundaries instead of matching inside other words', function () {
+    Http::fake(fn () => throw new RuntimeException('Ollama unavailable'));
+
+    $customer = User::factory()->create(['role' => 'customer']);
+    $reply = app(SupportAiService::class)->generateSupportReply($customer, 'this question is outside the supported topics');
+
+    expect($reply['metadata']['intent'] ?? null)->not->toBe('greeting');
 });
 
 test('unknown questions fall back to the default support guidance when external ai is unavailable', function () {

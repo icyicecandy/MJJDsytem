@@ -99,8 +99,12 @@ class Ticket extends Model
     protected $fillable = [
         'user_id',
         'technician_id',
+        'assigned_staff_id',
         'assigned_at',
         'assignment_source',
+        'assignment_reason',
+        'assignment_changed_by',
+        'assignment_unavailable_since',
         'response_due_at',
         'appointment_date',
         'appointment_time',
@@ -150,7 +154,10 @@ class Ticket extends Model
         return [
             'appointment_date' => 'date',
             'appointment_changed_at' => 'datetime',
+            'assigned_staff_id' => 'integer',
+            'assignment_changed_by' => 'integer',
             'assigned_at' => 'datetime',
+            'assignment_unavailable_since' => 'datetime',
             'response_due_at' => 'datetime',
             'urgency_review_required' => 'boolean',
             'triaged_at' => 'datetime',
@@ -162,6 +169,12 @@ class Ticket extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (Ticket $ticket): void {
+            if ($ticket->isDirty('technician_id') && ! $ticket->isDirty('assigned_staff_id')) {
+                $ticket->assigned_staff_id = $ticket->technician_id;
+            }
+        });
+
         static::created(function (Ticket $ticket): void {
             if ($ticket->tracking_number) {
                 return;
@@ -197,6 +210,16 @@ class Ticket extends Model
         return $this->belongsTo(User::class, 'technician_id');
     }
 
+    public function assignedStaff()
+    {
+        return $this->belongsTo(User::class, 'assigned_staff_id');
+    }
+
+    public function assignmentChangedBy()
+    {
+        return $this->belongsTo(User::class, 'assignment_changed_by');
+    }
+
     public function reopenReviewer()
     {
         return $this->belongsTo(User::class, 'reopen_reviewed_by');
@@ -205,6 +228,11 @@ class Ticket extends Model
     public function messages()
     {
         return $this->hasMany(TicketMessage::class);
+    }
+
+    public function assignmentEvents()
+    {
+        return $this->hasMany(TicketAssignmentEvent::class)->latest();
     }
 
     public function scopePriorityOrdered($query)
@@ -217,19 +245,19 @@ class Ticket extends Model
     public function scopeQueueOrdered($query)
     {
         return $query
-            ->orderByRaw("CASE WHEN technician_id IS NULL AND status IN ('open', 'queued') THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN assigned_staff_id IS NULL AND status IN ('open', 'queued') THEN 0 ELSE 1 END")
             ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 WHEN status IN ('open', 'queued') THEN 1 ELSE 2 END")
             ->priorityOrdered();
     }
 
     public function scopeAssignedTo($query, User $user)
     {
-        return $query->where('technician_id', $user->id);
+        return $query->where('assigned_staff_id', $user->id);
     }
 
     public function isQueued(): bool
     {
-        return $this->technician_id === null && in_array($this->status, [self::STATUS_OPEN, self::STATUS_QUEUED], true);
+        return $this->assigned_staff_id === null && in_array($this->status, [self::STATUS_OPEN, self::STATUS_QUEUED], true);
     }
 
     public function displayStatusLabel(): string
@@ -239,7 +267,7 @@ class Ticket extends Model
         }
 
         return $this->status === self::STATUS_QUEUED
-            ? 'Open'
+            ? 'Queued – Waiting for On-Duty Technician'
             : ucfirst(str_replace('_', ' ', $this->status));
     }
 
@@ -413,6 +441,7 @@ class Ticket extends Model
 
         return [
             'technician_id' => $technicianId,
+            'assigned_staff_id' => $technicianId,
             'status' => $status,
         ];
     }

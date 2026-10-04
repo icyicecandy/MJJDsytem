@@ -108,7 +108,7 @@
             : '';
         const time = notification.time ? `<div class="notifications-page-time">${escapeHtml(notification.time)}</div>` : '';
 
-        return `<a href="${escapeHtml(notification.url)}" class="notifications-page-item notifications-compact-item${unreadClass}" data-notification-item data-notification-unread="${unreadValue}">
+        return `<a href="${escapeHtml(notification.url)}" class="notifications-page-item notifications-compact-item${unreadClass}" data-notification-item data-notification-unread="${unreadValue}" data-notification-date="${escapeHtml(notification.date_key || '')}" data-notification-date-label="${escapeHtml(notification.date_label || 'Earlier')}">
             <div class="notifications-compact-dot-wrap">
                 <span class="notifications-compact-dot${notification.is_unread ? ' is-unread' : ''}"></span>
             </div>
@@ -151,6 +151,23 @@
         let overlayFilter = 'all';
         let overlayTrigger = null;
 
+        groupOverlayNotifications();
+
+        function groupOverlayNotifications() {
+            if (!notificationsOverlayList) return;
+            notificationsOverlayList.querySelectorAll('[data-notification-date-heading]').forEach(heading => heading.remove());
+            let previousDate = null;
+            notificationsOverlayList.querySelectorAll('[data-notification-item]').forEach(item => {
+                const date = item.dataset.notificationDate || 'earlier';
+                if (date === previousDate) return;
+                previousDate = date;
+                const heading = document.createElement('div');
+                heading.className = 'notifications-date-heading';
+                heading.dataset.notificationDateHeading = date;
+                heading.textContent = item.dataset.notificationDateLabel || 'Earlier';
+                notificationsOverlayList.insertBefore(heading, item);
+            });
+        }
         function applyOverlayFilter() {
             if (!notificationsOverlayList) {
                 return;
@@ -169,6 +186,18 @@
                 if (show) visibleCount += 1;
             });
 
+            notificationsOverlayList.querySelectorAll('[data-notification-date-heading]').forEach(heading => {
+                let sibling = heading.nextElementSibling;
+                let hasVisibleItem = false;
+                while (sibling && !sibling.hasAttribute('data-notification-date-heading')) {
+                    if (sibling.hasAttribute('data-notification-item') && sibling.style.display !== 'none') {
+                        hasVisibleItem = true;
+                        break;
+                    }
+                    sibling = sibling.nextElementSibling;
+                }
+                heading.hidden = !hasVisibleItem;
+            });
             if (overlayFilterEmpty) {
                 overlayFilterEmpty.hidden = items.length === 0 || visibleCount > 0;
             }
@@ -205,6 +234,7 @@
                     ? overlayNotifications.map(renderOverlayNotificationItem).join('')
                     : '<div class="notif-empty">No notifications yet.</div>';
 
+                groupOverlayNotifications();
                 applyOverlayFilter();
             }
         }
@@ -534,6 +564,23 @@
                         cell.setAttribute('data-mobile-label', labels[index] || 'Details');
                     }
                 });
+
+                if (table.hasAttribute('data-mobile-cards-expandable') && row.querySelector('[data-mobile-secondary]')) {
+                    const toggleCell = document.createElement('td');
+                    toggleCell.className = 'mobile-card-toggle';
+                    toggleCell.setAttribute('data-mobile-label', 'More');
+                    const toggle = document.createElement('button');
+                    toggle.type = 'button';
+                    toggle.textContent = 'More details';
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.addEventListener('click', () => {
+                        const expanded = row.classList.toggle('is-expanded');
+                        toggle.setAttribute('aria-expanded', String(expanded));
+                        toggle.textContent = expanded ? 'Less details' : 'More details';
+                    });
+                    toggleCell.appendChild(toggle);
+                    row.appendChild(toggleCell);
+                }
             });
             table.classList.add('mobile-card-ready');
             table.closest('.table-wrap')?.classList.add('mobile-card-wrap');
@@ -750,3 +797,10 @@
         initNotificationCenter();
     });
 })();
+// Shared confirmation for high-impact administrator forms.
+document.addEventListener('submit', (event) => {
+    const form = event.target.closest('form[data-confirm]');
+    if (form && !window.confirm(form.dataset.confirm || 'Continue?')) {
+        event.preventDefault();
+    }
+});

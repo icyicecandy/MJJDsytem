@@ -68,9 +68,10 @@ class CustomerController extends Controller
         ]);
 
         $customer->load([
+            'disabledBy',
             'application.installation.technician',
             'tickets' => fn ($query) => $query
-                ->with('technician')
+                ->with('assignedStaff')
                 ->latest()
                 ->take(10),
         ]);
@@ -80,5 +81,53 @@ class CustomerController extends Controller
         $latestTicket = $customer->tickets->first();
 
         return view('admin.customers.show', compact('customer', 'application', 'installation', 'latestTicket'));
+    }
+
+    public function disableAccount(Request $request, User $customer)
+    {
+        abort_unless($customer->isCustomer(), 404);
+
+        $validated = $request->validate([
+            'disabled_reason' => ['required', 'string', 'max:1000'],
+        ], [
+            'disabled_reason.required' => 'Please record why this customer account is being disabled.',
+        ]);
+
+        $customer->forceFill([
+            'disabled_at' => $customer->disabled_at ?: now(),
+            'disabled_by' => $request->user()->id,
+            'disabled_reason' => trim($validated['disabled_reason']),
+            'is_online' => false,
+            'chat_available' => false,
+            'last_seen' => null,
+        ])->save();
+
+        system_log(
+            'Customer Account Disabled',
+            $customer->displayCustomerRecordId().' was disabled. Reason: '.$customer->disabled_reason
+        );
+
+        return redirect()
+            ->route('admin.customers.show', $customer)
+            ->with('status', 'customer-disabled');
+    }
+
+    public function enableAccount(User $customer)
+    {
+        abort_unless($customer->isCustomer(), 404);
+
+        $customerReference = $customer->displayCustomerRecordId();
+
+        $customer->forceFill([
+            'disabled_at' => null,
+            'disabled_by' => null,
+            'disabled_reason' => null,
+        ])->save();
+
+        system_log('Customer Account Enabled', $customerReference.' was enabled.');
+
+        return redirect()
+            ->route('admin.customers.show', $customer)
+            ->with('status', 'customer-enabled');
     }
 }

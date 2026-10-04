@@ -1,10 +1,11 @@
 @push('styles')
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="stylesheet" href="{{ asset('css/application-camera.css') }}?v={{ filemtime(public_path('css/application-camera.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/application-id-verification.css') }}?v={{ filemtime(public_path('css/application-id-verification.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/application-draft.css') }}?v={{ filemtime(public_path('css/application-draft.css')) }}">
 @endpush
 @push('scripts')
-    <script defer src="{{ asset('js/application-camera.js') }}?v={{ filemtime(public_path('js/application-camera.js')) }}"></script>
+    <script defer src="{{ asset('js/application-id-capture.js') }}?v={{ filemtime(public_path('js/application-id-capture.js')) }}"></script>
     <script defer src="{{ asset('js/application-draft.js') }}?v={{ filemtime(public_path('js/application-draft.js')) }}"></script>
 @endpush
 
@@ -13,6 +14,9 @@
         $draft = $draft ?? null;
         $formApplication = $draft ? (object) array_map(fn ($value) => $value ?? '', $draft->payload) : $application;
         $draftPhotoUrl = $draft?->photoUrl();
+        $draftIdImageUrl = $draft?->idImageUrl();
+        $validIdTypes = $validIdTypes ?? \App\Support\ApplicationIdentity::types();
+        $selectedValidIdType = old('valid_id_type', $formApplication->valid_id_type ?? '');
         $regions = $addressCatalog ?? [];
         $currentLat = old('lat', $formApplication->lat ?? null);
         $currentLng = old('lng', $formApplication->lng ?? null);
@@ -37,12 +41,12 @@
     <div class="apply-wizard-shell">
         <section class="apply-draft-bar" aria-label="Application draft">
             <div>
-                <strong>{{ $draft ? 'Your saved application draft has been restored.' : 'Need to finish later?' }}</strong>
-                <p>Save your progress before leaving. Drafts are private and expire 30 days after your last save.</p>
-                <p id="applicationDraftStatus" role="status" aria-live="polite">{{ $draft ? 'Last saved: ' . $draft->updated_at->format('M d, Y h:i A') : 'Your application is submitted only when you select Submit Application.' }}</p>
+                <strong>{{ $draft ? 'Your saved application draft has been restored.' : 'Your progress is saved automatically.' }}</strong>
+                <p>Your progress saves automatically as you complete the form. Drafts are private and expire 30 days after the latest save.</p>
+                <p id="applicationDraftStatus" role="status" aria-live="polite">{{ $draft ? 'Last saved: ' . $draft->updated_at->format('M d, Y h:i A') . '. Continue from where you left off.' : 'You can leave and return later. Your application is submitted only when you select Submit Application.' }}</p>
             </div>
             <div class="apply-draft-actions">
-                <button type="button" class="btn secondary" id="applicationDraftSave">Save draft</button>
+                <button type="button" class="btn secondary" id="applicationDraftSave">Save now</button>
                 <button type="button" class="apply-link-btn" id="applicationDraftDiscard" @disabled(!$draft)>Discard draft</button>
             </div>
         </section>
@@ -79,7 +83,7 @@
                 <div class="apply-form-grid">
                     <div class="apply-field">
                         <label for="first_name">First Name</label>
-                        <input id="first_name" type="text" name="first_name" value="{{ old('first_name', $formApplication->first_name ?? '') }}" required maxlength="100" pattern="^[A-Za-z][A-Za-z\s'\-]*$">
+                        <input id="first_name" type="text" name="first_name" value="{{ old('first_name', $formApplication->first_name ?? '') }}" required maxlength="100">
                         @error('first_name')
                             <span class="error">{{ $message }}</span>
                         @enderror
@@ -88,7 +92,7 @@
 
                     <div class="apply-field">
                         <label for="last_name">Last Name</label>
-                        <input id="last_name" type="text" name="last_name" value="{{ old('last_name', $formApplication->last_name ?? '') }}" required maxlength="100" pattern="^[A-Za-z][A-Za-z\s'\-]*$">
+                        <input id="last_name" type="text" name="last_name" value="{{ old('last_name', $formApplication->last_name ?? '') }}" required maxlength="100">
                         @error('last_name')
                             <span class="error">{{ $message }}</span>
                         @enderror
@@ -274,24 +278,83 @@
             <section class="panel-card apply-step-panel" data-panel="4">
                 <div class="apply-step-head">
                     <div>
-                        <h1>Upload Valid ID</h1>
-                        <p>Upload one clear photo of yourself holding your valid ID before submitting your application.</p>
+                        <h1>Verify Your Identity</h1>
+                        <p>Identify the government ID you are submitting, then provide two clear photos for administrator review.</p>
                     </div>
                 </div>
 
-                <div class="upload-field apply-upload-field">
-                    <label for="id_selfie_image">Customer holding valid ID</label>
-                    <p class="text-muted mt-1">Hold your valid ID beside your face so both are clearly visible. JPG, PNG, or WebP, up to 5 MB.</p>
-                    <div class="id-photo-actions">
-                    <input id="id_selfie_image" type="file" name="id_selfie_image" accept=".jpg,.jpeg,.png,.webp" data-saved-photo-url="{{ $draftPhotoUrl }}" @required(!$draftPhotoUrl)>
-                        <button type="button" class="btn secondary" id="idCameraOpen" aria-haspopup="dialog" aria-controls="idCameraDialog">Take photo</button>
-                    </div>
-                    <p id="idPhotoStatus" class="id-photo-status" role="status" aria-live="polite">{{ $draftPhotoUrl ? 'Your saved ID photo is ready. Choose File or Take photo to replace it.' : '' }}</p>
-                    <img id="idPhotoPreview" class="id-photo-preview" alt="Selected photo of you holding your ID" @if($draftPhotoUrl) src="{{ $draftPhotoUrl }}" @else hidden @endif>
-                    @error('id_selfie_image')
-                        <span class="error">{{ $message }}</span>
-                    @enderror
+                <div class="apply-id-intro">
+                    <strong>Prepare the original ID.</strong>
+                    <p>Use an accepted government-issued photo ID. It must be readable and not expired, where applicable.</p>
                 </div>
+
+                <div class="apply-id-details-grid">
+                    <div class="apply-id-field apply-id-field--full">
+                        <label for="valid_id_type">Type of valid ID</label>
+                        <select id="valid_id_type" name="valid_id_type" required>
+                            <option value="">Select government ID</option>
+                            @foreach($validIdTypes as $value => $label)
+                                <option value="{{ $value }}" @selected($selectedValidIdType === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        <small class="apply-id-help">Choose the ID shown in your photos. You do not need to type its number.</small>
+                        @error('valid_id_type')<span class="error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="apply-id-field apply-id-field--full" data-other-id-field @if($selectedValidIdType !== \App\Support\ApplicationIdentity::TYPE_OTHER) hidden @endif>
+                        <label for="valid_id_type_other">Name of government-issued ID</label>
+                        <input id="valid_id_type_other" name="valid_id_type_other" type="text" maxlength="80" value="{{ old('valid_id_type_other', $formApplication->valid_id_type_other ?? '') }}" placeholder="Example: PWD ID" @required($selectedValidIdType === \App\Support\ApplicationIdentity::TYPE_OTHER)>
+                        @error('valid_id_type_other')<span class="error">{{ $message }}</span>@enderror
+                    </div>
+                </div>
+
+                <div class="apply-id-photo-grid">
+                    <div class="upload-field apply-upload-field apply-id-photo-card">
+                        <label for="id_image">1. Close-up of valid ID</label>
+                        <p class="text-muted mt-1">Fill the frame with the ID. Keep the name, photo, ID number, and expiry date readable.</p>
+                        <div class="id-photo-actions">
+                            <input id="id_image" type="file" name="id_image" accept=".jpg,.jpeg,.png,.webp" data-saved-photo-url="{{ $draftIdImageUrl }}" @required(!$draftIdImageUrl)>
+                            <button type="button" class="btn secondary" data-id-camera-target="id_image" data-id-camera-status="idImageStatus" data-id-camera-preview="idImagePreview" data-id-camera-title="Take a close-up of your ID" data-id-camera-help="Place the ID on a flat surface, avoid glare, and fill the camera frame." data-id-camera-facing="environment" data-id-camera-filename="id-close-up" aria-haspopup="dialog" aria-controls="idCameraDialog">Take photo</button>
+                        </div>
+                        <p id="idImageStatus" class="id-photo-status" role="status" aria-live="polite">{{ $draftIdImageUrl ? 'Your saved close-up ID photo is ready.' : '' }}</p>
+                        <img id="idImagePreview" class="id-photo-preview" alt="Selected close-up of valid ID" @if($draftIdImageUrl) src="{{ $draftIdImageUrl }}" @else hidden @endif>
+                        @error('id_image')<span class="error">{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="upload-field apply-upload-field apply-id-photo-card">
+                        <label for="id_selfie_image">2. Customer holding valid ID</label>
+                        <p class="text-muted mt-1">Hold the same ID beside your face so both your face and the document are visible.</p>
+                        <div class="id-photo-actions">
+                            <input id="id_selfie_image" type="file" name="id_selfie_image" accept=".jpg,.jpeg,.png,.webp" data-saved-photo-url="{{ $draftPhotoUrl }}" @required(!$draftPhotoUrl)>
+                            <button type="button" class="btn secondary" data-id-camera-target="id_selfie_image" data-id-camera-status="idPhotoStatus" data-id-camera-preview="idPhotoPreview" data-id-camera-title="Take a photo while holding your ID" data-id-camera-help="Hold the ID beside your face and keep both clearly visible." data-id-camera-facing="user" data-id-camera-filename="holding-id" aria-haspopup="dialog" aria-controls="idCameraDialog">Take photo</button>
+                        </div>
+                        <p id="idPhotoStatus" class="id-photo-status" role="status" aria-live="polite">{{ $draftPhotoUrl ? 'Your saved holding-ID photo is ready.' : '' }}</p>
+                        <img id="idPhotoPreview" class="id-photo-preview" alt="Selected photo of you holding your ID" @if($draftPhotoUrl) src="{{ $draftPhotoUrl }}" @else hidden @endif>
+                        @error('id_selfie_image')<span class="error">{{ $message }}</span>@enderror
+                    </div>
+                </div>
+
+                <section class="apply-id-assistance" aria-labelledby="idAssistanceTitle">
+                    <div class="apply-id-assistance__heading">
+                        <div>
+                            <span class="apply-id-assistance__eyebrow">Verification assistance</span>
+                            <strong id="idAssistanceTitle">What the system checks for you</strong>
+                        </div>
+                        <span class="apply-id-assistance__badge">No ID-number typing</span>
+                    </div>
+                    <p class="apply-id-assistance__status">Your uploads are checked before review. An administrator makes the final decision by comparing the application with both photos.</p>
+                    <div class="apply-id-assistance__results">
+                        <div class="apply-id-assistance__result">
+                            <span>Upload checks</span>
+                            <strong>Format, size, and basic image quality</strong>
+                        </div>
+                        <div class="apply-id-assistance__result">
+                            <span>Reuse warning</span>
+                            <strong>Exact duplicate close-up image detection</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <p class="apply-id-privacy">Only authorized administrators can review these photos. The system does not ask you or the administrator to separately encode the ID number.</p>
 
                 <div class="apply-step-actions between">
                     <button type="button" class="apply-link-btn" data-prev-step="3" onclick="return window.customerApplyWizardPrev ? window.customerApplyWizardPrev(3) : false;">Back</button>
@@ -313,6 +376,8 @@
                     <div class="tracking-meta"><strong>Address</strong><span id="reviewAddress">-</span></div>
                     <div class="tracking-meta"><strong>Location Pin</strong><span id="reviewPin">Not set</span></div>
                     <div class="tracking-meta"><strong>Plan</strong><span id="reviewPlan">-</span></div>
+                    <div class="tracking-meta"><strong>ID type</strong><span id="reviewIdType">Required</span></div>
+                    <div class="tracking-meta"><strong>ID close-up</strong><span id="reviewIdImage">Required</span></div>
                     <div class="tracking-meta"><strong>ID held by customer</strong><span id="reviewIdSelfie">Required</span></div>
                 </div>
 
@@ -324,16 +389,20 @@
         </form>
         <dialog id="idCameraDialog" class="id-camera" aria-labelledby="idCameraTitle" aria-describedby="idCameraHelp">
             <div class="id-camera-heading">
-                <h2 id="idCameraTitle">Take your ID photo</h2>
+                <h2 id="idCameraTitle">Take ID photo</h2>
                 <button type="button" class="btn secondary" id="idCameraClose" aria-label="Close camera">Close</button>
             </div>
-            <p id="idCameraHelp">Hold your valid ID beside your face. Keep the text readable and your face visible.</p>
+            <p id="idCameraHelp">Follow the instructions shown for this photo.</p>
             <p id="idCameraStatus" class="id-photo-status" role="status" aria-live="polite"></p>
             <div class="id-camera-stage">
                 <video id="idCameraVideo" autoplay muted playsinline aria-label="Live camera preview"></video>
                 <img id="idCameraSnapshot" alt="Captured photo to review" hidden>
             </div>
             <div class="id-camera-actions">
+                <button type="button" class="btn secondary id-camera-flip" id="idCameraFlip" hidden aria-label="Switch between front and rear camera">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h7.2l-1.6-1.6L14 4l4 4-4 4-1.4-1.4L14.2 9H7a3 3 0 0 0-3 3c0 .7.2 1.4.7 2L3.2 15.3A5 5 0 0 1 7 7Zm10 10H9.8l1.6 1.6L10 20l-4-4 4-4 1.4 1.4L9.8 15H17a3 3 0 0 0 3-3c0-.7-.2-1.4-.7-2l1.5-1.3A5 5 0 0 1 17 17Z"/></svg>
+                    <span>Switch camera</span>
+                </button>
                 <button type="button" class="btn secondary" id="idCameraRetake" hidden>Retake</button>
                 <button type="button" class="btn" id="idCameraCapture" disabled>Capture photo</button>
                 <button type="button" class="btn" id="idCameraUse" hidden>Use this photo</button>
@@ -356,7 +425,11 @@
         const addressSummary = document.getElementById('applyAddressSummary');
         const statusText = document.getElementById('applyMapStatus');
         const mapElement = document.getElementById('customerApplyMap');
+        const idImageInput = document.getElementById('id_image');
         const idSelfieInput = document.getElementById('id_selfie_image');
+        const validIdTypeInput = document.getElementById('valid_id_type');
+        const validIdOtherInput = document.getElementById('valid_id_type_other');
+        const otherIdField = document.querySelector('[data-other-id-field]');
         const firstNameInput = document.getElementById('first_name');
         const lastNameInput = document.getElementById('last_name');
         const emailInput = document.getElementById('email');
@@ -637,7 +710,13 @@
             setText('reviewAddress', currentAddressParts().join(', ') || '-');
             setText('reviewPin', latInput && lngInput && latInput.value && lngInput.value ? `${latInput.value}, ${lngInput.value}` : 'Not set');
             setText('reviewPlan', checkedPlan ? checkedPlan.value.replace('_', ' ') : '-');
-            setText('reviewIdSelfie', idSelfieInput && idSelfieInput.files.length ? idSelfieInput.files[0].name : (idSelfieInput?.dataset.savedPhotoUrl ? 'Saved ID photo' : 'Required'));
+            const selectedIdOption = validIdTypeInput?.selectedOptions?.[0];
+            const selectedIdLabel = validIdTypeInput?.value === 'other_government_id' && validIdOtherInput?.value.trim()
+                ? validIdOtherInput.value.trim()
+                : selectedIdOption?.textContent;
+            setText('reviewIdType', selectedIdLabel || 'Required');
+            setText('reviewIdImage', idImageInput && idImageInput.files.length ? idImageInput.files[0].name : (idImageInput?.dataset.savedPhotoUrl ? 'Saved close-up photo' : 'Required'));
+            setText('reviewIdSelfie', idSelfieInput && idSelfieInput.files.length ? idSelfieInput.files[0].name : (idSelfieInput?.dataset.savedPhotoUrl ? 'Saved holding-ID photo' : 'Required'));
             updateAddressSummary();
         }
 
@@ -745,7 +824,7 @@
         }
 
         function validateUploadStep() {
-            for (const field of [idSelfieInput]) {
+            for (const field of [validIdTypeInput, validIdOtherInput, idImageInput, idSelfieInput]) {
                 if (field && !field.checkValidity()) {
                     field.reportValidity();
                     return false;
@@ -1456,15 +1535,19 @@
             });
         });
 
+        if (validIdTypeInput && otherIdField && validIdOtherInput) {
+            const updateOtherIdField = () => {
+                const visible = validIdTypeInput.value === 'other_government_id';
+                otherIdField.hidden = !visible;
+                validIdOtherInput.required = visible;
+                if (!visible) validIdOtherInput.setCustomValidity('');
+                updateReview();
+            };
+            validIdTypeInput.addEventListener('change', updateOtherIdField);
+            updateOtherIdField();
+        }
+
         updateReview();
         setStep(currentStep);
     })();
 </script>
-
-
-
-
-
-
-
-

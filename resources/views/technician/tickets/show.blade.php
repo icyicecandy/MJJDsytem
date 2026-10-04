@@ -11,7 +11,7 @@
     $isClosed = $ticket->status === \App\Models\Ticket::STATUS_CLOSED;
     $isCancelled = $ticket->isCancelled();
     $isReadOnly = $ticket->isReadOnly();
-    $assignedStaff = optional($ticket->technician)->name ?? 'Unassigned Queue';
+    $assignedStaff = optional($ticket->assignedStaff)->name ?? 'Unassigned Queue';
     $statusHelper = match ($ticket->status) {
         \App\Models\Ticket::STATUS_RESOLVED => 'Waiting for customer confirmation',
         \App\Models\Ticket::STATUS_CANCELLATION_REQUESTED => 'Customer requested cancellation. Waiting for admin decision',
@@ -24,7 +24,7 @@
 
 <div class="ticket-detail-page">
     <div class="ticket-detail-backline">
-        <a href="{{ route('technician.tickets.index') }}" class="btn secondary">Back to Tickets</a>
+        <a href="{{ route('technician.tickets.index') }}" class="btn secondary">&larr; Back to Tickets</a>
     </div>
 
     <div class="ticket-detail-layout">
@@ -53,12 +53,13 @@
                 />
             </section>
 
-            <section class="ticket-detail-card">
+            <section class="ticket-detail-card ticket-conversation-card">
                 <div class="ticket-detail-section-head">
                     <div>
                         <h2>Conversation</h2>
-                        <p>Keep customer updates and internal workflow events in one timeline.</p>
+                        <p>Customer messages and workflow updates in chronological order.</p>
                     </div>
+                    <span class="ticket-section-count">{{ $ticket->messages->count() }} {{ $ticket->messages->count() === 1 ? 'update' : 'updates' }}</span>
                 </div>
 
                 <div class="ticket-timeline">
@@ -75,7 +76,10 @@
                                 || str_starts_with($messageText, 'Customer cancelled this ticket')
                                 || str_starts_with($messageText, 'Customer requested ticket cancellation')
                                 || str_starts_with($messageText, 'Admin approved ticket cancellation')
-                                || str_starts_with($messageText, 'Admin rejected cancellation request');
+                                || str_starts_with($messageText, 'Admin rejected cancellation request')
+                                || str_starts_with($messageText, 'Ticket queue updated')
+                                || str_starts_with($messageText, 'Administrator started work')
+                                || str_starts_with($messageText, 'Administrator marked this ticket as resolved');
                             $messageClass = $isSystemMessage ? 'is-system' : ($isCustomerMessage ? 'is-customer' : 'is-staff');
                         @endphp
                         <article class="ticket-message-row {{ $messageClass }}">
@@ -104,15 +108,15 @@
             <section class="ticket-detail-card ticket-reply-card">
                 <div class="ticket-detail-section-head">
                     <div>
-                        <h2>Reply</h2>
+                        <h2>Reply to ticket</h2>
                         <p>{{ $isReadOnly ? 'Replies are disabled because this ticket is closed or cancelled.' : 'Send a clear update to the customer.' }}</p>
                     </div>
                 </div>
 
                 @if(! $isReadOnly)
-                    <form method="POST" action="{{ route('technician.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form">
+                    <form method="POST" action="{{ route('technician.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form" data-unsaved-warning>
                         @csrf
-                        <textarea name="message" rows="5" placeholder="Type your reply..."></textarea>
+                        <textarea name="message" rows="3" placeholder="Write a clear update for the customer..."></textarea>
                         <label for="technician_ticket_attachment">Attachments <span class="field-badge optional">Optional</span></label>
                         <input id="technician_ticket_attachment" type="file" name="ticket_attachments[]" accept=".jpg,.jpeg,.png,.webp" multiple>
                         @error('ticket_attachment')
@@ -138,8 +142,8 @@
 
         <aside class="ticket-detail-sidebar">
             <section class="ticket-detail-card ticket-sidebar-card">
-                <h2>Ticket Info</h2>
-                <dl class="ticket-meta-list">
+                <h2>Ticket details</h2>
+                <dl class="ticket-meta-list ticket-meta-list--compact">
                     <div>
                         <dt>Customer</dt>
                         <dd>{{ $ticket->user->name }}</dd>
@@ -148,18 +152,7 @@
                         <dt>Submitted</dt>
                         <dd>{{ $ticket->created_at->displayDateTime('F d, Y h:i A') }}</dd>
                     </div>
-                    <div>
-                        <dt>Urgency</dt>
-                        <dd><span class="badge urgency-{{ $ticket->displayUrgencyClass() }}">{{ $ticket->displayUrgencyLabel() }}</span></dd>
-                    </div>
-                    <div>
-                        <dt>Status</dt>
-                        <dd><span class="badge {{ $ticket->displayStatusClass() }}">{{ $ticket->displayStatusLabel() }}</span></dd>
-                    </div>
-                    <div>
-                        <dt>Assigned Staff</dt>
-                        <dd>{{ $assignedStaff }}</dd>
-                    </div>
+
                     <div>
                         <dt>Response target ({{ config('app.timezone') }})</dt>
                         <dd>{{ $ticket->responseTargetLabel() }}</dd>
@@ -167,8 +160,9 @@
                 </dl>
             </section>
 
-            <section class="ticket-detail-card ticket-sidebar-card">
-                <h2>Work Action</h2>
+            <section class="ticket-detail-card ticket-sidebar-card ticket-status-card">
+                <h2>Work status</h2>
+                <p class="ticket-workflow-state">{{ $statusHelper }}.</p>
                 @if($isOpen)
                     <form method="POST" action="{{ route('technician.tickets.start', $ticket) }}" class="ticket-action-form">
                         @csrf
@@ -195,11 +189,6 @@
                 @endif
             </section>
 
-            <section class="ticket-detail-card ticket-sidebar-card">
-                <h2>Workflow</h2>
-                <p class="ticket-sidebar-note">{{ $statusHelper }}.</p>
-                <p class="ticket-sidebar-note">Only start tickets when work begins, then resolve with concise notes once the issue is handled.</p>
-            </section>
         </aside>
     </div>
 </div>

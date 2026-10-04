@@ -8,9 +8,11 @@
     <title>@yield('title', 'MJJD Telecom')</title>
     <link rel="stylesheet" href="{{ asset('css/auth.css') }}?v={{ filemtime(public_path('css/auth.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/consent.css') }}?v={{ filemtime(public_path('css/consent.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/ui-system.css') }}?v={{ filemtime(public_path('css/ui-system.css')) }}">
     @stack('styles')
     <script defer src="{{ asset('js/auth.js') }}?v={{ filemtime(public_path('js/auth.js')) }}"></script>
     <script defer src="{{ asset('js/consent.js') }}?v={{ filemtime(public_path('js/consent.js')) }}"></script>
+    <script defer src="{{ asset('js/ui-system.js') }}?v={{ filemtime(public_path('js/ui-system.js')) }}"></script>
 </head>
 @php($isRegisterPage = request()->routeIs('register'))
 <body class="auth-layout {{ $isRegisterPage ? 'auth-register-page' : 'auth-login-page' }}">
@@ -50,5 +52,3 @@
     @stack('scripts')
 </body>
 </html>
-
-

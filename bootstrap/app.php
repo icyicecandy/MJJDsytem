@@ -1,5 +1,10 @@
 <?php
 
+use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureCustomerEmailIsVerified;
+use App\Http\Middleware\EnsurePasswordIsChanged;
+use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\TrackStaffPresence;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,9 +17,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'account.active' => \App\Http\Middleware\EnsureAccountIsActive::class,
-            'role' => \App\Http\Middleware\RoleMiddleware::class,
-            'track.staff.presence' => \App\Http\Middleware\TrackStaffPresence::class,
+            'account.active' => EnsureAccountIsActive::class,
+            'customer.verified' => EnsureCustomerEmailIsVerified::class,
+            'role' => RoleMiddleware::class,
+            'track.staff.presence' => TrackStaffPresence::class,
+        ]);
+
+        $middleware->web(append: [
+            EnsurePasswordIsChanged::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => url('/'));

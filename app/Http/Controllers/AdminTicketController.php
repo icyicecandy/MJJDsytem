@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Ticket;
 use App\Models\User;
-use App\Services\TechnicianSchedule;
 use App\Services\TicketAssignmentService;
 use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
@@ -33,7 +32,7 @@ class AdminTicketController extends Controller
             $selectedTechnician = 'all';
         }
 
-        $ticketsQuery = Ticket::with(['user', 'technician'])
+        $ticketsQuery = Ticket::with(['user', 'assignedStaff'])
             ->queueOrdered();
 
         if ($search !== '') {
@@ -51,18 +50,18 @@ class AdminTicketController extends Controller
         }
 
         if ($selectedTechnician === 'unassigned') {
-            $ticketsQuery->whereNull('technician_id');
+            $ticketsQuery->whereNull('assigned_staff_id');
         } elseif ($selectedTechnician !== 'all') {
-            $ticketsQuery->where('technician_id', (int) $selectedTechnician);
+            $ticketsQuery->where('assigned_staff_id', (int) $selectedTechnician);
         }
 
         if ($selectedStatus === 'unassigned') {
             $ticketsQuery
-                ->whereNull('technician_id')
+                ->whereNull('assigned_staff_id')
                 ->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED]);
         } elseif ($selectedStatus === 'open' || $selectedStatus === 'queued') {
             $ticketsQuery
-                ->whereNotNull('technician_id')
+                ->whereNotNull('assigned_staff_id')
                 ->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED]);
         } elseif ($selectedStatus === 'in_progress') {
             $ticketsQuery->where('status', Ticket::STATUS_IN_PROGRESS);
@@ -76,19 +75,10 @@ class AdminTicketController extends Controller
 
         $tickets = $ticketsQuery->get();
 
-        $technicians = User::where('role', 'technician')->whereNull('disabled_at')
-            ->withCount([
-                'assignedTickets as active_ticket_load' => fn ($query) => $query->whereIn('status', [
-                    Ticket::STATUS_OPEN,
-                    Ticket::STATUS_QUEUED,
-                    Ticket::STATUS_IN_PROGRESS,
-                ]),
-            ])
-            ->orderBy('active_ticket_load')
-            ->orderBy('name')
-            ->get();
+        $assignees = $this->assignmentCandidates();
+        $nextAutomaticAssignmentAt = app(TicketAssignmentService::class)->nextEligibleShiftAt();
 
-        $filterTechnicians = User::where('role', 'technician')
+        $filterTechnicians = User::whereIn('role', ['admin', 'technician'])
             ->orderBy('name')
             ->get(['id', 'name', 'disabled_at']);
 
@@ -107,22 +97,22 @@ class AdminTicketController extends Controller
             $summaryQuery->where('urgency', $selectedUrgency);
         }
         if ($selectedTechnician === 'unassigned') {
-            $summaryQuery->whereNull('technician_id');
+            $summaryQuery->whereNull('assigned_staff_id');
         } elseif ($selectedTechnician !== 'all') {
-            $summaryQuery->where('technician_id', (int) $selectedTechnician);
+            $summaryQuery->where('assigned_staff_id', (int) $selectedTechnician);
         }
 
         $queueSummary = [
             'unassigned' => (clone $summaryQuery)
-                ->whereNull('technician_id')
+                ->whereNull('assigned_staff_id')
                 ->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED])
                 ->count(),
             'open' => (clone $summaryQuery)
-                ->whereNotNull('technician_id')
+                ->whereNotNull('assigned_staff_id')
                 ->whereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED])
                 ->count(),
             'in_progress' => (clone $summaryQuery)
-                ->whereNotNull('technician_id')
+                ->whereNotNull('assigned_staff_id')
                 ->where('status', Ticket::STATUS_IN_PROGRESS)
                 ->count(),
             'resolved' => (clone $summaryQuery)->where('status', Ticket::STATUS_RESOLVED)->count(),
@@ -132,38 +122,53 @@ class AdminTicketController extends Controller
 
         return view('admin.tickets.index', compact(
             'tickets',
-            'technicians',
+            'assignees',
             'filterTechnicians',
             'queueSummary',
             'selectedStatus',
             'selectedUrgency',
             'selectedTechnician',
-            'search'
+            'search',
+            'nextAutomaticAssignmentAt'
         ));
     }
 
     public function update(Request $request, Ticket $ticket)
     {
+        $requestedAssigneeId = $request->boolean('take_over_ticket')
+            ? auth()->id()
+            : ($request->has('assigned_staff_id')
+                ? ($request->integer('assigned_staff_id') ?: null)
+                : ($request->integer('technician_id') ?: null));
+
         return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) use ($request) {
             return $this->updateWithinTransaction($request, $ticket);
-        }, $request->integer('technician_id') ?: null);
+        }, $requestedAssigneeId);
     }
 
     private function updateWithinTransaction(Request $request, Ticket $ticket)
     {
         $validated = $request->validate([
-            'technician_id' => 'nullable|integer|exists:users,id',
-            'admin_action' => 'nullable|in:save,close',
+            'assigned_staff_id' => ['nullable', 'integer', 'exists:users,id'],
+            'technician_id' => ['nullable', 'integer', 'exists:users,id'],
+            'admin_action' => ['nullable', Rule::in(['save', 'close'])],
+            'take_over_ticket' => ['sometimes', 'accepted'],
             'urgency' => ['nullable', Rule::in(Ticket::URGENCY_LEVELS)],
+            'assignment_reason' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $previousTechnicianId = $ticket->technician_id;
-        $previousTechnician = $ticket->technician;
+        $ticket->loadMissing('assignedStaff', 'technician', 'user');
+        $previousStaffId = $ticket->assigned_staff_id ?: $ticket->technician_id;
+        $previousStaff = $ticket->assignedStaff ?: $ticket->technician;
         $previousStatus = $ticket->status;
         $previousUrgency = $ticket->urgency;
-        $technicianId = ($validated['technician_id'] ?? null) ?: null;
-        $technician = null;
+        $requestedAssigneeId = $request->boolean('take_over_ticket')
+            ? auth()->id()
+            : ($request->has('assigned_staff_id')
+                ? (($validated['assigned_staff_id'] ?? null) ?: null)
+                : (($validated['technician_id'] ?? null) ?: null));
         $adminAction = $validated['admin_action'] ?? 'save';
+        $reason = trim((string) ($validated['assignment_reason'] ?? ''));
 
         abort_if($ticket->status === Ticket::STATUS_CANCELLED, 422, 'Cancelled tickets cannot be updated.');
         abort_if($ticket->status === Ticket::STATUS_CANCELLATION_REQUESTED, 422, 'Review the cancellation request before updating this ticket.');
@@ -188,23 +193,53 @@ class AdminTicketController extends Controller
             $urgency = $validated['urgency'] ?? $ticket->urgency;
             if ($ticket->urgency_review_required && ! array_key_exists('urgency', $validated)) {
                 throw ValidationException::withMessages([
-                    'urgency' => 'Choose the urgency before releasing this ticket to the technician queue.',
+                    'urgency' => 'Choose the urgency before releasing this ticket to the support queue.',
                 ]);
             }
 
-            if ($technicianId) {
-                $technician = TechnicianSchedule::eligibleTechnician((int) $technicianId);
+            $assignmentService = app(TicketAssignmentService::class);
+            $assignee = $requestedAssigneeId
+                ? $assignmentService->manualAssignee((int) $requestedAssigneeId)
+                : null;
+            $assignmentChanged = (int) $previousStaffId !== (int) $requestedAssigneeId;
+
+            if ($previousStaffId && $assignmentChanged && $reason === '') {
+                throw ValidationException::withMessages([
+                    'assignment_reason' => 'Enter a reason for transferring or releasing this ticket.',
+                ]);
             }
 
+            if ($assignmentChanged && $ticket->status === Ticket::STATUS_IN_PROGRESS
+                && ! $request->boolean('confirm_in_progress_transfer')) {
+                throw ValidationException::withMessages([
+                    'confirm_in_progress_transfer' => 'Confirm that you intend to transfer work that is already in progress.',
+                ]);
+            }
+
+            $warnings = $assignee && $assignmentChanged
+                ? $assignmentService->manualAssignmentWarnings($assignee, $ticket)
+                : [];
+
+            if ($warnings !== [] && ! $request->boolean('confirm_assignment_override')) {
+                throw ValidationException::withMessages([
+                    'confirm_assignment_override' => implode(' ', $warnings).' Confirm the override to continue.',
+                ]);
+            }
 
             $urgencyChanged = $urgency !== $previousUrgency || $ticket->urgency_review_required;
-            $nextStatus = $technicianId
-                ? ($ticket->status === Ticket::STATUS_IN_PROGRESS ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_OPEN)
-                : Ticket::STATUS_QUEUED;
+            $source = $assignee
+                ? ($assignee->isAdmin() ? 'admin_takeover' : 'manual')
+                : null;
+            $storedReason = $reason !== ''
+                ? $reason
+                : ($assignee ? 'Initial manual assignment by administrator.' : 'Released to the automatic priority queue.');
 
             $ticket->forceFill([
-                'technician_id' => $technicianId,
-                'status' => $nextStatus,
+                'assigned_staff_id' => $assignee?->id,
+                'technician_id' => $assignee?->isTechnician() ? $assignee->id : null,
+                'status' => $assignee
+                    ? ($ticket->status === Ticket::STATUS_IN_PROGRESS ? Ticket::STATUS_IN_PROGRESS : Ticket::STATUS_OPEN)
+                    : Ticket::STATUS_QUEUED,
                 'urgency' => $urgency,
                 'urgency_review_required' => false,
                 'triaged_at' => $urgencyChanged ? now() : $ticket->triaged_at,
@@ -212,32 +247,41 @@ class AdminTicketController extends Controller
                 'response_due_at' => $urgencyChanged
                     ? Ticket::responseDueAtForUrgency($urgency)
                     : ($ticket->response_due_at ?: Ticket::responseDueAtForUrgency($urgency, $ticket->created_at)),
-                'assigned_at' => $technicianId !== $previousTechnicianId
-                    ? ($technicianId ? now() : null)
-                    : $ticket->assigned_at,
-                'assignment_source' => $technicianId !== $previousTechnicianId
-                    ? ($technicianId ? 'manual' : null)
-                    : $ticket->assignment_source,
+                'assigned_at' => $assignmentChanged ? ($assignee ? now() : null) : $ticket->assigned_at,
+                'assignment_source' => $assignmentChanged ? $source : $ticket->assignment_source,
+                'assignment_reason' => $assignmentChanged ? $storedReason : $ticket->assignment_reason,
+                'assignment_changed_by' => $assignmentChanged ? auth()->id() : $ticket->assignment_changed_by,
+                'assignment_unavailable_since' => $assignmentChanged ? null : $ticket->assignment_unavailable_since,
                 'appointment_date' => null,
                 'appointment_time' => null,
                 'appointment_change_reason' => null,
                 'appointment_changed_at' => null,
             ])->save();
 
-            $ticket->unsetRelation('technician');
-
-            if (! $ticket->technician_id) {
-                $technician = app(TicketAssignmentService::class)->assign($ticket, auth()->id(), 'automatic_after_triage');
-                $ticket->refresh()->load('technician');
-            } else {
-                $ticket->load('technician');
+            if ($assignmentChanged) {
+                $assignmentService->recordAssignmentEvent(
+                    $ticket,
+                    $previousStaffId,
+                    $assignee?->id,
+                    auth()->id(),
+                    $source ?: 'manual_queue',
+                    $storedReason
+                );
             }
 
-            $assignmentChanged = $previousTechnicianId !== $ticket->technician_id;
-            if ($assignmentChanged || $urgencyChanged) {
+            if (! $ticket->assigned_staff_id) {
+                $assignmentService->assign($ticket, auth()->id(), 'automatic_after_triage');
+            }
+
+            $ticket->refresh()->load('assignedStaff', 'technician');
+            $currentStaff = $ticket->assignedStaff ?: $ticket->technician;
+            $finalAssignmentChanged = (int) $previousStaffId !== (int) $ticket->assigned_staff_id;
+
+            if ($finalAssignmentChanged || $urgencyChanged) {
                 $message = 'Ticket queue updated. Priority: '.$ticket->displayUrgencyLabel()
-                    .'. Assignment: '.($previousTechnician?->name ?? 'Unassigned')
-                    .' to '.($ticket->technician?->name ?? 'Unassigned queue').'.';
+                    .'. Assignment: '.($previousStaff?->name ?? 'Unassigned')
+                    .' to '.($currentStaff?->name ?? 'Unassigned queue').'.'
+                    .($assignmentChanged ? ' Reason: '.$storedReason : '');
                 $ticket->messages()->create(['user_id' => auth()->id(), 'message' => $message]);
                 system_log('Ticket Queue Updated', $ticket->publicReference().': '.$message);
 
@@ -246,7 +290,7 @@ class AdminTicketController extends Controller
                         $ticket->user,
                         'Support ticket updated',
                         $ticket->publicReference().' priority is '.$ticket->displayUrgencyLabel()
-                            .'. Current assignment: '.($ticket->technician?->name ?? 'support queue').'.',
+                            .'. Current assignment: '.($currentStaff?->name ?? 'support queue').'.',
                         route('customer.tickets.show', $ticket),
                         'ticket_queue_updated',
                         ['ticket_id' => $ticket->id],
@@ -255,15 +299,28 @@ class AdminTicketController extends Controller
                 }
             }
 
-            if ($technician && $ticket->technician_id && $ticket->technician_id !== $previousTechnicianId
-                && $ticket->assignment_source === 'manual') {
+            if ($assignee && $assignmentChanged) {
                 AppNotificationSender::send(
-                    $technician,
-                    'New support ticket assigned',
-                    $ticket->publicReference().' ('.$ticket->displayUrgencyLabel().') was manually assigned to your queue.',
-                    route('technician.tickets.show', $ticket),
-                    'ticket_assigned',
+                    $assignee,
+                    $assignee->isAdmin() ? 'Support ticket taken over' : 'New support ticket assigned',
+                    $ticket->publicReference().' ('.$ticket->displayUrgencyLabel().') was assigned to you. Reason: '.$storedReason,
+                    route($assignee->isAdmin() ? 'admin.tickets.show' : 'technician.tickets.show', $ticket),
+                    $assignee->isAdmin() ? 'ticket_admin_takeover' : 'ticket_assigned',
                     ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference()],
+                    auth()->id()
+                );
+            }
+
+            if ($previousStaff && $assignmentChanged && (int) $previousStaff->id !== (int) $assignee?->id
+                && ! $previousStaff->isDisabled()) {
+                AppNotificationSender::send(
+                    $previousStaff,
+                    'Support ticket transferred',
+                    $ticket->publicReference().' was transferred to '.($currentStaff?->name ?? 'the support queue')
+                        .'. Reason: '.$storedReason,
+                    route($previousStaff->isAdmin() ? 'admin.tickets.show' : 'technician.tickets.index', $ticket),
+                    'ticket_transferred',
+                    ['ticket_id' => $ticket->id],
                     auth()->id()
                 );
             }
@@ -294,29 +351,110 @@ class AdminTicketController extends Controller
             CustomerEmailSender::sendTicketStatusUpdated($ticket);
         }
 
+        $successMessage = match (true) {
+            $adminAction === 'close' => 'Ticket closed successfully.',
+            $request->boolean('take_over_ticket') => 'Ticket taken over successfully. You are now the assigned handler.',
+            default => 'Ticket priority and support assignment updated successfully.',
+        };
+
         return redirect()
             ->route('admin.tickets.index')
-            ->with('success', $adminAction === 'close'
-                ? 'Ticket closed successfully.'
-                : 'Ticket priority and queue assignment updated successfully.');
+            ->with('success', $successMessage);
     }
 
     public function show(Ticket $ticket)
     {
-        $ticket->load('messages.user', 'user', 'technician', 'reopenReviewer');
-        $technicians = User::where('role', 'technician')->whereNull('disabled_at')
-            ->withCount([
-                'assignedTickets as active_ticket_load' => fn ($query) => $query->whereIn('status', [
-                    Ticket::STATUS_OPEN,
-                    Ticket::STATUS_QUEUED,
-                    Ticket::STATUS_IN_PROGRESS,
-                ]),
-            ])
-            ->orderBy('active_ticket_load')
-            ->orderBy('name')
-            ->get();
+        $ticket->load(
+            'messages.user',
+            'user',
+            'technician',
+            'assignedStaff',
+            'assignmentEvents.fromStaff',
+            'assignmentEvents.toStaff',
+            'assignmentEvents.actor',
+            'reopenReviewer'
+        );
+        $assignees = $this->assignmentCandidates($ticket);
 
-        return view('admin.tickets.show', compact('ticket', 'technicians'));
+        $nextAutomaticAssignmentAt = $ticket->isQueued()
+            ? app(TicketAssignmentService::class)->nextEligibleShiftAt()
+            : null;
+
+        return view('admin.tickets.show', compact('ticket', 'assignees', 'nextAutomaticAssignmentAt'));
+    }
+
+    public function start(Ticket $ticket)
+    {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) {
+            abort_unless((int) $ticket->assigned_staff_id === (int) auth()->id(), 403);
+            abort_unless($ticket->isOpenForWork(), 422, 'Only open tickets can be started.');
+
+            $ticket->forceFill(array_merge([
+                'status' => Ticket::STATUS_IN_PROGRESS,
+            ], $ticket->lifecycleAttributes([
+                'started_at' => now(),
+            ])))->save();
+
+            $ticket->messages()->create([
+                'user_id' => auth()->id(),
+                'message' => 'Administrator started work on this ticket.',
+            ]);
+
+            system_log(
+                'Ticket Status Changed',
+                'Ticket '.$ticket->publicReference().' status changed to In progress by '.auth()->user()->name.'.'
+            );
+
+            return back()->with('success', 'Ticket work started.');
+        });
+    }
+
+    public function resolve(Request $request, Ticket $ticket)
+    {
+        return WorkflowTransaction::ticket($ticket, function (Ticket $ticket) use ($request) {
+            abort_unless((int) $ticket->assigned_staff_id === (int) auth()->id(), 403);
+            abort_if($ticket->isCancellationRequested(), 422, 'Review the cancellation request before resolving this ticket.');
+            abort_unless($ticket->status === Ticket::STATUS_IN_PROGRESS, 422, 'Start work before resolving this ticket.');
+
+            $validated = $request->validate([
+                'resolution_notes' => ['required', 'string', 'max:4000'],
+            ]);
+
+            $ticket->forceFill(array_merge([
+                'status' => Ticket::STATUS_RESOLVED,
+            ], $ticket->lifecycleAttributes([
+                'resolved_at' => now(),
+                'resolution_notes' => $validated['resolution_notes'],
+            ])))->save();
+
+            $ticket->messages()->create([
+                'user_id' => auth()->id(),
+                'message' => 'Administrator marked this ticket as resolved. Notes: '.$validated['resolution_notes'],
+            ]);
+
+            if ($ticket->user) {
+                AppNotificationSender::send(
+                    $ticket->user,
+                    'Support ticket resolved',
+                    'Your ticket "'.$ticket->subject.'" has been marked as resolved.',
+                    route('customer.tickets.show', $ticket),
+                    'ticket_resolved',
+                    ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
+                    auth()->id()
+                );
+
+                CustomerEmailSender::sendTicketStatusUpdated($ticket);
+            }
+
+            system_log(
+                'Ticket Resolved',
+                'Ticket '.$ticket->publicReference().' was resolved by administrator '.auth()->user()->name.'.'
+            );
+
+            app(TicketAssignmentService::class)->dispatchQueued(1);
+
+            return back()->with('success', 'Ticket marked as resolved.');
+        });
     }
 
     public function approveCancellation(Ticket $ticket)
@@ -412,10 +550,17 @@ class AdminTicketController extends Controller
         abort_unless($ticket->hasPendingReopenRequest(), 422, 'This ticket has no pending reopen request.');
 
         $nextStatus = Ticket::STATUS_OPEN;
+        $previousStaffId = $ticket->assigned_staff_id ?: $ticket->technician_id;
 
         $ticket->forceFill(array_merge([
             'status' => $nextStatus,
+            'assigned_staff_id' => null,
             'technician_id' => null,
+            'assigned_at' => null,
+            'assignment_source' => null,
+            'assignment_reason' => 'Administrator approved the customer reopen request.',
+            'assignment_changed_by' => auth()->id(),
+            'assignment_unavailable_since' => null,
             'appointment_date' => null,
             'appointment_time' => null,
             'appointment_change_reason' => null,
@@ -429,6 +574,15 @@ class AdminTicketController extends Controller
             'user_id' => auth()->id(),
             'message' => 'Ticket reopen request approved by admin. Returned to the queue for a new technician appointment.',
         ]);
+
+        app(TicketAssignmentService::class)->recordAssignmentEvent(
+            $ticket,
+            $previousStaffId,
+            null,
+            auth()->id(),
+            'reopen_approved',
+            'Administrator approved the customer reopen request.'
+        );
 
         system_log(
             'Ticket Status Changed',
@@ -482,4 +636,33 @@ class AdminTicketController extends Controller
 
         return back();
     }
+    private function assignmentCandidates(?Ticket $ticket = null)
+    {
+        $service = app(TicketAssignmentService::class);
+
+        return User::query()
+            ->whereIn('role', ['admin', 'technician'])
+            ->whereNull('disabled_at')
+            ->where(function ($query) {
+                $query->where('role', 'admin')
+                    ->orWhere(function ($technicianQuery) {
+                        $technicianQuery->where('role', 'technician')
+                            ->where(function ($statusQuery) {
+                                $statusQuery->whereNull('technician_status')
+                                    ->orWhere('technician_status', '!=', 'on_leave');
+                            });
+                    });
+            })
+            ->withCount([
+                'assignedTickets as active_ticket_load' => fn ($query) => $query->whereIn('status', Ticket::activeWorkStatuses()),
+            ])
+            ->orderByRaw("CASE WHEN id = ? THEN 0 WHEN role = 'admin' THEN 1 ELSE 2 END", [auth()->id()])
+            ->orderBy('active_ticket_load')
+            ->orderBy('name')
+            ->get()
+            ->each(function (User $staff) use ($service, $ticket): void {
+                $staff->setAttribute('assignment_warnings', $service->manualAssignmentWarnings($staff, $ticket));
+            });
+    }
+
 }
