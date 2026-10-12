@@ -14,6 +14,20 @@
 .admin-id-legacy { border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; }
 .admin-id-warning strong,
 .admin-id-legacy strong { display: block; margin-bottom: .25rem; color: #0f172a; }
+.admin-id-result { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: flex-start; gap: .8rem; margin: 1rem 0; padding: 1rem; border: 1px solid; border-radius: .9rem; }
+.admin-id-result__icon { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: 999px; font-size: 1rem; font-weight: 900; }
+.admin-id-result strong { display: block; margin-bottom: .25rem; color: #0f172a; }
+.admin-id-result p { margin: 0; line-height: 1.5; }
+.admin-id-result--verified { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.admin-id-result--verified .admin-id-result__icon { background: #22c55e; color: #fff; }
+.admin-id-result--pending { border-color: #93c5fd; background: #eff6ff; color: #1e40af; }
+.admin-id-result--pending .admin-id-result__icon { background: #2563eb; color: #fff; }
+.admin-id-result--rejected,
+.admin-id-result--blocked { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+.admin-id-result--rejected .admin-id-result__icon,
+.admin-id-result--blocked .admin-id-result__icon { background: #dc2626; color: #fff; }
+.admin-id-note { margin: 1rem 0; padding: .9rem 1rem; border-left: 4px solid #64748b; border-radius: 0 .75rem .75rem 0; background: #f8fafc; color: #475569; line-height: 1.5; }
+.admin-id-note strong { display: block; margin-bottom: .25rem; color: #0f172a; }
 .admin-id-matches { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .65rem; }
 .admin-id-matches a { padding: .35rem .6rem; border: 1px solid #fdba74; border-radius: 999px; background: #fff; color: #9a3412; font-size: .82rem; font-weight: 700; text-decoration: none; }
 .admin-id-comparison { display: grid; gap: .75rem; margin: 1rem 0; padding: 1rem; border: 1px solid #bfdbfe; border-radius: .9rem; background: #eff6ff; }
@@ -39,6 +53,15 @@
 .admin-id-check:has(input:checked) { border-color: #86efac; background: #f0fdf4; }
 .admin-id-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
 .admin-id-actions .btn { flex: 0 0 auto; }
+.admin-id-correction { margin-top: 1rem; padding: 1rem; border: 1px solid #cbd5e1; border-radius: .9rem; background: #f8fafc; }
+.admin-id-correction summary { cursor: pointer; color: #334155; font-weight: 800; }
+.admin-id-correction .admin-id-review-form { margin-top: .8rem; }
+.admin-id-approval-lock { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1rem 0; padding: 1rem; border: 1px solid #fbbf24; border-radius: .9rem; background: #fffbeb; color: #92400e; }
+.admin-id-approval-lock > div { display: grid; gap: .2rem; min-width: 0; }
+.admin-id-approval-lock strong { color: #78350f; }
+.admin-id-approval-lock--critical { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+.admin-id-approval-lock--critical strong { color: #7f1d1d; }
+.admin-app-actions .btn:disabled { cursor: not-allowed; opacity: .5; filter: grayscale(.25); }
 .admin-id-history { margin-top: 1rem; border-top: 1px solid #e2e8f0; padding-top: 1rem; }
 .admin-id-history summary { cursor: pointer; color: #0f172a; font-weight: 800; }
 .admin-id-history-list { display: grid; gap: .65rem; margin-top: .8rem; }
@@ -52,4 +75,6 @@
     .admin-id-comparison__head { align-items: flex-start; flex-direction: column; }
     .admin-id-comparison__grid { grid-template-columns: minmax(0, 1fr); }
     .admin-id-actions .btn { flex: 1 1 12rem; }
+    .admin-id-approval-lock { align-items: stretch; flex-direction: column; }
+    .admin-id-approval-lock .btn { width: 100%; }
 }

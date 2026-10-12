@@ -175,10 +175,15 @@ class AdminApplicationController extends Controller
         ]);
 
         if ($validated['status'] === Application::STATUS_APPROVED
-            && $application->id_verification_status !== null
             && $application->id_verification_status !== ApplicationIdentity::STATUS_VERIFIED) {
+            $message = match ($application->id_verification_status) {
+                ApplicationIdentity::STATUS_REJECTED => 'This identity submission was rejected. Wait for replacement documents and verify them before approving the application.',
+                ApplicationIdentity::STATUS_PENDING => 'Verify the submitted identity documents before approving this application.',
+                default => 'Identity verification is required before approving this application. Legacy records are not exempt from this requirement.',
+            };
+
             return back()->withErrors([
-                'status' => 'Verify the submitted identity documents before approving this application.',
+                'status' => $message,
             ])->withInput();
         }
 
@@ -298,6 +303,13 @@ class AdminApplicationController extends Controller
         if ($application->status !== Application::STATUS_APPROVED) {
             return back()->withErrors([
                 'schedule' => 'Applications must be approved before they can be scheduled.',
+            ]);
+        }
+
+        if ($application->id_verification_status !== null
+            && $application->id_verification_status !== ApplicationIdentity::STATUS_VERIFIED) {
+            return back()->withErrors([
+                'schedule' => 'Technician scheduling is locked until the identity documents are verified.',
             ]);
         }
 
@@ -659,6 +671,28 @@ class AdminApplicationController extends Controller
         return WorkflowTransaction::application($application, function (Application $application) use ($request) {
             $requestedStatus = (string) $request->input('id_verification_status');
             $isVerification = $requestedStatus === ApplicationIdentity::STATUS_VERIFIED;
+            $applicationIsInReview = in_array($application->status, [
+                Application::STATUS_SUBMITTED,
+                Application::STATUS_UNDER_REVIEW,
+            ], true);
+            $applicationHasProgressed = in_array($application->status, [
+                Application::STATUS_APPROVED,
+                Application::STATUS_SCHEDULED,
+                Application::STATUS_CANCELLATION_REQUESTED,
+                Application::STATUS_INSTALLED,
+                Application::STATUS_ACTIVATED,
+                'completed',
+            ], true);
+            $isApprovedRecordCorrection = $applicationHasProgressed
+                && $application->id_verification_status !== ApplicationIdentity::STATUS_VERIFIED
+                && $isVerification;
+
+            if (! $applicationIsInReview && ! $isApprovedRecordCorrection) {
+                return back()->withErrors([
+                    'id_verification_status' => 'Identity verification is locked after application approval. An approved identity cannot be changed to rejected.',
+                ]);
+            }
+
             $possibleDuplicate = $application->duplicate_id_image_detected;
             $reasonRequired = $requestedStatus === ApplicationIdentity::STATUS_REJECTED
                 || ($isVerification && $possibleDuplicate);
@@ -736,7 +770,13 @@ class AdminApplicationController extends Controller
                 'Identity documents for '.$application->reference_no.' were marked '.$validated['id_verification_status'].' by '.auth()->user()->name.'.'
             );
 
-            return back()->with('success', 'Identity document marked as '.$label.'.');
+            $successMessage = $isApprovedRecordCorrection
+                ? 'Identity document verified. The inconsistent progressed record was corrected.'
+                : 'Identity document marked as '.$label.'.';
+
+            return redirect()
+                ->to(route('admin.applications.show', $application).'#documents')
+                ->with('success', $successMessage);
         });
     }
 

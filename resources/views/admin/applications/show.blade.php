@@ -1284,6 +1284,13 @@
         $isCompletedState = in_array($statusKey, ['installed', 'completed', 'activated'], true);
         $isRejectedState = $statusKey === 'rejected';
         $isCancelledState = $statusKey === 'cancelled';
+        $identityIsVerified = $idVerificationStatus === \App\Support\ApplicationIdentity::STATUS_VERIFIED;
+        $identityIsRejected = $idVerificationStatus === \App\Support\ApplicationIdentity::STATUS_REJECTED;
+        $hasIdentityDocuments = (bool) ($application->idImageUrl() || $application->idSelfieImageUrl());
+        $identityNeedsApprovedRecordCorrection = in_array($statusKey, ['approved', 'scheduled', 'cancellation_requested', 'installed', 'completed', 'activated'], true)
+            && $idVerificationStatus !== null
+            && ! $identityIsVerified;
+        $identityAllowsScheduling = $identityIsVerified || $idVerificationStatus === null;
         $isInstallationScheduled = $installation?->status === \App\Models\Installation::STATUS_SCHEDULED;
         $isRescheduleRequiredState = $installation?->canBeRescheduledByAdmin() ?? false;
         $hasPendingCustomerRescheduleRequest = $installation?->hasPendingCustomerRescheduleRequest() ?? false;
@@ -1349,7 +1356,7 @@
         ])->filter()->count();
     @endphp
 
-    <div class="admin-app-review" data-admin-app-workspace data-initial-tab="{{ $errors->has('id_verification_status') || $errors->has('id_verification_reason') ? 'documents' : ($errors->any() && $showAdminActionCard ? 'actions' : 'overview') }}">
+    <div class="admin-app-review" data-admin-app-workspace data-initial-tab="{{ $errors->has('id_verification_status') || $errors->has('id_verification_reason') || $errors->has('review_document_readable') || $errors->has('review_name_matches') || $errors->has('review_photo_matches') ? 'documents' : ($errors->any() && $showAdminActionCard ? 'actions' : 'overview') }}">
         <section class="admin-app-header">
             <div class="admin-app-header-top">
                 <div class="admin-app-header-main">
@@ -1493,7 +1500,11 @@
                     @if($application->id_verification_status === null)
                         <div class="admin-id-legacy">
                             <strong>Legacy application</strong>
-                            This application was submitted before structured ID details were required. Existing records remain viewable and do not block the original workflow.
+                            @if($isReviewState)
+                                This application was submitted before structured ID review was recorded. It remains viewable, but it must now pass identity verification before it can be approved.
+                            @else
+                                This application progressed before structured ID review was recorded. Its historical workflow remains available, but all new approval decisions require verified identity documents.
+                            @endif
                         </div>
                     @endif
 
@@ -1522,14 +1533,72 @@
                         class="admin-app-document-gallery"
                     />
 
+                    @if($identityIsVerified)
+                        <div class="admin-id-result admin-id-result--verified" role="status">
+                            <span class="admin-id-result__icon" aria-hidden="true">&#10003;</span>
+                            <div>
+                                <strong>Identity verified</strong>
+                                <p>
+                                    Confirmed by {{ $application->idVerifier?->name ?? 'an administrator' }}
+                                    {{ $application->id_verified_at ? 'on '.$application->id_verified_at->displayDateTime('M d, Y h:i A') : '' }}.
+                                    {{ $isReviewState ? 'This application can now proceed to the approval checks.' : 'This decision is locked because the application has already progressed.' }}
+                                </p>
+                            </div>
+                        </div>
+                    @elseif($identityIsRejected && $isReviewState)
+                        <div class="admin-id-result admin-id-result--rejected" role="status">
+                            <span class="admin-id-result__icon" aria-hidden="true">!</span>
+                            <div>
+                                <strong>ID resubmission requested</strong>
+                                <p>The application cannot be approved until the customer submits replacement photos and an administrator verifies them.</p>
+                            </div>
+                        </div>
+                    @elseif($identityNeedsApprovedRecordCorrection)
+                        <div class="admin-id-result admin-id-result--blocked" role="alert">
+                            <span class="admin-id-result__icon" aria-hidden="true">!</span>
+                            <div>
+                                <strong>Identity verification required</strong>
+                                <p>
+                                    This application already progressed without a verified ID.
+                                    {{ $isApprovedState ? 'Technician scheduling is locked.' : 'The identity state is inconsistent with the application workflow.' }}
+                                    Review the documents below and verify the ID to correct the record.
+                                </p>
+                            </div>
+                        </div>
+                    @elseif($identityIsRejected)
+                        <div class="admin-id-result admin-id-result--rejected" role="status">
+                            <span class="admin-id-result__icon" aria-hidden="true">!</span>
+                            <div>
+                                <strong>Identity submission rejected</strong>
+                                <p>The recorded ID decision is retained with this closed application.</p>
+                            </div>
+                        </div>
+                    @elseif($idVerificationStatus === null && ! $isReviewState)
+                        <div class="admin-id-result admin-id-result--pending" role="status">
+                            <span class="admin-id-result__icon" aria-hidden="true">i</span>
+                            <div>
+                                <strong>Legacy review state</strong>
+                                <p>No structured identity decision was recorded when this application progressed. The record is preserved under the earlier workflow.</p>
+                            </div>
+                        </div>
+                    @else
+                        <div class="admin-id-result admin-id-result--pending" role="status">
+                            <span class="admin-id-result__icon" aria-hidden="true">i</span>
+                            <div>
+                                <strong>Waiting for administrator review</strong>
+                                <p>Complete all three checks below. Approval stays locked until the ID is verified.</p>
+                            </div>
+                        </div>
+                    @endif
+
                     @if(filled($application->id_verification_reason))
-                        <div class="admin-id-warning">
+                        <div class="admin-id-note">
                             <strong>Latest review note</strong>
                             {{ $application->id_verification_reason }}
                         </div>
                     @endif
 
-                    @if($application->id_verification_status !== null)
+                    @if(! $identityIsVerified && $hasIdentityDocuments && ($isReviewState || $identityNeedsApprovedRecordCorrection))
                         <form method="POST" action="{{ route('admin.applications.identity-verification', $application) }}" class="admin-id-review-form">
                             @csrf
                             @method('PATCH')
@@ -1558,10 +1627,33 @@
                             @error('id_verification_status')<span class="error">{{ $message }}</span>@enderror
                             @error('id_verification_reason')<span class="error">{{ $message }}</span>@enderror
                             <div class="admin-id-actions">
-                                <button type="submit" name="id_verification_status" value="verified" class="btn">Verify ID</button>
-                                <button type="submit" name="id_verification_status" value="rejected" class="btn danger">Request ID Resubmission</button>
+                                <button type="submit" name="id_verification_status" value="verified" class="btn">
+                                    {{ $identityNeedsApprovedRecordCorrection ? 'Verify ID and Unlock Scheduling' : ($identityIsRejected ? 'Correct Decision and Verify ID' : 'Verify ID') }}
+                                </button>
+                                @if($isReviewState && ! $identityIsRejected)
+                                    <button type="submit" name="id_verification_status" value="rejected" class="btn danger">Request ID Resubmission</button>
+                                @endif
                             </div>
                         </form>
+                    @elseif($identityIsVerified && $isReviewState)
+                        <details class="admin-id-correction">
+                            <summary>Correct this verification decision</summary>
+                            <form method="POST" action="{{ route('admin.applications.identity-verification', $application) }}" class="admin-id-review-form">
+                                @csrf
+                                @method('PATCH')
+                                <label for="id_verification_correction_reason">Reason for requesting replacement documents</label>
+                                <textarea id="id_verification_correction_reason" name="id_verification_reason" maxlength="1000" required placeholder="Explain why the verified submission needs to be replaced.">{{ old('id_verification_reason') }}</textarea>
+                                <button type="submit" name="id_verification_status" value="rejected" class="btn danger">Change to ID Resubmission Required</button>
+                            </form>
+                        </details>
+                    @elseif(! $hasIdentityDocuments && ! $identityIsVerified && ($isReviewState || $identityNeedsApprovedRecordCorrection))
+                        <div class="admin-id-result admin-id-result--blocked" role="alert">
+                            <span class="admin-id-result__icon" aria-hidden="true">!</span>
+                            <div>
+                                <strong>Identity photos are missing</strong>
+                                <p>This record cannot be approved. Keep the legacy record for history and have the customer submit a current application with the required identity photos.</p>
+                            </div>
+                        </div>
                     @endif
 
                     @if($application->idVerificationEvents->isNotEmpty())
@@ -1822,13 +1914,23 @@
                                     <span class="error">{{ $message }}</span>
                                 @enderror
 
+                                @unless($identityIsVerified)
+                                    <div class="admin-id-approval-lock" role="status">
+                                        <div>
+                                            <strong>Approval locked: identity verification is incomplete</strong>
+                                            <span>Open Documents, review the ID photos, and verify the ID first.</span>
+                                        </div>
+                                        <a href="#documents" class="btn secondary">Review Identity</a>
+                                    </div>
+                                @endunless
+
                                 <div class="admin-app-actions admin-app-actions--decision">
-                                    <button type="submit" name="status" value="approved" class="btn success" data-status-action="approved">Approve</button>
+                                    <button type="submit" name="status" value="approved" class="btn success" data-status-action="approved" @disabled(! $identityIsVerified) title="{{ $identityIsVerified ? 'Approve this application' : 'Verify the identity documents before approval' }}">Approve</button>
                                     <button type="submit" name="status" value="under_review" class="btn secondary" data-status-action="under_review">Save as Under Review</button>
                                     <button type="submit" name="status" value="rejected" class="btn danger" data-status-action="rejected">Reject</button>
                                 </div>
                             </form>
-                        @elseif($isApprovedState)
+                        @elseif($isApprovedState && $identityAllowsScheduling)
                             <form method="POST" action="{{ route('admin.applications.schedule', $application) }}" class="admin-app-form admin-app-scheduling-form">
                                 @csrf
 
@@ -1883,6 +1985,17 @@
                                     <button class="btn">Save Schedule</button>
                                 </div>
                             </form>
+                        @elseif($isApprovedState)
+                            <div class="admin-id-approval-lock admin-id-approval-lock--critical" role="alert">
+                                <div>
+                                    <strong>Technician scheduling is locked</strong>
+                                    <span>This approved record does not have a verified ID. Correct the identity review before assigning a technician or installation schedule.</span>
+                                </div>
+                                <a href="#documents" class="btn secondary">Correct Identity Review</a>
+                            </div>
+                            @error('schedule')
+                                <span class="error">{{ $message }}</span>
+                            @enderror
                         @elseif($hasPendingCustomerRescheduleRequest && $installation)
                             <form method="POST" action="{{ route('admin.applications.reschedule', $application) }}" class="admin-app-form admin-app-scheduling-form">
                                 @csrf

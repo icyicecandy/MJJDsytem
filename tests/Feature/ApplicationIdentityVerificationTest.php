@@ -122,6 +122,13 @@ test('customer submits without an ID number and administrator verifies with the 
         ->and($application->duplicate_id_number_detected)->toBeFalse()
         ->and(IdentityDocumentClaim::where('owner_user_id', $customer->id)->count())->toBe(1);
 
+    $this->get(route('admin.applications.show', $application))
+        ->assertOk()
+        ->assertSee('Identity verified')
+        ->assertSee('This application can now proceed to the approval checks.')
+        ->assertDontSee('name="review_document_readable"', false)
+        ->assertDontSee('>Verify ID<', false);
+
     $events = ApplicationIdVerificationEvent::where('application_id', $application->id)->oldest()->get();
     expect($events)->toHaveCount(2)
         ->and($events->first()->actor_id)->toBe($customer->id)
@@ -322,7 +329,7 @@ test('customer cannot replace identity documents unless administrator requested 
         ->and($application->id_image_path)->toBe($originalIdPath);
 });
 
-test('legacy applications without a recorded ID type remain reviewable and can follow the old approval path', function () {
+test('legacy applications without identity documents cannot bypass verification during approval', function () {
     $customer = User::factory()->create(['role' => 'customer']);
     $admin = User::factory()->create(['role' => 'admin']);
     $payload = identityWorkflowPayload($customer);
@@ -351,8 +358,83 @@ test('legacy applications without a recorded ID type remain reviewable and can f
         'serviceability_status' => 'serviceable',
         'slot_availability_status' => 'available',
         'assessment_notes' => 'Legacy record reviewed under the prior workflow.',
+    ])->assertSessionHasErrors('status');
+
+    expect($application->fresh()->status)->toBe(Application::STATUS_SUBMITTED)
+        ->and($application->id_verification_status)->toBeNull();
+});
+
+test('an approved application cannot have a verified identity changed to rejected', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $application = submitIdentityApplication($this, $customer);
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->patch(route('admin.applications.identity-verification', $application), [
+            'id_verification_status' => ApplicationIdentity::STATUS_VERIFIED,
+            'review_document_readable' => '1',
+            'review_name_matches' => '1',
+            'review_photo_matches' => '1',
+        ])->assertSessionHasNoErrors();
+
+    $this->patch(route('admin.applications.status', $application), [
+        'status' => Application::STATUS_APPROVED,
+        'serviceability_status' => 'serviceable',
+        'slot_availability_status' => 'available',
+        'assessment_notes' => 'Service area and available slot confirmed.',
     ])->assertSessionHasNoErrors();
 
-    expect($application->fresh()->status)->toBe(Application::STATUS_APPROVED)
-        ->and($application->id_verification_status)->toBeNull();
+    $this->patch(route('admin.applications.identity-verification', $application), [
+        'id_verification_status' => ApplicationIdentity::STATUS_REJECTED,
+        'id_verification_reason' => 'Attempted decision change after approval.',
+    ])->assertSessionHasErrors('id_verification_status');
+
+    $application->refresh();
+    expect($application->status)->toBe(Application::STATUS_APPROVED)
+        ->and($application->id_verification_status)->toBe(ApplicationIdentity::STATUS_VERIFIED);
+});
+
+test('an inconsistent approved record blocks scheduling until its identity is verified', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $application = submitIdentityApplication($this, $customer);
+    $admin = User::factory()->create(['role' => 'admin']);
+    $technician = User::factory()->create(['role' => 'technician']);
+
+    $application->forceFill([
+        'status' => Application::STATUS_APPROVED,
+        'id_verification_status' => ApplicationIdentity::STATUS_REJECTED,
+        'id_verification_reason' => 'Historical inconsistent state.',
+    ])->save();
+
+    $this->actingAs($admin)
+        ->get(route('admin.applications.show', $application))
+        ->assertOk()
+        ->assertSee('Technician scheduling is locked')
+        ->assertSee('Verify ID and Unlock Scheduling')
+        ->assertDontSee('name="technician_id"', false);
+
+    $this->post(route('admin.applications.schedule', $application), [
+        'technician_id' => $technician->id,
+        'installation_date' => now()->addWeek()->format('Y-m-d'),
+        'installation_time' => \App\Models\Installation::AVAILABLE_TIME_SLOTS[0],
+    ])->assertSessionHasErrors('schedule');
+
+    $this->patch(route('admin.applications.identity-verification', $application), [
+        'id_verification_status' => ApplicationIdentity::STATUS_VERIFIED,
+        'review_document_readable' => '1',
+        'review_name_matches' => '1',
+        'review_photo_matches' => '1',
+        'id_verification_reason' => 'Documents reviewed to correct the historical record.',
+    ])->assertSessionHasNoErrors()
+        ->assertSessionHas('success');
+
+    $application->refresh();
+    expect($application->status)->toBe(Application::STATUS_APPROVED)
+        ->and($application->id_verification_status)->toBe(ApplicationIdentity::STATUS_VERIFIED);
+
+    $this->get(route('admin.applications.show', $application))
+        ->assertOk()
+        ->assertSee('Identity verified')
+        ->assertSee('name="technician_id"', false)
+        ->assertDontSee('Technician scheduling is locked');
 });

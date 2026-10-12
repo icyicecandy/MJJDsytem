@@ -1,0 +1,3222 @@
+[
+  {
+    "index": 1,
+    "rows": 7,
+    "cols": 9,
+    "data": [
+      [
+        "Functional Suitability",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1",
+        "WM",
+        "DE",
+        "Rank"
+      ],
+      [
+        "The system provides the necessary features for managing customer applications and records.",
+        "3 | (15)",
+        "3 | (12)",
+        "0",
+        "0",
+        "0",
+        "4.5",
+        "SA",
+        "1.5"
+      ],
+      [
+        "The system allows administrators to manage customer records and applications properly.",
+        "1 | (5)",
+        "5 | (20)",
+        "0",
+        "0",
+        "0",
+        "4.2",
+        "SA",
+        "5"
+      ],
+      [
+        "The system supports installation scheduling and technician assignment effectively.",
+        "2 | (10)",
+        "4 | (16)",
+        "0",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "3.5"
+      ],
+      [
+        "The system provides features for tracking application and service status",
+        "3 | (15)",
+        "3 | (12)",
+        "0",
+        "0",
+        "0",
+        "4.5",
+        "SA",
+        "1.5"
+      ],
+      [
+        "The system supports customer communication through chat or ticketing.",
+        "2 | (10)",
+        "4 | (16)",
+        "0",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "3.5"
+      ],
+      [
+        "Average Weighted Mean",
+        "4.4",
+        "SA"
+      ]
+    ]
+  },
+  {
+    "index": 2,
+    "rows": 7,
+    "cols": 9,
+    "data": [
+      [
+        "Performance Efficiency",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1",
+        "WM",
+        "DE",
+        "Rank"
+      ],
+      [
+        "The system loads pages and data within an acceptable amount of time.",
+        "2 | (10)",
+        "3 | (12)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.2",
+        "SA",
+        "4.5"
+      ],
+      [
+        "The system performs transactions smoothly without unnecessary delay.",
+        "2 | (10)",
+        "3 | (12)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.2",
+        "SA",
+        "4.5"
+      ],
+      [
+        "The system handles user requests efficiently during normal usage.",
+        "4 | (20)",
+        "1 | (4)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.5",
+        "SA",
+        "1"
+      ],
+      [
+        "The system responds quickly when processing requests.",
+        "2 | (10)",
+        "4 | (16)",
+        "0",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "2.5"
+      ],
+      [
+        "The system maintains acceptable performance during regular use",
+        "2 | (10)",
+        "4 | (16)",
+        "0",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "2.5"
+      ],
+      [
+        "Average Weighted Mean",
+        "4.3",
+        "SA"
+      ]
+    ]
+  },
+  {
+    "index": 3,
+    "rows": 7,
+    "cols": 9,
+    "data": [
+      [
+        "Compatibility",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1",
+        "WM",
+        "DE",
+        "Rank"
+      ],
+      [
+        "The system works properly across different devices.",
+        "4 | (20)",
+        "2 | (8)",
+        "0",
+        "0",
+        "0",
+        "4.7",
+        "SA",
+        "1.5"
+      ],
+      [
+        "The system functions properly on different browsers or operating environments.",
+        "3 | (15)",
+        "3 | (12)",
+        "0",
+        "0",
+        "0",
+        "4.5",
+        "SA",
+        "4"
+      ],
+      [
+        "The system operates well within the current working environment of the organization",
+        "3 | (15)",
+        "3 | (12)",
+        "0",
+        "0",
+        "0",
+        "4.5",
+        "SA",
+        "4"
+      ],
+      [
+        "The system supports both web-based and mobile-based access appropriately.",
+        "4 | (20)",
+        "2 | (8)",
+        "0",
+        "0",
+        "0",
+        "4.7",
+        "SA",
+        "1.5"
+      ],
+      [
+        "The system adapts well to different screen sizes and device specifications.",
+        "4 | (20)",
+        "1 | (4)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.5",
+        "SA",
+        "4"
+      ],
+      [
+        "Average Weighted Mean",
+        "4.6",
+        "SA"
+      ]
+    ]
+  },
+  {
+    "index": 4,
+    "rows": 7,
+    "cols": 9,
+    "data": [
+      [
+        "Usability",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1",
+        "WM",
+        "DE",
+        "Rank"
+      ],
+      [
+        "The system is easy to learn and use for intended users.",
+        "3 | (15)",
+        "1 | (4)",
+        "2 | (6)",
+        "0",
+        "0",
+        "4.2",
+        "SA",
+        "3.5"
+      ],
+      [
+        "The layout and design of the system are clear and understandable.",
+        "3 | (15)",
+        "2 | (8)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "1.5"
+      ],
+      [
+        "The buttons, menus, and navigation tools are user-friendly.",
+        "3 | (15)",
+        "0",
+        "3 | (9)",
+        "0",
+        "0",
+        "4.0",
+        "A",
+        "5"
+      ],
+      [
+        "The instructions and system processes are easy to follow.",
+        "3 | (15)",
+        "1 | (4)",
+        "2 | (6)",
+        "0",
+        "0",
+        "4.2",
+        "SA",
+        "3.5"
+      ],
+      [
+        "The system provides a convenient and satisfying user experience.",
+        "3 | (15)",
+        "2 | (8)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "1.5"
+      ],
+      [
+        "Average Weighted Mean",
+        "4.2",
+        "SA"
+      ]
+    ]
+  },
+  {
+    "index": 5,
+    "rows": 7,
+    "cols": 9,
+    "data": [
+      [
+        "Reliability",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1",
+        "WM",
+        "DE",
+        "Rank"
+      ],
+      [
+        "The system operates consistently without crashing during use.",
+        "2 | (10)",
+        "4 | (16)",
+        "0",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "2"
+      ],
+      [
+        "The system records transactions and user data accurately.",
+        "3 | (15)",
+        "3 | (12)",
+        "0",
+        "0",
+        "0",
+        "4.5",
+        "SA",
+        "1"
+      ],
+      [
+        "The system minimizes errors during operation.",
+        "2 | (10)",
+        "2 | (8)",
+        "2 | (6)",
+        "0",
+        "0",
+        "4.0",
+        "A",
+        "4.5"
+      ],
+      [
+        "The system remains accessible and stable during use.",
+        "2 | (10)",
+        "3 | (12)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.2",
+        "SA",
+        "3"
+      ],
+      [
+        "The system can recover or continue properly after minor interruptions.",
+        "2 | (10)",
+        "2 | (8)",
+        "2 | (6)",
+        "0",
+        "0",
+        "4.0",
+        "A",
+        "4.5"
+      ],
+      [
+        "Average Weighted Mean",
+        "4.2",
+        "SA"
+      ]
+    ]
+  },
+  {
+    "index": 6,
+    "rows": 7,
+    "cols": 9,
+    "data": [
+      [
+        "Security",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1",
+        "WM",
+        "DE",
+        "Rank"
+      ],
+      [
+        "The system protects the personal information of users.",
+        "3 | (15)",
+        "2 | (8)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "2.5"
+      ],
+      [
+        "The login system feature ensure secure access.",
+        "4 | (20)",
+        "0",
+        "1 | (3)",
+        "1 | (2)",
+        "0",
+        "4.2",
+        "SA",
+        "4.5"
+      ],
+      [
+        "The system keeps uploaded documents secure.",
+        "2 | (10)",
+        "3 | (12)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.2",
+        "SA",
+        "4.5"
+      ],
+      [
+        "The system restricts unauthorized users from accessing protected modules.",
+        "4 | (20)",
+        "2 | (8)",
+        "0",
+        "0",
+        "0",
+        "4.7",
+        "SA",
+        "1"
+      ],
+      [
+        "The system maintains data confidentiality.",
+        "3 | (15)",
+        "2 | (8)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "2.5"
+      ],
+      [
+        "Average Weighted Mean",
+        "4.3",
+        "SA"
+      ]
+    ]
+  },
+  {
+    "index": 7,
+    "rows": 7,
+    "cols": 9,
+    "data": [
+      [
+        "Maintainability",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1",
+        "WM",
+        "DE",
+        "Rank"
+      ],
+      [
+        "The system structure and modules are organized for easy maintenance.",
+        "3 | (15)",
+        "2 | (8)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "1"
+      ],
+      [
+        "Errors or issues in the system can be easily identified and corrected.",
+        "2 | (10)",
+        "3 | (12)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.2",
+        "SA",
+        "2.5"
+      ],
+      [
+        "The system can be improved or updated without affecting major functions.",
+        "0",
+        "6 | (24)",
+        "0",
+        "0",
+        "0",
+        "4.0",
+        "A",
+        "4.5"
+      ],
+      [
+        "The system is easy to test when adding or modifying features.",
+        "3 | (15)",
+        "0",
+        "3 | (9)",
+        "0",
+        "0",
+        "4.0",
+        "A",
+        "4.5"
+      ],
+      [
+        "The design of the system supports future enhancement and scaling.",
+        "2 | (10)",
+        "3 | (12)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.2",
+        "SA",
+        "2.5"
+      ],
+      [
+        "Average Weighted Mean",
+        "4.1",
+        "A"
+      ]
+    ]
+  },
+  {
+    "index": 8,
+    "rows": 7,
+    "cols": 9,
+    "data": [
+      [
+        "Portability",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1",
+        "WM",
+        "DE",
+        "Rank"
+      ],
+      [
+        "The system can be accessed on different devices with minimal issues.",
+        "2 | (10)",
+        "4 | (16)",
+        "0",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "3.5"
+      ],
+      [
+        "The system can be transferred or deployed into different environments if needed.",
+        "3 | (15)",
+        "3 | (12)",
+        "0",
+        "0",
+        "0",
+        "4.5",
+        "SA",
+        "1"
+      ],
+      [
+        "The system performs properly across different hardware setups.",
+        "3 | (15)",
+        "2 | (8)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "3.5"
+      ],
+      [
+        "The system remains functional when accessed on mobile and desktop platforms.",
+        "3 | (15)",
+        "2 | (8)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "3.5"
+      ],
+      [
+        "The system can adapt to future platform or technology changes.",
+        "3 | (15)",
+        "2 | (8)",
+        "1 | (3)",
+        "0",
+        "0",
+        "4.3",
+        "SA",
+        "3.5"
+      ],
+      [
+        "Average Weighted Mean",
+        "4.3",
+        "SA"
+      ]
+    ]
+  },
+  {
+    "index": 9,
+    "rows": 10,
+    "cols": 4,
+    "data": [
+      [
+        "ISO 25010 Software Quality Standards",
+        "WM",
+        "Description",
+        "Rank"
+      ],
+      [
+        "Functional Suitability",
+        "4.4",
+        "SA",
+        "2"
+      ],
+      [
+        "Performance Efficiency",
+        "4.3",
+        "SA",
+        "4"
+      ],
+      [
+        "Compatibility",
+        "4.6",
+        "SA",
+        "1"
+      ],
+      [
+        "Usability",
+        "4.2",
+        "SA",
+        "6.5"
+      ],
+      [
+        "Reliability",
+        "4.2",
+        "SA",
+        "6.5"
+      ],
+      [
+        "Security",
+        "4.3",
+        "SA",
+        "4"
+      ],
+      [
+        "Maintainability",
+        "4.1",
+        "A",
+        "8"
+      ],
+      [
+        "Portability",
+        "4.3",
+        "SA",
+        "4"
+      ],
+      [
+        "Average Weighted Percentage",
+        "4.3",
+        "SA"
+      ]
+    ]
+  },
+  {
+    "index": 10,
+    "rows": 4,
+    "cols": 2,
+    "data": [
+      [
+        "Minimum Software Requirements"
+      ],
+      [
+        "Operating System",
+        "Windows 10 or later / Android / iOS"
+      ],
+      [
+        "Database",
+        "Mysql"
+      ],
+      [
+        "Browser",
+        "Chrome, Firefox, Edge, Safari, Brave"
+      ]
+    ]
+  },
+  {
+    "index": 11,
+    "rows": 5,
+    "cols": 2,
+    "data": [
+      [
+        "Minimum Hardware Requirements"
+      ],
+      [
+        "Processor",
+        "Dual-core 1.6 GHz or higher"
+      ],
+      [
+        "Random Access Memory (RAM)",
+        "4 GB RAM or higher"
+      ],
+      [
+        "Storage",
+        "500 MB free space"
+      ],
+      [
+        "Connection",
+        "Internet / Ethernet / Data"
+      ]
+    ]
+  },
+  {
+    "index": 12,
+    "rows": 2,
+    "cols": 2,
+    "data": [
+      [
+        "Name (Optional): _____________________",
+        "Age: __________"
+      ],
+      [
+        "Date: _______________________________",
+        "Gender: ( ) Male  ( ) Female"
+      ]
+    ]
+  },
+  {
+    "index": 13,
+    "rows": 6,
+    "cols": 6,
+    "data": [
+      [
+        "Statement",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1"
+      ],
+      [
+        "The system provides the necessary features for managing customer applications and records.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system allows administrators to manage customer records and applications properly.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system supports installation scheduling and technician assignment effectively.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system provides features for tracking application and service status",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system supports customer communication through chat or ticketing.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "index": 14,
+    "rows": 6,
+    "cols": 6,
+    "data": [
+      [
+        "Statement",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1"
+      ],
+      [
+        "The system loads pages and data within an acceptable amount of time.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system performs transactions smoothly without unnecessary delay.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system handles user requests efficiently during normal usage.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system responds quickly when processing requests.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system maintains acceptable performance during regular use",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "index": 15,
+    "rows": 6,
+    "cols": 6,
+    "data": [
+      [
+        "Statement",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1"
+      ],
+      [
+        "The system works properly across different devices.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system functions properly on different browsers or operating environments.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system operates well within the current working environment of the organization",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system supports both web-based and mobile-based access appropriately.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system adapts well to different screen sizes and device specifications.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "index": 16,
+    "rows": 6,
+    "cols": 6,
+    "data": [
+      [
+        "Statement",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1"
+      ],
+      [
+        "The system is easy to learn and use for intended users.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The layout and design of the system are clear and understandable.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The buttons, menus, and navigation tools are user-friendly.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The instructions and system processes are easy to follow.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system provides a convenient and satisfying user experience.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "index": 17,
+    "rows": 6,
+    "cols": 6,
+    "data": [
+      [
+        "Statement",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1"
+      ],
+      [
+        "The system operates consistently without crashing during use.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system records transactions and user data accurately.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system minimizes errors during operation.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system remains accessible and stable during use.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system can recover or continue properly after minor interruptions.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "index": 18,
+    "rows": 6,
+    "cols": 6,
+    "data": [
+      [
+        "Statement",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1"
+      ],
+      [
+        "The system protects the personal information of users.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The login system feature ensure secures access.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system keeps uploaded documents secure.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system restricts unauthorized users from accessing protected modules.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system maintains data confidentiality.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "index": 19,
+    "rows": 6,
+    "cols": 6,
+    "data": [
+      [
+        "Statement",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1"
+      ],
+      [
+        "The system structure and modules are organized for easy maintenance.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "Errors or issues in the system can be easily identified and corrected.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system can be improved or updated without affecting major functions.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system is easy to test when adding or modifying features.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The design of the system supports future enhancement and scaling.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "index": 20,
+    "rows": 6,
+    "cols": 6,
+    "data": [
+      [
+        "Statement",
+        "5",
+        "4",
+        "3",
+        "2",
+        "1"
+      ],
+      [
+        "The system can be accessed on different devices with minimal issues.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system can be transferred or deployed into different environments if needed.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system performs properly across different hardware setups.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system remains functional when accessed on mobile and desktop platforms.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "The system can adapt to future platform or technology changes.",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    ]
+  },
+  {
+    "index": 21,
+    "rows": 11,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "MJJD Telecom Logo",
+        "Displays the MJJD Telecom logo and the name of the Customer Relationship Management System."
+      ],
+      [
+        "2",
+        "Home",
+        "The user can select this option to go to the homepage of the system."
+      ],
+      [
+        "3",
+        "Plans",
+        "The user can select this option to view the available internet service plans."
+      ],
+      [
+        "4",
+        "Support",
+        "The user can select this option to view the frequently asked questions and contact information of MJJD Telecom."
+      ],
+      [
+        "5",
+        "Log in Button",
+        "The user can select this button to open the login window and sign in to their account."
+      ],
+      [
+        "6",
+        "Register Button",
+        "The user can select this button to open the registration window and create a new account."
+      ],
+      [
+        "7",
+        "Apply Now Button",
+        "The user can select this button to start an application for internet service installation."
+      ],
+      [
+        "8",
+        "Track Application Button",
+        "The user can select this button to check the status of a submitted service application."
+      ],
+      [
+        "9",
+        "Track Ticket Button",
+        "The user can select this button to check the status of a submitted support ticket."
+      ],
+      [
+        "10",
+        "Slider Indicators",
+        "The user can select these indicators to view the different featured banners on the homepage."
+      ]
+    ]
+  },
+  {
+    "index": 22,
+    "rows": 6,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Superfiber Plan",
+        "Shows the Superfiber plan, which offers 50 Mbps with a ₱999 installation fee, is ideal for browsing and streaming, and supports up to 6 devices."
+      ],
+      [
+        "2",
+        "Select Plan Button (Superfiber)",
+        "The user can select this button to choose the Superfiber plan and proceed with a service application."
+      ],
+      [
+        "3",
+        "Extraboost Plan",
+        "Shows the Extraboost plan, which offers 100 Mbps with a ₱1,699 installation fee, is suited for gaming and HD streaming, and supports up to 10 devices."
+      ],
+      [
+        "4",
+        "Most Popular Label",
+        "Indicates that the Extraboost plan is the most popular among the available plans."
+      ],
+      [
+        "5",
+        "Select Plan Button (Extraboost)",
+        "The user can select this button to choose the Extraboost plan and proceed with a service application."
+      ]
+    ]
+  },
+  {
+    "index": 23,
+    "rows": 10,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Frequently Asked Questions",
+        "Lists common questions about application requirements, installation time, request tracking, and data caps."
+      ],
+      [
+        "2",
+        "Expand Arrow",
+        "The user can select this arrow to show or hide the answer to a question."
+      ],
+      [
+        "3",
+        "Phone",
+        "Displays the contact number of MJJD Telecom."
+      ],
+      [
+        "4",
+        "Email",
+        "Displays the support email address of MJJD Telecom."
+      ],
+      [
+        "5",
+        "Business Hours",
+        "Displays the days and hours when MJJD Telecom is open."
+      ],
+      [
+        "6",
+        "Office Location",
+        "Displays the office address of MJJD Telecom."
+      ],
+      [
+        "7",
+        "Application Tracking Link",
+        "The user can select this link to go to the application tracking page."
+      ],
+      [
+        "8",
+        "Ticket Tracking Link",
+        "The user can select this link to go to the ticket tracking page."
+      ],
+      [
+        "9",
+        "Support Link",
+        "The user can select this link to go to the support section."
+      ]
+    ]
+  },
+  {
+    "index": 24,
+    "rows": 10,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Continue with Google",
+        "The user can select this button to sign in using their Google account."
+      ],
+      [
+        "2",
+        "Email Address",
+        "The user can enter their registered email address."
+      ],
+      [
+        "3",
+        "Password",
+        "The user can enter their account password."
+      ],
+      [
+        "4",
+        "Show Password Icon",
+        "The user can select this icon to show or hide the entered password."
+      ],
+      [
+        "5",
+        "Forgot Password?",
+        "The user can select this option to recover or reset their password."
+      ],
+      [
+        "6",
+        "Keep Me Signed In Checkbox",
+        "The user can check this box to stay signed in on the device."
+      ],
+      [
+        "7",
+        "Sign In Button",
+        "The user can select this button to submit their email address and password and access their account."
+      ],
+      [
+        "8",
+        "Create One Here",
+        "The user can select this option to open the registration window if they do not have an account."
+      ],
+      [
+        "9",
+        "Close (×) Button",
+        "The user can select this button to close the login window."
+      ]
+    ]
+  },
+  {
+    "index": 25,
+    "rows": 12,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Continue with Google",
+        "The user can select this button to create an account using their Google account."
+      ],
+      [
+        "2",
+        "First Name",
+        "The user can enter their first name."
+      ],
+      [
+        "3",
+        "Last Name",
+        "The user can enter their last name."
+      ],
+      [
+        "4",
+        "Email Address",
+        "The user can enter the email address to be used for their account."
+      ],
+      [
+        "5",
+        "Password",
+        "The user can create a password. The eye icon shows or hides the password."
+      ],
+      [
+        "6",
+        "Confirm Password",
+        "The user can re-enter the password to confirm that both entries match."
+      ],
+      [
+        "7",
+        "Terms and Conditions Checkbox",
+        "The user can check this box to agree to the Terms and Conditions."
+      ],
+      [
+        "8",
+        "Privacy Notice Checkbox",
+        "The user can check this box to agree to the Privacy Notice."
+      ],
+      [
+        "9",
+        "Create Account Button",
+        "The user can select this button to submit their information and create their account."
+      ],
+      [
+        "10",
+        "Sign In",
+        "The user can select this option to go to the login window if they already have an account."
+      ],
+      [
+        "11",
+        "Close (×) Button",
+        "The user can select this button to close the registration window."
+      ]
+    ]
+  },
+  {
+    "index": 26,
+    "rows": 4,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Application Reference Number",
+        "The user can enter the reference number of their submitted application."
+      ],
+      [
+        "2",
+        "Email or Mobile Number",
+        "The user can enter the email address or mobile number they used when they applied."
+      ],
+      [
+        "3",
+        "Track Status Button",
+        "The user can select this button to view the current status of their application."
+      ]
+    ]
+  },
+  {
+    "index": 27,
+    "rows": 4,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Tracking Number",
+        "The user can enter the tracking number of their submitted ticket (e.g., TKT-2026-0001)."
+      ],
+      [
+        "2",
+        "Customer Email",
+        "The user can enter the email address used when the ticket was submitted."
+      ],
+      [
+        "3",
+        "Track Status Button",
+        "The user can select this button to view the current status of their support ticket."
+      ]
+    ]
+  },
+  {
+    "index": 28,
+    "rows": 17,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Dashboard",
+        "The administrator can select this option to view the overview of current operations."
+      ],
+      [
+        "2",
+        "Applications",
+        "The administrator can select this option to review and manage customer service applications."
+      ],
+      [
+        "3",
+        "Installations",
+        "The administrator can select this option to monitor installation schedules and technician assignments."
+      ],
+      [
+        "4",
+        "Customers",
+        "The administrator can select this option to view and manage customer records."
+      ],
+      [
+        "5",
+        "Technicians",
+        "The administrator can select this option to view and manage technician records."
+      ],
+      [
+        "6",
+        "Tickets",
+        "The administrator can select this option to manage customer support tickets."
+      ],
+      [
+        "7",
+        "Analytics",
+        "The administrator can select this option to view analytics and generate reports."
+      ],
+      [
+        "8",
+        "System Logs",
+        "The administrator can select this option to view the audit trail of system activities."
+      ],
+      [
+        "9",
+        "Live Chat",
+        "The administrator can select this option to respond to customer conversations."
+      ],
+      [
+        "10",
+        "Notification Bell",
+        "The administrator can select this icon to view system notifications."
+      ],
+      [
+        "11",
+        "Open Analytics Button",
+        "The administrator can select this button to go directly to the Analytics page."
+      ],
+      [
+        "12",
+        "Period Filter",
+        "The administrator can choose whether to view the workload for today, this week, or the next 30 days."
+      ],
+      [
+        "13",
+        "Workload Cards",
+        "Show the number of applications to review, unassigned tickets, open tickets, and cancellation requests. The Review link opens the related records."
+      ],
+      [
+        "14",
+        "View All Button",
+        "The administrator can select this button to view all installation schedules."
+      ],
+      [
+        "15",
+        "Profile Settings",
+        "The administrator can select this option to update their profile information."
+      ],
+      [
+        "16",
+        "Logout Button",
+        "The administrator can select this button to sign out of the system."
+      ]
+    ]
+  },
+  {
+    "index": 29,
+    "rows": 5,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Notification Bell",
+        "The administrator can select this icon to open or close the notification panel."
+      ],
+      [
+        "2",
+        "Notification Item",
+        "Displays a notification, such as a new application or an overdue ticket, with the time it was received."
+      ],
+      [
+        "3",
+        "Mark All as Read",
+        "The administrator can select this option to mark all notifications as read."
+      ],
+      [
+        "4",
+        "View All",
+        "The administrator can select this option to view the complete list of notifications."
+      ]
+    ]
+  },
+  {
+    "index": 30,
+    "rows": 9,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Search Applications",
+        "The administrator can search applications by reference number, customer, contact, email, or plan."
+      ],
+      [
+        "2",
+        "Status Filter",
+        "The administrator can filter applications by status."
+      ],
+      [
+        "3",
+        "Apply Button",
+        "The administrator can select this button to apply the selected search and filter."
+      ],
+      [
+        "4",
+        "Reset Button",
+        "The administrator can select this button to clear the search and filter."
+      ],
+      [
+        "5",
+        "Status Summary",
+        "Shows the number of applications that are submitted, under review, approved, scheduled, for rescheduling, or requested for cancellation."
+      ],
+      [
+        "6",
+        "Applications List",
+        "Displays the reference number, customer, contact number, plan, status, and submission date of each application."
+      ],
+      [
+        "7",
+        "Status Label",
+        "Shows the current status of the application."
+      ],
+      [
+        "8",
+        "Open Button",
+        "The administrator can select this button to open the application and review its details."
+      ]
+    ]
+  },
+  {
+    "index": 31,
+    "rows": 7,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Application Status Filter",
+        "The administrator can filter customers by their application status."
+      ],
+      [
+        "2",
+        "Search",
+        "The administrator can search customers by ID, name, email, phone, plan, location, or reference number."
+      ],
+      [
+        "3",
+        "Filter Button",
+        "The administrator can select this button to apply the selected search and filter."
+      ],
+      [
+        "4",
+        "Reset Button",
+        "The administrator can select this button to clear the search and filter."
+      ],
+      [
+        "5",
+        "Customer List",
+        "Displays the customer ID, name, plan, contact details, and service area of each customer."
+      ],
+      [
+        "6",
+        "View Button",
+        "The administrator can select this button to open the full profile of the customer."
+      ]
+    ]
+  },
+  {
+    "index": 32,
+    "rows": 9,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Add New Button",
+        "The administrator can select this button to add a new technician account."
+      ],
+      [
+        "2",
+        "Status Filter",
+        "The administrator can filter technicians by account status."
+      ],
+      [
+        "3",
+        "Search",
+        "The administrator can search technicians by ID, name, email, phone, shift, or status."
+      ],
+      [
+        "4",
+        "Filter Button",
+        "The administrator can select this button to apply the selected search and filter."
+      ],
+      [
+        "5",
+        "Reset Button",
+        "The administrator can select this button to clear the search and filter."
+      ],
+      [
+        "6",
+        "Technician List",
+        "Displays the technician ID, name, contact details, address, shift, and status of each technician."
+      ],
+      [
+        "7",
+        "Status Label",
+        "Shows whether the technician account is active and whether the technician is online for chat."
+      ],
+      [
+        "8",
+        "View Button",
+        "The administrator can select this button to open the full profile of the technician."
+      ]
+    ]
+  },
+  {
+    "index": 33,
+    "rows": 15,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "First Name",
+        "The administrator can enter the first name of the technician."
+      ],
+      [
+        "2",
+        "Last Name",
+        "The administrator can enter the last name of the technician."
+      ],
+      [
+        "3",
+        "Email",
+        "The administrator can enter the email address that the technician will use to log in."
+      ],
+      [
+        "4",
+        "Contact No.",
+        "The administrator can enter the contact number of the technician."
+      ],
+      [
+        "5",
+        "Address",
+        "The administrator can enter the address of the technician."
+      ],
+      [
+        "6",
+        "Employment Type",
+        "The administrator can select the employment type of the technician."
+      ],
+      [
+        "7",
+        "Shift Start",
+        "The administrator can set the start time of the technician’s shift."
+      ],
+      [
+        "8",
+        "Shift End",
+        "The administrator can set the end time of the technician’s shift."
+      ],
+      [
+        "9",
+        "Break Start (optional)",
+        "The administrator can set the start of the technician’s break."
+      ],
+      [
+        "10",
+        "Break End (optional)",
+        "The administrator can set the end of the technician’s break."
+      ],
+      [
+        "11",
+        "Maximum Active Tickets",
+        "The administrator can set the maximum number of tickets the technician can handle at a time."
+      ],
+      [
+        "12",
+        "Initial Unavailable Date (optional)",
+        "The administrator can set a date when the technician will not be available."
+      ],
+      [
+        "13",
+        "Schedule",
+        "Displays a summary of the technician’s working hours."
+      ],
+      [
+        "14",
+        "Close (×) Button",
+        "The administrator can select this button to close the window without saving."
+      ]
+    ]
+  },
+  {
+    "index": 34,
+    "rows": 12,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Search Tickets",
+        "The administrator can search tickets by tracking number, customer name, or subject."
+      ],
+      [
+        "2",
+        "Status Filter",
+        "The administrator can filter tickets by status."
+      ],
+      [
+        "3",
+        "Urgency Filter",
+        "The administrator can filter tickets by urgency level."
+      ],
+      [
+        "4",
+        "Support Staff Filter",
+        "The administrator can filter tickets by the assigned support staff."
+      ],
+      [
+        "5",
+        "Apply Button",
+        "The administrator can select this button to apply the selected filters."
+      ],
+      [
+        "6",
+        "Reset Button",
+        "The administrator can select this button to clear the filters."
+      ],
+      [
+        "7",
+        "Status Summary",
+        "Shows the number of tickets that are awaiting staff, open, in progress, resolved, closed, or cancelled."
+      ],
+      [
+        "8",
+        "Tickets List",
+        "Displays the tracking number, customer, subject, urgency, status, assigned staff, and submission date of each ticket."
+      ],
+      [
+        "9",
+        "Urgency Label",
+        "Shows the urgency level of the ticket."
+      ],
+      [
+        "10",
+        "Status Label",
+        "Shows the current status of the ticket."
+      ],
+      [
+        "11",
+        "View Button",
+        "The administrator can select this button to open the ticket and manage its details."
+      ]
+    ]
+  },
+  {
+    "index": 35,
+    "rows": 8,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Analytics Overview Tab",
+        "The administrator can select this tab to view trends, pipeline health, and period comparisons."
+      ],
+      [
+        "2",
+        "Reports Tab",
+        "The administrator can select this tab to choose records, preview them, and print or export a report."
+      ],
+      [
+        "3",
+        "From and To Dates",
+        "The administrator can set the date range to be analyzed."
+      ],
+      [
+        "4",
+        "Update Analytics Button",
+        "The administrator can select this button to refresh the analytics based on the selected dates."
+      ],
+      [
+        "5",
+        "Quick Periods",
+        "The administrator can select a preset period, such as this month, the last 30 days, this quarter, or this year."
+      ],
+      [
+        "6",
+        "Print / Save as PDF Button",
+        "The administrator can select this button to print the overview or save it as a PDF file."
+      ],
+      [
+        "7",
+        "Report Preview",
+        "Displays a preview of the operations analytics report."
+      ]
+    ]
+  },
+  {
+    "index": 36,
+    "rows": 12,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Read-only Audit Trail Label",
+        "Indicates that the system logs can be viewed but not edited."
+      ],
+      [
+        "2",
+        "Time Range Buttons",
+        "The administrator can show activities from all time, today, the last 7 days, or the last 30 days."
+      ],
+      [
+        "3",
+        "Search Activity",
+        "The administrator can search activities by user, action, or description."
+      ],
+      [
+        "4",
+        "User Filter",
+        "The administrator can filter activities by user."
+      ],
+      [
+        "5",
+        "Module Filter",
+        "The administrator can filter activities by system module."
+      ],
+      [
+        "6",
+        "Action Filter",
+        "The administrator can filter activities by type of action."
+      ],
+      [
+        "7",
+        "From and To Date",
+        "The administrator can set a specific date range for the activities."
+      ],
+      [
+        "8",
+        "Apply Filters Button",
+        "The administrator can select this button to apply the selected filters."
+      ],
+      [
+        "9",
+        "Reset Button",
+        "The administrator can select this button to clear the filters."
+      ],
+      [
+        "10",
+        "Activity Records",
+        "Displays the event, actor, details, and date of each recorded activity."
+      ],
+      [
+        "11",
+        "Page Indicator",
+        "Shows the current page of the activity records."
+      ]
+    ]
+  },
+  {
+    "index": 37,
+    "rows": 7,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Availability Status",
+        "The administrator can select this to set their status as available or away."
+      ],
+      [
+        "2",
+        "Search Conversations",
+        "The administrator can search customers or messages."
+      ],
+      [
+        "3",
+        "Conversation Filter",
+        "The administrator can filter the conversations in the queue."
+      ],
+      [
+        "4",
+        "Reset Button",
+        "The administrator can select this button to clear the search and filter."
+      ],
+      [
+        "5",
+        "Conversation Item",
+        "Displays a customer conversation with its latest message, assigned staff, and waiting time."
+      ],
+      [
+        "6",
+        "Conversation Panel",
+        "Displays the selected conversation and the customer details."
+      ]
+    ]
+  },
+  {
+    "index": 38,
+    "rows": 14,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Dashboard",
+        "The technician can select this option to view their work overview."
+      ],
+      [
+        "2",
+        "Installations",
+        "The technician can select this option to view their assigned installations."
+      ],
+      [
+        "3",
+        "Customers",
+        "The technician can select this option to view customer records."
+      ],
+      [
+        "4",
+        "Tickets",
+        "The technician can select this option to view their assigned tickets."
+      ],
+      [
+        "5",
+        "Live Chat",
+        "The technician can select this option to respond to assigned customer conversations."
+      ],
+      [
+        "6",
+        "Notification Bell",
+        "The technician can select this icon to view notifications."
+      ],
+      [
+        "7",
+        "View Installations Button",
+        "The technician can select this button to go to their assigned installations."
+      ],
+      [
+        "8",
+        "Open Tickets Button",
+        "The technician can select this button to go to their assigned tickets."
+      ],
+      [
+        "9",
+        "Summary Cards",
+        "Show the number of assigned installations, completed jobs, scheduled jobs, and open tickets."
+      ],
+      [
+        "10",
+        "Assigned Tickets",
+        "Displays the tickets currently assigned to the technician."
+      ],
+      [
+        "11",
+        "Today’s Workload",
+        "Displays the installations scheduled for the current day."
+      ],
+      [
+        "12",
+        "Profile Settings",
+        "The technician can select this option to update their profile information."
+      ],
+      [
+        "13",
+        "Logout Button",
+        "The technician can select this button to sign out of the system."
+      ]
+    ]
+  },
+  {
+    "index": 39,
+    "rows": 7,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Scheduled",
+        "Shows the number of scheduled installations."
+      ],
+      [
+        "2",
+        "In Progress",
+        "Shows the number of installations currently being worked on."
+      ],
+      [
+        "3",
+        "Installed",
+        "Shows the number of completed installations."
+      ],
+      [
+        "4",
+        "Activated",
+        "Shows the number of installations with activated service."
+      ],
+      [
+        "5",
+        "Installations List",
+        "Displays the job, customer, plan, contact, address, schedule, and status of each assigned installation."
+      ],
+      [
+        "6",
+        "Action Column",
+        "The technician can use the buttons in this column to open and update an installation."
+      ]
+    ]
+  },
+  {
+    "index": 40,
+    "rows": 6,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Customer Details Labels",
+        "Show the customer ID, account status, application status, and number of open tickets."
+      ],
+      [
+        "2",
+        "Print Customer Summary Button",
+        "The technician can select this button to print a summary of the customer’s record."
+      ],
+      [
+        "3",
+        "Summary Cards",
+        "Show the customer’s application status, total tickets, open tickets, and installation status."
+      ],
+      [
+        "4",
+        "Customer Information",
+        "Displays the customer’s ID, name, contact details, address, date of birth, and gender."
+      ],
+      [
+        "5",
+        "Customer Activity Snapshot",
+        "Displays a quick view of the customer’s application, installation, and ticket activity."
+      ]
+    ]
+  },
+  {
+    "index": 41,
+    "rows": 9,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Search Tickets",
+        "The technician can search their tickets by tracking number, customer name, or subject."
+      ],
+      [
+        "2",
+        "Status Filter",
+        "The technician can filter their tickets by status."
+      ],
+      [
+        "3",
+        "Urgency Filter",
+        "The technician can filter their tickets by urgency level."
+      ],
+      [
+        "4",
+        "Apply Button",
+        "The technician can select this button to apply the selected filters."
+      ],
+      [
+        "5",
+        "Reset Button",
+        "The technician can select this button to clear the filters."
+      ],
+      [
+        "6",
+        "Status Summary",
+        "Shows the number of assigned tickets that are open, in progress, resolved, closed, or cancelled."
+      ],
+      [
+        "7",
+        "Tickets List",
+        "Displays the details of each ticket assigned to the technician."
+      ],
+      [
+        "8",
+        "Action Column",
+        "The technician can use the buttons in this column to open and respond to a ticket."
+      ]
+    ]
+  },
+  {
+    "index": 42,
+    "rows": 16,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Dashboard",
+        "The customer can select this option to view their account overview."
+      ],
+      [
+        "2",
+        "Apply",
+        "The customer can select this option to apply for internet service."
+      ],
+      [
+        "3",
+        "Support Tickets",
+        "The customer can select this option to view and create support tickets."
+      ],
+      [
+        "4",
+        "Live Chat",
+        "The customer can select this option to chat with MJJD support or the AI assistant."
+      ],
+      [
+        "5",
+        "Notification Bell",
+        "The customer can select this icon to view notifications."
+      ],
+      [
+        "6",
+        "View Application Button",
+        "The customer can select this button to view their submitted application."
+      ],
+      [
+        "7",
+        "Report an Issue Button",
+        "The customer can select this button to report a concern through a support ticket."
+      ],
+      [
+        "8",
+        "Summary Cards",
+        "Show the customer’s application status, installation schedule, live application, and open tickets."
+      ],
+      [
+        "9",
+        "Recent Support Tickets",
+        "Displays the customer’s recent support tickets."
+      ],
+      [
+        "10",
+        "Quick Actions",
+        "Provide shortcuts to the main customer features."
+      ],
+      [
+        "11",
+        "Apply for Service",
+        "The customer can select this option to submit a new service application."
+      ],
+      [
+        "12",
+        "Tickets",
+        "The customer can select this option to open a support conversation and view updates."
+      ],
+      [
+        "13",
+        "Live Chat",
+        "The customer can select this option to connect with support staff or the AI assistant."
+      ],
+      [
+        "14",
+        "Profile Settings",
+        "The customer can select this option to update their profile information."
+      ],
+      [
+        "15",
+        "Logout Button",
+        "The customer can select this button to sign out of the system."
+      ]
+    ]
+  },
+  {
+    "index": 43,
+    "rows": 10,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Auto-save Notice",
+        "Informs the customer that their progress is saved automatically and shows the time of the last save."
+      ],
+      [
+        "2",
+        "Save Now Button",
+        "The customer can select this button to save their progress immediately."
+      ],
+      [
+        "3",
+        "Discard Draft",
+        "The customer can select this option to delete their saved draft."
+      ],
+      [
+        "4",
+        "Progress Steps",
+        "Shows the five steps of the application: Applicant, Location, Plan, Upload ID, and Review."
+      ],
+      [
+        "5",
+        "First Name",
+        "The customer can enter their first name."
+      ],
+      [
+        "6",
+        "Last Name",
+        "The customer can enter their last name."
+      ],
+      [
+        "7",
+        "Email Address",
+        "The customer can enter their email address."
+      ],
+      [
+        "8",
+        "Mobile Number",
+        "The customer can enter their mobile number."
+      ],
+      [
+        "9",
+        "Continue to Location Button",
+        "The customer can select this button to proceed to the service location step."
+      ]
+    ]
+  },
+  {
+    "index": 44,
+    "rows": 6,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Region",
+        "The customer can select the region of their service address."
+      ],
+      [
+        "2",
+        "Province",
+        "The customer can select the province of their service address."
+      ],
+      [
+        "3",
+        "Municipality / City",
+        "The customer can select the municipality or city of their service address."
+      ],
+      [
+        "4",
+        "Barangay / Zone",
+        "The customer can select the barangay or zone of their service address."
+      ],
+      [
+        "5",
+        "Street / Landmark / House Details",
+        "The customer can enter their house number, street, purok, or nearby landmarks."
+      ]
+    ]
+  },
+  {
+    "index": 45,
+    "rows": 8,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Map Pin",
+        "The customer can drag the marker or click the map to set the exact location of the service point."
+      ],
+      [
+        "2",
+        "Latitude",
+        "Displays the latitude of the pinned location."
+      ],
+      [
+        "3",
+        "Longitude",
+        "Displays the longitude of the pinned location."
+      ],
+      [
+        "4",
+        "Address Summary",
+        "Displays a summary of the selected service address."
+      ],
+      [
+        "5",
+        "Map Preview",
+        "Displays the full address based on the pinned location."
+      ],
+      [
+        "6",
+        "Back Button",
+        "The customer can select this button to return to the previous step."
+      ],
+      [
+        "7",
+        "Choose Plan Button",
+        "The customer can select this button to proceed to the plan step."
+      ]
+    ]
+  },
+  {
+    "index": 46,
+    "rows": 5,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Superfiber 50 Mbps",
+        "The customer can select this option to choose the Superfiber plan with a PHP 999 installation fee."
+      ],
+      [
+        "2",
+        "Extraboost 100 Mbps",
+        "The customer can select this option to choose the Extraboost plan with a PHP 1,699 installation fee."
+      ],
+      [
+        "3",
+        "Back Button",
+        "The customer can select this button to return to the previous step."
+      ],
+      [
+        "4",
+        "Upload ID Button",
+        "The customer can select this button to proceed to the identity verification step."
+      ]
+    ]
+  },
+  {
+    "index": 47,
+    "rows": 4,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Type of Valid ID",
+        "The customer can select the type of government-issued ID they will submit."
+      ],
+      [
+        "2",
+        "Close-up of Valid ID",
+        "Shows the instructions for taking a clear close-up photo of the ID."
+      ],
+      [
+        "3",
+        "Customer Holding Valid ID",
+        "Shows the instructions for taking a photo of the customer holding the same ID beside their face."
+      ]
+    ]
+  },
+  {
+    "index": 48,
+    "rows": 8,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Choose File (Close-up)",
+        "The customer can select this button to upload a close-up photo of their ID."
+      ],
+      [
+        "2",
+        "Take Photo (Close-up)",
+        "The customer can select this button to take a close-up photo of their ID using the device camera."
+      ],
+      [
+        "3",
+        "Choose File (Holding ID)",
+        "The customer can select this button to upload a photo of themselves holding their ID."
+      ],
+      [
+        "4",
+        "Take Photo (Holding ID)",
+        "The customer can select this button to take a photo of themselves holding their ID using the device camera."
+      ],
+      [
+        "5",
+        "Verification Assistance",
+        "Explains the checks done on the uploaded photos, such as format, size, image quality, and duplicate detection."
+      ],
+      [
+        "6",
+        "Back Button",
+        "The customer can select this button to return to the previous step."
+      ],
+      [
+        "7",
+        "Review Application Button",
+        "The customer can select this button to proceed to the review step."
+      ]
+    ]
+  },
+  {
+    "index": 49,
+    "rows": 11,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Applicant",
+        "Displays the name of the applicant."
+      ],
+      [
+        "2",
+        "Contact",
+        "Displays the email address and mobile number of the applicant."
+      ],
+      [
+        "3",
+        "Address",
+        "Displays the service address."
+      ],
+      [
+        "4",
+        "Location Pin",
+        "Displays the coordinates of the pinned location."
+      ],
+      [
+        "5",
+        "Plan",
+        "Displays the selected internet plan."
+      ],
+      [
+        "6",
+        "ID Type",
+        "Displays the type of ID submitted."
+      ],
+      [
+        "7",
+        "ID Close-up",
+        "Shows that the close-up photo of the ID has been saved."
+      ],
+      [
+        "8",
+        "ID Held by Customer",
+        "Shows that the photo of the customer holding the ID has been saved."
+      ],
+      [
+        "9",
+        "Back Button",
+        "The customer can select this button to return to the previous step."
+      ],
+      [
+        "10",
+        "Submit Application Button",
+        "The customer can select this button to submit their service application."
+      ]
+    ]
+  },
+  {
+    "index": 50,
+    "rows": 4,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Reference Number",
+        "Displays the reference number of the submitted application, which the customer can use to track it."
+      ],
+      [
+        "2",
+        "Go to My Portal Button",
+        "The customer can select this button to go to their customer dashboard."
+      ],
+      [
+        "3",
+        "Return Home",
+        "The customer can select this option to go back to the homepage."
+      ]
+    ]
+  },
+  {
+    "index": 51,
+    "rows": 8,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Create New Ticket Button",
+        "The customer can select this button to report a new issue."
+      ],
+      [
+        "2",
+        "Search",
+        "The customer can search their tickets by tracking number, subject, description, or assigned staff."
+      ],
+      [
+        "3",
+        "Status Filter",
+        "The customer can filter their tickets by status."
+      ],
+      [
+        "4",
+        "Filter Button",
+        "The customer can select this button to apply the selected search and filter."
+      ],
+      [
+        "5",
+        "Reset Button",
+        "The customer can select this button to clear the search and filter."
+      ],
+      [
+        "6",
+        "Tickets List",
+        "Displays the tracking number, subject, urgency, status, assigned staff, and submission date of each ticket."
+      ],
+      [
+        "7",
+        "Action Column",
+        "The customer can use the buttons in this column to open a ticket and view its updates."
+      ]
+    ]
+  },
+  {
+    "index": 52,
+    "rows": 7,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "MJJD AI Assistant",
+        "Shows who the customer is chatting with. The AI assistant and live support share one conversation."
+      ],
+      [
+        "2",
+        "Connection Status",
+        "Shows that the chat is connected and whether the AI assistant is currently helping."
+      ],
+      [
+        "3",
+        "Chat Area",
+        "Displays the messages between the customer and MJJD support."
+      ],
+      [
+        "4",
+        "Suggested Questions",
+        "The customer can select a suggested question to ask it quickly."
+      ],
+      [
+        "5",
+        "Message Field",
+        "The customer can type their message here. The clip icon allows them to attach a file."
+      ],
+      [
+        "6",
+        "Send Button",
+        "The customer can select this button to send their message."
+      ]
+    ]
+  },
+  {
+    "index": 53,
+    "rows": 9,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "MJJD Telecom Logo",
+        "Displays the MJJD Telecom logo and the name of the Customer Relationship Management System."
+      ],
+      [
+        "2",
+        "Profile Icon",
+        "The user can select this icon to log in or register an account."
+      ],
+      [
+        "3",
+        "Menu Icon",
+        "The user can select this icon to open the navigation menu."
+      ],
+      [
+        "4",
+        "Apply Now Button",
+        "The user can select this button to start an application for internet service installation."
+      ],
+      [
+        "5",
+        "Track Application Button",
+        "The user can select this button to check the status of a submitted service application."
+      ],
+      [
+        "6",
+        "Track Ticket Button",
+        "The user can select this button to check the status of a submitted support ticket."
+      ],
+      [
+        "7",
+        "Slider Indicators",
+        "The user can select these indicators to view the different featured banners on the homepage."
+      ],
+      [
+        "8",
+        "Choose Your Plan Section",
+        "The user can scroll down to view the available internet service plans."
+      ]
+    ]
+  },
+  {
+    "index": 54,
+    "rows": 10,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Continue with Google",
+        "The user can select this button to sign in using their Google account."
+      ],
+      [
+        "2",
+        "Email Address",
+        "The user can enter their registered email address."
+      ],
+      [
+        "3",
+        "Password",
+        "The user can enter their account password."
+      ],
+      [
+        "4",
+        "Show Password Icon",
+        "The user can select this icon to show or hide the entered password."
+      ],
+      [
+        "5",
+        "Forgot Password?",
+        "The user can select this option to recover or reset their password."
+      ],
+      [
+        "6",
+        "Keep Me Signed In Checkbox",
+        "The user can check this box to stay signed in on the device."
+      ],
+      [
+        "7",
+        "Sign In Button",
+        "The user can select this button to submit their email address and password and access their account."
+      ],
+      [
+        "8",
+        "Create One Here",
+        "The user can select this option to open the registration window if they do not have an account."
+      ],
+      [
+        "9",
+        "Close (×) Button",
+        "The user can select this button to close the login window."
+      ]
+    ]
+  },
+  {
+    "index": 55,
+    "rows": 9,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Continue with Google",
+        "The user can select this button to create an account using their Google account."
+      ],
+      [
+        "2",
+        "First Name",
+        "The user can enter their first name."
+      ],
+      [
+        "3",
+        "Last Name",
+        "The user can enter their last name."
+      ],
+      [
+        "4",
+        "Email Address",
+        "The user can enter the email address to be used for their account."
+      ],
+      [
+        "5",
+        "Password",
+        "The user can create a password. The eye icon shows or hides the password."
+      ],
+      [
+        "6",
+        "Confirm Password",
+        "The user can re-enter the password to confirm that both entries match."
+      ],
+      [
+        "7",
+        "Terms and Conditions Checkbox",
+        "The user can check this box to agree to the Terms and Conditions."
+      ],
+      [
+        "8",
+        "Close (×) Button",
+        "The user can select this button to close the registration window."
+      ]
+    ]
+  },
+  {
+    "index": 56,
+    "rows": 6,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Menu Icon",
+        "The administrator can select this icon to open the navigation menu."
+      ],
+      [
+        "2",
+        "Notification Bell",
+        "The administrator can select this icon to view system notifications."
+      ],
+      [
+        "3",
+        "Open Analytics Button",
+        "The administrator can select this button to go directly to the Analytics page."
+      ],
+      [
+        "4",
+        "Period Filter",
+        "The administrator can choose whether to view the workload for today, this week, or the next 30 days."
+      ],
+      [
+        "5",
+        "Workload Cards",
+        "Show the number of applications to review and other items needing attention. The Review link opens the related records."
+      ]
+    ]
+  },
+  {
+    "index": 57,
+    "rows": 12,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Dashboard",
+        "The administrator can select this option to view the overview of current operations."
+      ],
+      [
+        "2",
+        "Applications",
+        "The administrator can select this option to review and manage customer service applications."
+      ],
+      [
+        "3",
+        "Installations",
+        "The administrator can select this option to monitor installation schedules and technician assignments."
+      ],
+      [
+        "4",
+        "Customers",
+        "The administrator can select this option to view and manage customer records."
+      ],
+      [
+        "5",
+        "Technicians",
+        "The administrator can select this option to view and manage technician records."
+      ],
+      [
+        "6",
+        "Tickets",
+        "The administrator can select this option to manage customer support tickets."
+      ],
+      [
+        "7",
+        "Analytics",
+        "The administrator can select this option to view analytics and generate reports."
+      ],
+      [
+        "8",
+        "System Logs",
+        "The administrator can select this option to view the audit trail of system activities."
+      ],
+      [
+        "9",
+        "Live Chat",
+        "The administrator can select this option to respond to customer conversations."
+      ],
+      [
+        "10",
+        "Profile Settings",
+        "The administrator can select this option to update their profile information."
+      ],
+      [
+        "11",
+        "Logout Button",
+        "The administrator can select this button to sign out of the system."
+      ]
+    ]
+  },
+  {
+    "index": 58,
+    "rows": 5,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "Filters",
+        "The administrator can select this to show the search and filter options."
+      ],
+      [
+        "2",
+        "Status Summary",
+        "Shows the number of applications under each status."
+      ],
+      [
+        "3",
+        "Application Record",
+        "Displays the reference number, customer, contact number, plan, and status of each application."
+      ],
+      [
+        "4",
+        "Status Label",
+        "Shows the current status of the application."
+      ]
+    ]
+  },
+  {
+    "index": 59,
+    "rows": 4,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "View Installations Button",
+        "The technician can select this button to go to their assigned installations."
+      ],
+      [
+        "2",
+        "Open Tickets Button",
+        "The technician can select this button to go to their assigned tickets."
+      ],
+      [
+        "3",
+        "Summary Cards",
+        "Show the number of assigned installations, completed jobs, scheduled jobs, and open tickets."
+      ]
+    ]
+  },
+  {
+    "index": 60,
+    "rows": 5,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "View Application Button",
+        "The customer can select this button to view their submitted application."
+      ],
+      [
+        "2",
+        "Report an Issue Button",
+        "The customer can select this button to report a concern through a support ticket."
+      ],
+      [
+        "3",
+        "Application Status",
+        "Shows the current stage of the customer’s service application."
+      ],
+      [
+        "4",
+        "Installation Schedule",
+        "Shows the scheduled installation date once it is set."
+      ]
+    ]
+  },
+  {
+    "index": 61,
+    "rows": 7,
+    "cols": 3,
+    "data": [
+      [
+        "No.",
+        "Icon/Button Name",
+        "Functions and Description"
+      ],
+      [
+        "1",
+        "MJJD AI Assistant",
+        "Shows who the customer is chatting with. The AI assistant and live support share one conversation."
+      ],
+      [
+        "2",
+        "Connection Status",
+        "Shows that the chat is connected and whether the AI assistant is currently helping."
+      ],
+      [
+        "3",
+        "Suggested Questions",
+        "The customer can select a suggested question to ask it quickly."
+      ],
+      [
+        "4",
+        "Attach Icon",
+        "The customer can select this icon to attach a file."
+      ],
+      [
+        "5",
+        "Message Field",
+        "The customer can type their message here."
+      ],
+      [
+        "6",
+        "Send Button",
+        "The customer can select this button to send their message."
+      ]
+    ]
+  }
+]
