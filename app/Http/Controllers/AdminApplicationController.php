@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\ApplicationIdVerificationEvent;
 use App\Models\Installation;
 use App\Models\InstallationLog;
+use App\Models\SystemLog;
 use App\Models\User;
 use App\Services\TechnicianSchedule;
 use App\Services\WorkflowTransaction;
@@ -21,8 +22,18 @@ class AdminApplicationController extends Controller
 {
     public function index(Request $request)
     {
+        $validatedFilters = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'technician_id' => ['nullable', 'integer', 'exists:users,id'],
+            'requires_action' => ['nullable', 'boolean'],
+        ]);
         $status = trim((string) $request->query('status', ''));
         $search = trim((string) $request->query('search', ''));
+        $dateFrom = $validatedFilters['date_from'] ?? null;
+        $dateTo = $validatedFilters['date_to'] ?? null;
+        $technicianId = isset($validatedFilters['technician_id']) ? (int) $validatedFilters['technician_id'] : null;
+        $requiresAction = $request->boolean('requires_action');
 
         $availableStatuses = [
             '',
@@ -53,6 +64,16 @@ class AdminApplicationController extends Controller
         }
 
         $this->applyApplicationSearch($query, $search);
+        $query
+            ->when($dateFrom, fn ($builder) => $builder->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($builder) => $builder->whereDate('created_at', '<=', $dateTo))
+            ->when($technicianId, fn ($builder) => $builder->whereHas('installation', fn ($installation) => $installation->where('technician_id', $technicianId)))
+            ->when($requiresAction, fn ($builder) => $builder->where(function ($attention) {
+                $attention->whereIn('status', [Application::STATUS_SUBMITTED, Application::STATUS_UNDER_REVIEW, Application::STATUS_APPROVED, Application::STATUS_CANCELLATION_REQUESTED])
+                    ->orWhereHas('installation', fn ($installation) => $installation
+                        ->where('status', Installation::STATUS_RESCHEDULE_REQUIRED)
+                        ->orWhere(fn ($request) => $request->whereNotNull('reschedule_requested_at')->whereNull('reschedule_reviewed_at')));
+            }));
 
         $applications = $query->paginate(10)->withQueryString();
 
@@ -68,7 +89,9 @@ class AdminApplicationController extends Controller
             Application::STATUS_CANCELLATION_REQUESTED => (clone $summaryQuery)->where('status', Application::STATUS_CANCELLATION_REQUESTED)->count(),
         ];
 
-        return view('admin.applications.index', compact('applications', 'applicationSummary', 'status', 'search'));
+        $filterTechnicians = User::query()->technicians()->orderBy('name')->get(['id', 'name']);
+
+        return view('admin.applications.index', compact('applications', 'applicationSummary', 'status', 'search', 'dateFrom', 'dateTo', 'technicianId', 'requiresAction', 'filterTechnicians'));
     }
 
     private function applyApplicationSearch($query, string $search)
@@ -136,11 +159,43 @@ class AdminApplicationController extends Controller
                 ->get();
         }
 
+        $applicationTimeline = collect([[
+            'occurred_at' => $application->created_at,
+            'actor' => $application->user?->name ?? 'Customer',
+            'title' => 'Application submitted',
+            'description' => 'Application '.$application->reference_no.' was submitted.',
+        ]])
+            ->merge($application->idVerificationEvents->map(fn ($event) => [
+                'occurred_at' => $event->created_at,
+                'actor' => $event->actor?->name ?? 'System',
+                'title' => 'Identity decision: '.ucfirst($event->to_status),
+                'description' => $event->reason ?: 'Identity documents were reviewed.',
+            ]))
+            ->merge(collect($application->installation?->logs ?? [])->map(fn ($log) => [
+                'occurred_at' => $log->created_at,
+                'actor' => $log->user?->name ?? 'System',
+                'title' => 'Installation activity',
+                'description' => $log->notes,
+            ]))
+            ->merge(SystemLog::query()
+                ->with('user')
+                ->where('description', 'like', '%'.$application->reference_no.'%')
+                ->get()
+                ->map(fn ($log) => [
+                    'occurred_at' => $log->created_at,
+                    'actor' => $log->user?->name ?? 'System',
+                    'title' => $log->action,
+                    'description' => $log->description,
+                ]))
+            ->sortByDesc('occurred_at')
+            ->values();
+
         return view('admin.applications.show', compact(
             'application',
             'technicians',
             'scheduleAvailability',
-            'identityDuplicates'
+            'identityDuplicates',
+            'applicationTimeline'
         ));
     }
 
@@ -592,6 +647,13 @@ class AdminApplicationController extends Controller
                 );
             }
 
+            CustomerEmailSender::sendInstallationRescheduled(
+                $installation->fresh(['application.user', 'technician']),
+                'Reschedule request not approved',
+                'Your requested schedule change was not approved. The existing installation schedule remains active.',
+                $reason
+            );
+
             system_log(
                 'Installation Reschedule Rejected',
                 'Rejected customer reschedule request for Application '.$application->reference_no.'.'
@@ -662,6 +724,8 @@ class AdminApplicationController extends Controller
                 auth()->id()
             );
         }
+
+        CustomerEmailSender::sendInstallationRescheduled($installation->fresh(['application.user', 'technician']));
 
         return back()->with('success', 'Reschedule request approved and installation schedule updated.');
     }
@@ -763,6 +827,11 @@ class AdminApplicationController extends Controller
                     ['application_id' => $application->id, 'id_verification_status' => $validated['id_verification_status']],
                     auth()->id()
                 );
+            }
+
+            if ($validated['id_verification_status'] === ApplicationIdentity::STATUS_REJECTED
+                && $previousStatus !== ApplicationIdentity::STATUS_REJECTED) {
+                CustomerEmailSender::sendIdentityResubmission($application->fresh(['user']));
             }
 
             system_log(

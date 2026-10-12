@@ -1,0 +1,1 @@
+@include('errors.minimal', ['status' => 422, 'title' => 'Request needs correction', 'message' => 'Some submitted information could not be processed. Go back, review the highlighted fields, and try again.'])

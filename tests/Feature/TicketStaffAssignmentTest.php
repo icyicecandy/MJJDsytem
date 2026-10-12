@@ -109,6 +109,17 @@ test('administrator can take over start and resolve a technician ticket with an 
             'actor_id' => $admin->id,
         ])->where('reason', 'Administrator is handling this customer escalation.')->exists())->toBeTrue();
 
+    $this->assertDatabaseHas('email_delivery_logs', [
+        'notification_type' => 'Ticket assignment',
+        'recipient' => $customer->email,
+        'status' => 'sent',
+    ]);
+
+    $this->actingAs($customer)
+        ->get(route('customer.tickets.show', $ticket, false))
+        ->assertOk()
+        ->assertSee($admin->name.' (Admin)');
+
     $this->actingAs($admin)
         ->patch(route('admin.tickets.start', $ticket, false))
         ->assertSessionHasNoErrors();

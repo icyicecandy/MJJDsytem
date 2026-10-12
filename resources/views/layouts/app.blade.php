@@ -139,9 +139,9 @@
 
         @if(session('success') || session('error') || session('status'))
             <div class="flash-stack">
-                @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
-                @if(session('error'))<div class="alert alert-error">{{ session('error') }}</div>@endif
-                @if(session('status'))<div class="alert alert-info">{{ match (session('status')) { 'profile-updated' => 'Profile successfully updated.', 'password-updated' => 'Password successfully changed. Trusted browsers were revoked.', 'password-set' => 'Password successfully set.', 'first-login-password-updated' => 'Password changed successfully. Complete two-factor setup to continue.', 'trusted-device-revoked' => 'The selected trusted browser was revoked.', 'trusted-devices-revoked' => 'All trusted browsers were revoked.', default => session('status') } }}</div>@endif
+                @if(session('success'))<div class="alert alert-success" role="status"><span>{{ session('success') }}</span><button type="button" class="alert-dismiss" data-dismiss-alert aria-label="Dismiss message">&times;</button></div>@endif
+                @if(session('error'))<div class="alert alert-error" role="alert"><span>{{ session('error') }}</span><button type="button" class="alert-dismiss" data-dismiss-alert aria-label="Dismiss message">&times;</button></div>@endif
+                @if(session('status'))<div class="alert alert-info" role="status"><span>{{ match (session('status')) { 'profile-updated' => 'Profile successfully updated.', 'password-updated' => 'Password successfully changed. Trusted browsers were revoked.', 'password-set' => 'Password successfully set.', 'first-login-password-updated' => 'Password changed successfully. Complete two-factor setup to continue.', 'trusted-device-revoked' => 'The selected trusted browser was revoked.', 'trusted-devices-revoked' => 'All trusted browsers were revoked.', default => session('status') } }}</span><button type="button" class="alert-dismiss" data-dismiss-alert aria-label="Dismiss message">&times;</button></div>@endif
             </div>
         @endif
 
@@ -151,6 +151,7 @@
                     <div class="alert alert-error validation-toast" role="alert">
                         <span class="validation-toast-icon" aria-hidden="true">!</span>
                         <span><strong>Please check the highlighted field.</strong> {{ $errors->first() }}</span>
+                        <button type="button" class="alert-dismiss" data-dismiss-alert aria-label="Dismiss validation message">&times;</button>
                     </div>
                 </div>
             @endif
@@ -321,6 +322,7 @@
         </script>
     @endguest
 
+    <script src="{{ asset('js/form-protection.js') }}?v={{ filemtime(public_path('js/form-protection.js')) }}" defer></script>
     @stack('scripts')
     @yield('scripts')
 </body>

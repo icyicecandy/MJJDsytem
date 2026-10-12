@@ -230,6 +230,12 @@ test('administrator review requires rejection reasons records history and gates 
         ->and($rejected->id_verified_by)->toBe($admin->id)
         ->and($rejected->id_verified_at)->not->toBeNull();
 
+    $this->assertDatabaseHas('email_delivery_logs', [
+        'notification_type' => 'ID resubmission request',
+        'recipient' => $customer->email,
+        'status' => 'sent',
+    ]);
+
     $this->patch(route('admin.applications.identity-verification', $application), [
         'id_verification_status' => ApplicationIdentity::STATUS_VERIFIED,
         'review_document_readable' => '1',

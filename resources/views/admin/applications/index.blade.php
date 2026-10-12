@@ -87,6 +87,14 @@
                     </select>
                 </div>
 
+                <div class="toolbar-field"><label for="application_date_from">From</label><input id="application_date_from" type="date" name="date_from" value="{{ $dateFrom }}"></div>
+                <div class="toolbar-field"><label for="application_date_to">To</label><input id="application_date_to" type="date" name="date_to" value="{{ $dateTo }}"></div>
+                <div class="toolbar-field">
+                    <label for="application_technician">Technician</label>
+                    <select id="application_technician" name="technician_id"><option value="">All technicians</option>@foreach($filterTechnicians as $technician)<option value="{{ $technician->id }}" @selected((int) $technicianId === $technician->id)>{{ $technician->name }}</option>@endforeach</select>
+                </div>
+                <label class="toolbar-field"><span>Records requiring action</span><select name="requires_action"><option value="0">All records</option><option value="1" @selected($requiresAction)>Requires action</option></select></label>
+
                 <div class="toolbar-actions">
                     <button type="submit" class="btn">Apply</button>
                     <button
@@ -98,10 +106,21 @@
                 </div>
             </form>
             <p class="admin-application-live-status" data-live-application-search-status aria-live="polite">Results update automatically.</p>
+            <x-active-filter-summary :labels="[
+                $status ? 'Status: '.($statuses[$status] ?? $status) : null,
+                $search ? 'Search: '.$search : null,
+                $dateFrom ? 'From: '.$dateFrom : null,
+                $dateTo ? 'To: '.$dateTo : null,
+                $technicianId ? 'Technician: '.optional($filterTechnicians->firstWhere('id', $technicianId))->name : null,
+                $requiresAction ? 'Requires action' : null,
+            ]" :reset-url="route('admin.applications.index')" />
         </div>
 
         @php
-            $progressFilterParams = array_filter(['search' => $search ?? ''], fn ($value) => $value !== '');
+            $progressFilterParams = array_filter([
+                'search' => $search ?? '', 'date_from' => $dateFrom, 'date_to' => $dateTo,
+                'technician_id' => $technicianId, 'requires_action' => $requiresAction ? 1 : null,
+            ], fn ($value) => filled($value));
         @endphp
         <nav class="ticket-queue-overview__grid application-progress-grid" aria-label="Filter applications by progress" data-application-status-nav aria-busy="false">
             @foreach($progressCards as $progressValue => $progressLabel)

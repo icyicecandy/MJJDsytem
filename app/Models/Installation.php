@@ -251,6 +251,50 @@ class Installation extends Model
         return collect($this->technicalDetails())->filter(fn ($value) => filled($value))->isNotEmpty();
     }
 
+    public function hasCompletionEvidence(): bool
+    {
+        return filled($this->completed_at)
+            && collect($this->technicalDetails())->every(fn ($value) => filled($value))
+            && collect($this->proofPhotos())->filter()->isNotEmpty();
+    }
+
+    public function nextActionGuidance(): string
+    {
+        if (! $this->technician_id) {
+            return 'Assign an eligible technician before scheduling field work.';
+        }
+
+        if ($this->hasPendingStopWorkRequest()) {
+            return 'Waiting for the administrator to review the Stop Work request.';
+        }
+
+        if ($this->hasPendingCustomerRescheduleRequest()) {
+            return 'Administrator must review the customer reschedule request.';
+        }
+
+        return match ($this->status) {
+            self::STATUS_SCHEDULED, self::STATUS_ASSIGNED => 'Assigned technician must start the installation at the scheduled time.',
+            self::STATUS_IN_PROGRESS => 'Technician must enter the technical details and upload installation proof.',
+            self::STATUS_RESCHEDULE_REQUIRED => 'Administrator must assign a new available schedule.',
+            self::STATUS_COMPLETED => $this->hasCompletionEvidence()
+                ? 'Technician must confirm service activation.'
+                : 'Complete the technical details and installation proof before activation.',
+            self::STATUS_ACTIVATED => 'No further action is required. Service is activated.',
+            self::STATUS_CANCELLED => 'No further action is required. This installation is cancelled.',
+            default => 'Review the installation status and recorded history.',
+        };
+    }
+
+    public function nextActionTone(): string
+    {
+        return match ($this->status) {
+            self::STATUS_ACTIVATED => 'success',
+            self::STATUS_CANCELLED => 'muted',
+            self::STATUS_RESCHEDULE_REQUIRED => 'warning',
+            default => 'info',
+        };
+    }
+
     public function proofPhotos(): array
     {
         $installationPhotos = collect(PublicUpload::normalizePaths($this->installation_photo_paths))

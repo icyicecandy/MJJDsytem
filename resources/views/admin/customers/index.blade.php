@@ -66,6 +66,11 @@
                 <input type="text" name="search" id="search" value="{{ $search }}" placeholder="Customer ID, first name, last name, email, phone, plan, location, reference">
             </div>
 
+            <div class="toolbar-field"><label for="customer_account_status">Account</label><select name="account_status" id="customer_account_status"><option value="">All accounts</option><option value="active" @selected($accountStatus === 'active')>Active</option><option value="disabled" @selected($accountStatus === 'disabled')>Disabled</option></select></div>
+            <div class="toolbar-field"><label for="customer_date_from">From</label><input type="date" name="date_from" id="customer_date_from" value="{{ $dateFrom }}"></div>
+            <div class="toolbar-field"><label for="customer_date_to">To</label><input type="date" name="date_to" id="customer_date_to" value="{{ $dateTo }}"></div>
+            <label class="toolbar-field"><span>Action</span><select name="requires_action"><option value="0">All records</option><option value="1" @selected($requiresAction)>Requires action</option></select></label>
+
             <div class="toolbar-actions">
                 <button class="btn">Filter</button>
                 @if($search !== '' || $status !== '')
@@ -73,6 +78,14 @@
                 @endif
             </div>
         </form>
+        <x-active-filter-summary :labels="[
+            $status ? 'Application: '.($statusLabels[$status] ?? $status) : null,
+            $search ? 'Search: '.$search : null,
+            $accountStatus ? 'Account: '.ucfirst($accountStatus) : null,
+            $dateFrom ? 'From: '.$dateFrom : null,
+            $dateTo ? 'To: '.$dateTo : null,
+            $requiresAction ? 'Requires action' : null,
+        ]" :reset-url="route($customerIndexRoute)" />
     </section>
 
     <div id="customerResults" data-live-filter-results aria-busy="false">

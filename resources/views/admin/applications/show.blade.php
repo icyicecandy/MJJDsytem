@@ -1384,6 +1384,8 @@
             </div>
         </section>
 
+        <x-next-action :message="$application->nextActionGuidance()" :tone="$application->nextActionTone()" />
+
         <nav class="admin-app-workspace-nav" aria-label="Application detail sections">
             <div class="admin-app-workspace-tabs">
                 <button type="button" class="admin-app-workspace-tab" data-workspace-tab="overview" aria-pressed="false">Overview</button>
@@ -1392,7 +1394,7 @@
                 @if($showAdminActionCard)
                     <button type="button" class="admin-app-workspace-tab" data-workspace-tab="actions" aria-pressed="false">Actions</button>
                 @endif
-                <button type="button" class="admin-app-workspace-tab" data-workspace-tab="history" aria-pressed="false">History <span class="admin-app-workspace-tab-count">{{ $installationLogs->count() }}</span></button>
+                <button type="button" class="admin-app-workspace-tab" data-workspace-tab="history" aria-pressed="false">History <span class="admin-app-workspace-tab-count">{{ $applicationTimeline->count() }}</span></button>
             </div>
             <label class="admin-app-workspace-select">
                 <span>View section</span>
@@ -1401,7 +1403,7 @@
                     <option value="documents">Documents ({{ $documentCount }})</option>
                     <option value="location">Location</option>
                     @if($showAdminActionCard)<option value="actions">Actions</option>@endif
-                    <option value="history">History ({{ $installationLogs->count() }})</option>
+                    <option value="history">History ({{ $applicationTimeline->count() }})</option>
                 </select>
             </label>
             <span class="admin-app-workspace-live" data-workspace-live aria-live="polite"></span>
@@ -1599,7 +1601,7 @@
                     @endif
 
                     @if(! $identityIsVerified && $hasIdentityDocuments && ($isReviewState || $identityNeedsApprovedRecordCorrection))
-                        <form method="POST" action="{{ route('admin.applications.identity-verification', $application) }}" class="admin-id-review-form">
+                        <form method="POST" action="{{ route('admin.applications.identity-verification', $application) }}" class="admin-id-review-form" data-protect-form data-warn-unsaved>
                             @csrf
                             @method('PATCH')
                             <fieldset class="admin-id-checklist">
@@ -1627,23 +1629,23 @@
                             @error('id_verification_status')<span class="error">{{ $message }}</span>@enderror
                             @error('id_verification_reason')<span class="error">{{ $message }}</span>@enderror
                             <div class="admin-id-actions">
-                                <button type="submit" name="id_verification_status" value="verified" class="btn">
+                                <button type="submit" name="id_verification_status" value="verified" class="btn" data-confirm="Confirm that you reviewed the submitted ID and want to mark it as verified?" data-confirm-title="Verify identity documents?" data-confirm-label="Verify ID">
                                     {{ $identityNeedsApprovedRecordCorrection ? 'Verify ID and Unlock Scheduling' : ($identityIsRejected ? 'Correct Decision and Verify ID' : 'Verify ID') }}
                                 </button>
                                 @if($isReviewState && ! $identityIsRejected)
-                                    <button type="submit" name="id_verification_status" value="rejected" class="btn danger">Request ID Resubmission</button>
+                                    <button type="submit" name="id_verification_status" value="rejected" class="btn danger" data-confirm="The customer will be asked to upload new identity documents before this application can proceed." data-confirm-title="Request replacement documents?" data-confirm-label="Request Resubmission">Request ID Resubmission</button>
                                 @endif
                             </div>
                         </form>
                     @elseif($identityIsVerified && $isReviewState)
                         <details class="admin-id-correction">
                             <summary>Correct this verification decision</summary>
-                            <form method="POST" action="{{ route('admin.applications.identity-verification', $application) }}" class="admin-id-review-form">
+                            <form method="POST" action="{{ route('admin.applications.identity-verification', $application) }}" class="admin-id-review-form" data-protect-form data-warn-unsaved>
                                 @csrf
                                 @method('PATCH')
                                 <label for="id_verification_correction_reason">Reason for requesting replacement documents</label>
                                 <textarea id="id_verification_correction_reason" name="id_verification_reason" maxlength="1000" required placeholder="Explain why the verified submission needs to be replaced.">{{ old('id_verification_reason') }}</textarea>
-                                <button type="submit" name="id_verification_status" value="rejected" class="btn danger">Change to ID Resubmission Required</button>
+                                <button type="submit" name="id_verification_status" value="rejected" class="btn danger" data-confirm="This will reverse the verified decision and require the customer to upload new identity documents." data-confirm-title="Change verification decision?" data-confirm-label="Require Resubmission">Change to ID Resubmission Required</button>
                             </form>
                         </details>
                     @elseif(! $hasIdentityDocuments && ! $identityIsVerified && ($isReviewState || $identityNeedsApprovedRecordCorrection))
@@ -1862,7 +1864,7 @@
                         @endif
 
                         @if($isReviewState)
-                            <form method="POST" action="{{ route('admin.applications.status', $application) }}" class="admin-app-form" id="applicationDecisionForm">
+                            <form method="POST" action="{{ route('admin.applications.status', $application) }}" class="admin-app-form" id="applicationDecisionForm" data-protect-form data-warn-unsaved>
                                 @csrf
                                 @method('PATCH')
 
@@ -1925,13 +1927,13 @@
                                 @endunless
 
                                 <div class="admin-app-actions admin-app-actions--decision">
-                                    <button type="submit" name="status" value="approved" class="btn success" data-status-action="approved" @disabled(! $identityIsVerified) title="{{ $identityIsVerified ? 'Approve this application' : 'Verify the identity documents before approval' }}">Approve</button>
+                                    <button type="submit" name="status" value="approved" class="btn success" data-status-action="approved" data-confirm="Approve this verified application and move it to technician scheduling?" @disabled(! $identityIsVerified) title="{{ $identityIsVerified ? 'Approve this application' : 'Verify the identity documents before approval' }}">Approve</button>
                                     <button type="submit" name="status" value="under_review" class="btn secondary" data-status-action="under_review">Save as Under Review</button>
-                                    <button type="submit" name="status" value="rejected" class="btn danger" data-status-action="rejected">Reject</button>
+                                    <button type="submit" name="status" value="rejected" class="btn danger" data-status-action="rejected" data-confirm="Reject this application with the recorded reason?">Reject</button>
                                 </div>
                             </form>
                         @elseif($isApprovedState && $identityAllowsScheduling)
-                            <form method="POST" action="{{ route('admin.applications.schedule', $application) }}" class="admin-app-form admin-app-scheduling-form">
+                            <form method="POST" action="{{ route('admin.applications.schedule', $application) }}" class="admin-app-form admin-app-scheduling-form" data-protect-form data-warn-unsaved>
                                 @csrf
 
                                 <div class="admin-app-form-grid">
@@ -1997,7 +1999,7 @@
                                 <span class="error">{{ $message }}</span>
                             @enderror
                         @elseif($hasPendingCustomerRescheduleRequest && $installation)
-                            <form method="POST" action="{{ route('admin.applications.reschedule', $application) }}" class="admin-app-form admin-app-scheduling-form">
+                            <form method="POST" action="{{ route('admin.applications.reschedule', $application) }}" class="admin-app-form admin-app-scheduling-form" data-protect-form data-warn-unsaved>
                                 @csrf
                                 @method('PATCH')
 
@@ -2085,7 +2087,7 @@
                                 </div>
                             </form>
                         @elseif($isCancellationRequestedState)
-                            <form method="POST" action="{{ route('admin.applications.cancellation', $application) }}" class="admin-app-form">
+                            <form method="POST" action="{{ route('admin.applications.cancellation', $application) }}" class="admin-app-form" data-protect-form data-warn-unsaved>
                                 @csrf
                                 @method('PATCH')
 
@@ -2124,7 +2126,7 @@
                                 </div>
                             </form>
                         @elseif($isRescheduleRequiredState && $installation)
-                            <form method="POST" action="{{ route('admin.installations.reschedule', $installation) }}" class="admin-app-form admin-app-scheduling-form">
+                            <form method="POST" action="{{ route('admin.installations.reschedule', $installation) }}" class="admin-app-form admin-app-scheduling-form" data-protect-form data-warn-unsaved>
                                 @csrf
                                 @method('PATCH')
 
@@ -2185,7 +2187,7 @@
                                 </div>
                             </form>
                         @elseif($isInstallationScheduled && $installation)
-                            <form method="POST" action="{{ route('admin.installations.reassign', $installation) }}" class="admin-app-form">
+                            <form method="POST" action="{{ route('admin.installations.reassign', $installation) }}" class="admin-app-form" data-protect-form data-warn-unsaved>
                                 @csrf
                                 @method('PATCH')
 
@@ -2260,20 +2262,21 @@
                 <section class="admin-app-card admin-app-panel--history" data-app-workspace-panel="history">
                     <div class="admin-app-card-head">
                         <div>
-                            <h2>Installation History</h2>
-                            <p class="admin-app-helper">Scheduling, reassignment, reschedule, and completion activity in one chronological record.</p>
+                            <h2>Application and Installation History</h2>
+                            <p class="admin-app-helper">Identity decisions, status changes, assignments, schedule changes, customer requests, and installation activity in one chronological record.</p>
                         </div>
                     </div>
 
-                    @if($installation && $installationLogs->isNotEmpty())
+                    @if($applicationTimeline->isNotEmpty())
                         <div class="admin-app-history-scroll">
                             <div class="admin-app-timeline">
-                                @foreach($installationLogs as $log)
+                                @foreach($applicationTimeline as $event)
                                     <div class="admin-app-timeline-item">
                                         <div class="admin-app-timeline-meta">
-                                            {{ $log->created_at?->displayDateTime('F d, Y h:i A') ?? '-' }} - {{ $log->user?->name ?? 'System' }}
+                                            {{ $event['occurred_at']?->displayDateTime('F d, Y h:i A') ?? '-' }} - {{ $event['actor'] }}
                                         </div>
-                                        <div class="admin-app-value">{{ $log->notes }}</div>
+                                        <strong>{{ $event['title'] }}</strong>
+                                        <div class="admin-app-value">{{ $event['description'] }}</div>
                                     </div>
                                 @endforeach
                             </div>
@@ -2281,7 +2284,7 @@
                     @else
                         <div class="admin-app-empty">
                             <span class="admin-app-inline-label">No history yet</span>
-                            <p class="admin-app-helper">Installation activity will appear here after scheduling begins.</p>
+                            <p class="admin-app-helper">Record activity will appear here as the application is reviewed and processed.</p>
                         </div>
                     @endif
                 </section>

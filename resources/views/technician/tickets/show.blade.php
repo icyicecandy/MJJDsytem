@@ -53,6 +53,8 @@
                 />
             </section>
 
+            <x-next-action :message="$ticket->nextActionGuidance()" :tone="$ticket->nextActionTone()" />
+
             <section class="ticket-detail-card ticket-conversation-card">
                 <div class="ticket-detail-section-head">
                     <div>
@@ -114,7 +116,7 @@
                 </div>
 
                 @if(! $isReadOnly)
-                    <form method="POST" action="{{ route('technician.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form" data-unsaved-warning>
+                    <form method="POST" action="{{ route('technician.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form" data-unsaved-warning data-protect-form>
                         @csrf
                         <textarea name="message" rows="3" placeholder="Write a clear update for the customer..."></textarea>
                         <label for="technician_ticket_attachment">Attachments <span class="field-badge optional">Optional</span></label>
@@ -170,7 +172,7 @@
                         <button class="btn">Start Work</button>
                     </form>
                 @elseif($isInProgress)
-                    <form method="POST" action="{{ route('technician.tickets.resolve', $ticket) }}" class="ticket-action-form">
+                    <form method="POST" action="{{ route('technician.tickets.resolve', $ticket) }}" class="ticket-action-form" data-protect-form data-warn-unsaved>
                         @csrf
                         @method('PATCH')
                         <label for="resolution_notes">Resolution notes</label>
@@ -178,7 +180,7 @@
                         @error('resolution_notes')
                             <p class="error">{{ $message }}</p>
                         @enderror
-                        <button class="btn" data-submit-once>Mark as Resolved</button>
+                        <button class="btn" data-confirm="Mark this ticket as resolved with the recorded resolution note?">Mark as Resolved</button>
                     </form>
                 @elseif($isCancellationRequested)
                     <p class="ticket-sidebar-note">Customer requested cancellation. Waiting for admin decision.</p>

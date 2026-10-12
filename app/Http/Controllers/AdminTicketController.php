@@ -17,10 +17,18 @@ class AdminTicketController extends Controller
 {
     public function index(Request $request)
     {
+        $validatedFilters = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'requires_action' => ['nullable', 'boolean'],
+        ]);
         $selectedStatus = $request->query('status', 'all');
         $selectedUrgency = strtolower(trim((string) $request->query('urgency', 'all')));
         $selectedTechnician = trim((string) $request->query('technician', 'all'));
         $search = trim((string) $request->query('search', ''));
+        $dateFrom = $validatedFilters['date_from'] ?? null;
+        $dateTo = $validatedFilters['date_to'] ?? null;
+        $requiresAction = $request->boolean('requires_action');
 
         if (! in_array($selectedStatus, ['all', 'unassigned', 'open', 'queued', 'in_progress', 'resolved', 'closed', 'cancelled'], true)) {
             $selectedStatus = 'all';
@@ -73,6 +81,14 @@ class AdminTicketController extends Controller
             $ticketsQuery->where('status', Ticket::STATUS_CANCELLED);
         }
 
+        $ticketsQuery
+            ->when($dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($query) => $query->whereDate('created_at', '<=', $dateTo))
+            ->when($requiresAction, fn ($query) => $query->where(function ($attention) {
+                $attention->whereNull('assigned_staff_id')
+                    ->orWhereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED, Ticket::STATUS_IN_PROGRESS, Ticket::STATUS_CANCELLATION_REQUESTED]);
+            }));
+
         $tickets = $ticketsQuery->get();
 
         $assignees = $this->assignmentCandidates();
@@ -101,6 +117,13 @@ class AdminTicketController extends Controller
         } elseif ($selectedTechnician !== 'all') {
             $summaryQuery->where('assigned_staff_id', (int) $selectedTechnician);
         }
+        $summaryQuery
+            ->when($dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($query) => $query->whereDate('created_at', '<=', $dateTo))
+            ->when($requiresAction, fn ($query) => $query->where(function ($attention) {
+                $attention->whereNull('assigned_staff_id')
+                    ->orWhereIn('status', [Ticket::STATUS_OPEN, Ticket::STATUS_QUEUED, Ticket::STATUS_IN_PROGRESS, Ticket::STATUS_CANCELLATION_REQUESTED]);
+            }));
 
         $queueSummary = [
             'unassigned' => (clone $summaryQuery)
@@ -129,7 +152,10 @@ class AdminTicketController extends Controller
             'selectedUrgency',
             'selectedTechnician',
             'search',
-            'nextAutomaticAssignmentAt'
+            'nextAutomaticAssignmentAt',
+            'dateFrom',
+            'dateTo',
+            'requiresAction'
         ));
     }
 
@@ -286,11 +312,14 @@ class AdminTicketController extends Controller
                 system_log('Ticket Queue Updated', $ticket->publicReference().': '.$message);
 
                 if ($ticket->user) {
+                    $assignmentLabel = $currentStaff
+                        ? $currentStaff->name.' ('.ucfirst($currentStaff->role).')'
+                        : 'support queue';
                     AppNotificationSender::send(
                         $ticket->user,
                         'Support ticket updated',
                         $ticket->publicReference().' priority is '.$ticket->displayUrgencyLabel()
-                            .'. Current assignment: '.($currentStaff?->name ?? 'support queue').'.',
+                            .'. Current assignment: '.$assignmentLabel.'.',
                         route('customer.tickets.show', $ticket),
                         'ticket_queue_updated',
                         ['ticket_id' => $ticket->id],
@@ -309,6 +338,10 @@ class AdminTicketController extends Controller
                     ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference()],
                     auth()->id()
                 );
+
+                if ($ticket->user) {
+                    CustomerEmailSender::sendTicketAssigned($ticket, $assignee);
+                }
             }
 
             if ($previousStaff && $assignmentChanged && (int) $previousStaff->id !== (int) $assignee?->id
@@ -492,6 +525,13 @@ class AdminTicketController extends Controller
                 ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
                 auth()->id()
             );
+
+            CustomerEmailSender::sendTicketDecision(
+                $ticket,
+                'Ticket cancellation approved',
+                'Your cancellation request was approved. This support ticket is now cancelled and read-only.',
+                'Ticket cancellation decision'
+            );
         }
 
         return back()->with('success', 'Ticket cancellation approved.');
@@ -531,6 +571,13 @@ class AdminTicketController extends Controller
                 'ticket_cancellation_rejected',
                 ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
                 auth()->id()
+            );
+
+            CustomerEmailSender::sendTicketDecision(
+                $ticket,
+                'Ticket cancellation not approved',
+                'Your cancellation request was not approved. Support work on this ticket remains in progress.',
+                'Ticket cancellation decision'
             );
         }
 
@@ -598,6 +645,13 @@ class AdminTicketController extends Controller
                 'ticket_reopen_approved',
                 ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference(), 'status' => $ticket->status],
                 auth()->id()
+            );
+
+            CustomerEmailSender::sendTicketDecision(
+                $ticket,
+                'Ticket reopen request approved',
+                'Your request to reopen this ticket was approved. It has returned to the support queue for assignment.',
+                'Ticket reopen decision'
             );
         }
 

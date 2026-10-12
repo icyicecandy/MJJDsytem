@@ -62,6 +62,8 @@
                 />
             </section>
 
+            <x-next-action :message="$ticket->nextActionGuidance()" :tone="$ticket->nextActionTone()" />
+
             <section class="ticket-detail-card ticket-conversation-card">
                 <div class="ticket-detail-section-head">
                     <div>
@@ -123,7 +125,7 @@
                 </div>
 
                 @if(! $isReadOnly)
-                    <form method="POST" action="{{ route('admin.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form" data-unsaved-warning>
+                    <form method="POST" action="{{ route('admin.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form" data-unsaved-warning data-protect-form>
                         @csrf
                         <textarea name="message" rows="3" placeholder="Write a clear update for the customer..."></textarea>
                         <label for="admin_ticket_attachment">Attachments <span class="field-badge optional">Optional</span></label>
@@ -226,18 +228,18 @@
                         <div class="ticket-sidebar-note" data-assignment-warning-box hidden>
                             <strong>Assignment warning</strong>
                             <p data-assignment-warning-text></p>
-                            <label>
+                            <label class="ticket-confirmation-option">
                                 <input type="checkbox" name="confirm_assignment_override" value="1" data-assignment-override @checked(old('confirm_assignment_override'))>
-                                I reviewed the schedule or workload warning and want to continue.
+                                <span>I reviewed the schedule or workload warning and want to continue.</span>
                             </label>
                         </div>
                         @error('confirm_assignment_override') <span class="error">{{ $message }}</span> @enderror
 
                         <div class="ticket-sidebar-note" data-progress-transfer-box hidden>
                             <strong>Work is already in progress.</strong>
-                            <label>
+                            <label class="ticket-confirmation-option">
                                 <input type="checkbox" name="confirm_in_progress_transfer" value="1" data-progress-transfer @checked(old('confirm_in_progress_transfer'))>
-                                I confirm this intentional transfer of active work.
+                                <span>I confirm this intentional transfer of active work.</span>
                             </label>
                         </div>
                         @error('confirm_in_progress_transfer') <span class="error">{{ $message }}</span> @enderror
@@ -258,15 +260,15 @@
                 @if($isCancellationRequested)
                     <div class="ticket-action-form">
                         <p class="ticket-sidebar-note">Customer requested cancellation. Review the request before any other status update.</p>
-                        <form method="post" action="{{ route('admin.tickets.cancellation.approve', $ticket) }}">
+                        <form method="post" action="{{ route('admin.tickets.cancellation.approve', $ticket) }}" data-protect-form>
                             @csrf
                             @method('PATCH')
-                            <button class="btn danger">Approve Cancellation</button>
+                            <button class="btn danger" data-confirm="Approve this cancellation request and stop further ticket work?">Approve Cancellation</button>
                         </form>
-                        <form method="post" action="{{ route('admin.tickets.cancellation.reject', $ticket) }}">
+                        <form method="post" action="{{ route('admin.tickets.cancellation.reject', $ticket) }}" data-protect-form>
                             @csrf
                             @method('PATCH')
-                            <button class="btn secondary">Reject Cancellation</button>
+                            <button class="btn secondary" data-confirm="Reject this cancellation request and return the ticket to its previous work state?">Reject Cancellation</button>
                         </form>
                     </div>
                 @elseif((int) $ticket->assigned_staff_id === (int) auth()->id() && $ticket->isOpenForWork())
@@ -277,13 +279,13 @@
                         <button class="btn">Start Work</button>
                     </form>
                 @elseif((int) $ticket->assigned_staff_id === (int) auth()->id() && $ticket->status === \App\Models\Ticket::STATUS_IN_PROGRESS)
-                    <form method="post" action="{{ route('admin.tickets.resolve', $ticket) }}" class="ticket-action-form">
+                    <form method="post" action="{{ route('admin.tickets.resolve', $ticket) }}" class="ticket-action-form" data-protect-form data-warn-unsaved>
                         @csrf
                         @method('PATCH')
                         <label for="admin_resolution_notes">Resolution notes</label>
                         <textarea id="admin_resolution_notes" name="resolution_notes" rows="4" required>{{ old('resolution_notes') }}</textarea>
                         @error('resolution_notes') <span class="error">{{ $message }}</span> @enderror
-                        <button class="btn">Mark Resolved</button>
+                        <button class="btn" data-confirm="Mark this ticket as resolved with the recorded resolution note?">Mark Resolved</button>
                     </form>
                 @elseif($hasPendingReopenRequest)
                     <div class="ticket-action-form">

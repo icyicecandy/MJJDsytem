@@ -114,7 +114,16 @@
         }
     });
     discard.addEventListener('click', async () => {
-        if (busy || !token.value || !window.confirm('Discard this saved draft and its ID photos? This cannot be undone.')) return;
+        if (busy || !token.value) return;
+        if (typeof window.MJJDConfirm !== 'function') {
+            message('The confirmation dialog could not be opened. Refresh the page and try again.', true);
+            return;
+        }
+        const confirmed = await window.MJJDConfirm(
+            'Discard this saved draft and its ID photos? This cannot be undone.',
+            discard
+        );
+        if (!confirmed) return;
         const body = new FormData();
         body.set('draft_token', token.value);
         body.set('_method', 'DELETE');

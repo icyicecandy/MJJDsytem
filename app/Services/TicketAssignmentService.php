@@ -6,6 +6,7 @@ use App\Models\Installation;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Support\AppNotificationSender;
+use App\Support\CustomerEmailSender;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -106,12 +107,14 @@ final class TicketAssignmentService
             AppNotificationSender::send(
                 $ticket->user,
                 'Support staff assigned',
-                $technician->name.' is assigned to '.$ticket->publicReference().'. Work will begin when the technician starts the ticket.',
+                $technician->name.' (Technician) is assigned to '.$ticket->publicReference().'. Work will begin when the technician starts the ticket.',
                 route('customer.tickets.show', $ticket),
                 'ticket_staff_assigned',
                 ['ticket_id' => $ticket->id, 'tracking_number' => $ticket->publicReference()],
                 $actorId
             );
+
+            CustomerEmailSender::sendTicketAssigned($ticket, $technician);
         }
 
         system_log(

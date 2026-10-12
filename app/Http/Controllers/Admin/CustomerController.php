@@ -11,8 +11,18 @@ class CustomerController extends Controller
 {
     public function index(Request $request)
     {
+        $validatedFilters = $request->validate([
+            'account_status' => ['nullable', 'in:active,disabled'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'requires_action' => ['nullable', 'boolean'],
+        ]);
         $search = trim((string) $request->query('search', ''));
         $status = trim((string) $request->query('status', ''));
+        $accountStatus = $validatedFilters['account_status'] ?? '';
+        $dateFrom = $validatedFilters['date_from'] ?? null;
+        $dateTo = $validatedFilters['date_to'] ?? null;
+        $requiresAction = $request->boolean('requires_action');
 
         $customers = User::query()
             ->customers()
@@ -46,11 +56,18 @@ class CustomerController extends Controller
 
                 $query->whereHas('application', fn ($applicationQuery) => $applicationQuery->where('status', $status));
             })
+            ->when($accountStatus === 'active', fn ($query) => $query->whereNull('disabled_at'))
+            ->when($accountStatus === 'disabled', fn ($query) => $query->whereNotNull('disabled_at'))
+            ->when($dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($query) => $query->whereDate('created_at', '<=', $dateTo))
+            ->when($requiresAction, fn ($query) => $query->where(function ($attention) {
+                $attention->whereNull('email_verified_at')->orWhereDoesntHave('application');
+            }))
             ->orderBy('name')
             ->paginate(12)
             ->withQueryString();
 
-        return view('admin.customers.index', compact('customers', 'search', 'status'));
+        return view('admin.customers.index', compact('customers', 'search', 'status', 'accountStatus', 'dateFrom', 'dateTo', 'requiresAction'));
     }
 
     public function show(User $customer)

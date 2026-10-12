@@ -351,6 +351,12 @@ test('admin approves ticket cancellation request', function () {
     expect($ticket->refresh()->status)->toBe(Ticket::STATUS_CANCELLED)
         ->and($ticket->messages()->where('message', 'Admin approved ticket cancellation.')->exists())->toBeTrue()
         ->and(SystemLog::where('action', 'Ticket Cancellation Approved')->where('description', 'like', '%'.$ticket->publicReference().'%')->exists())->toBeTrue();
+
+    $this->assertDatabaseHas('email_delivery_logs', [
+        'notification_type' => 'Ticket cancellation decision',
+        'recipient' => $ticket->user->email,
+        'status' => 'sent',
+    ]);
 });
 
 test('admin rejects ticket cancellation request', function () {
@@ -367,6 +373,12 @@ test('admin rejects ticket cancellation request', function () {
     expect($ticket->refresh()->status)->toBe(Ticket::STATUS_IN_PROGRESS)
         ->and($ticket->messages()->where('message', 'Admin rejected cancellation request. Ticket remains In Progress.')->exists())->toBeTrue()
         ->and(SystemLog::where('action', 'Ticket Cancellation Rejected')->where('description', 'like', '%'.$ticket->publicReference().'%')->exists())->toBeTrue();
+
+    $this->assertDatabaseHas('email_delivery_logs', [
+        'notification_type' => 'Ticket cancellation decision',
+        'recipient' => $ticket->user->email,
+        'status' => 'sent',
+    ]);
 });
 
 test('technician cannot approve or reject cancellation requests', function () {
@@ -463,6 +475,12 @@ test('admin approves closed ticket reopen request', function () {
         ->and($ticket->hasPendingReopenRequest())->toBeFalse()
         ->and($ticket->reopen_reviewed_by)->toBe($admin->id)
         ->and($ticket->messages()->where('message', 'Ticket reopen request approved by admin. Returned to the queue for a new technician appointment.')->exists())->toBeTrue();
+
+    $this->assertDatabaseHas('email_delivery_logs', [
+        'notification_type' => 'Ticket reopen decision',
+        'recipient' => $customer->email,
+        'status' => 'sent',
+    ]);
 });
 
 test('closed ticket cannot receive new replies', function () {

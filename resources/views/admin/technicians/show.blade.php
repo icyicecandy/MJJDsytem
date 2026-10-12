@@ -326,7 +326,7 @@
                         <button type="submit" class="btn">Enable Account</button>
                     </form>
                 @else
-                    <form method="POST" action="{{ route('admin.technicians.disable', $technician) }}" class="admin-disable-account-form">
+                    <form method="POST" action="{{ route('admin.technicians.disable', $technician) }}" class="admin-disable-account-form" data-protect-form data-warn-unsaved>
                         @csrf
                         @method('PATCH')
                         <div class="apply-field full-span">
@@ -336,7 +336,7 @@
                                 <span class="error">{{ $message }}</span>
                             @enderror
                         </div>
-                        <button type="submit" class="btn danger">Disable Account</button>
+                        <button type="submit" class="btn danger" data-confirm="Disable this technician account, revoke trusted devices, and end current access?">Disable Account</button>
                     </form>
                 @endif
             </div>

@@ -1,6 +1,24 @@
 (() => {
     'use strict';
 
+    const sameOriginActionUrl = form => {
+        const configuredAction = new URL(form.action || window.location.href, window.location.href);
+        return new URL(configuredAction.pathname + configuredAction.search, window.location.origin);
+    };
+
+    document.querySelectorAll('[data-filter-page-switch]').forEach(control => {
+        control.addEventListener('change', () => {
+            const form = control.form;
+            if (!form) {
+                return;
+            }
+
+            const url = sameOriginActionUrl(form);
+            url.searchParams.set(control.name, control.value);
+            window.location.assign(url);
+        });
+    });
+
     const forms = Array.from(document.querySelectorAll('form[data-live-filter]'));
     if (!forms.length) {
         return;
@@ -123,7 +141,7 @@
     };
 
     const requestUrl = form => {
-        const url = new URL(form.action || window.location.href, window.location.href);
+        const url = sameOriginActionUrl(form);
         const parameters = new URLSearchParams(new FormData(form));
         parameters.delete('page');
 
@@ -148,7 +166,7 @@
         });
     };
 
-    const refresh = async (state, requestedUrl = null) => {
+    const refresh = async (state, requestedUrl = null, retryAttempt = 0) => {
         window.clearTimeout(state.timer);
         state.controller?.abort();
         state.controller = new AbortController();
@@ -167,6 +185,7 @@
 
         try {
             const response = await fetch(url, {
+                credentials: 'same-origin',
                 headers: {
                     Accept: 'text/html',
                     'X-Requested-With': 'XMLHttpRequest',
@@ -199,6 +218,7 @@
             syncSupplementaryRegions(documentFragment);
             prepareResponsiveCards(results);
             window.history.replaceState({}, '', url);
+            state.failed = false;
             syncReset(state);
             setFeedback(state, hasActiveFilters(state.form) ? 'Filtered results updated.' : 'Showing all results.');
             document.dispatchEvent(new CustomEvent('live-filter:updated', {
@@ -210,7 +230,15 @@
             }
 
             results.setAttribute('aria-busy', 'false');
-            setFeedback(state, 'Live filtering could not update. Use the Apply button to try again.', true);
+            if (retryAttempt === 0 && currentRequest === state.requestNumber) {
+                setFeedback(state, 'The connection was interrupted. Retrying...');
+                state.timer = window.setTimeout(() => refresh(state, url, 1), 500);
+                return;
+            }
+
+            console.error('Live filter update failed.', error);
+            state.failed = true;
+            setFeedback(state, 'Automatic update was interrupted. Your filters are still selected; choose Apply Filters to retry.', true);
         }
     };
 
@@ -242,6 +270,7 @@
             timer: null,
             controller: null,
             requestNumber: 0,
+            failed: false,
         };
         states.set(form, state);
         syncReset(state);
@@ -261,15 +290,24 @@
             if (!control.matches('select, input[type="date"], input[type="checkbox"], input[type="radio"]')) {
                 return;
             }
+            if (control.matches('[data-filter-page-switch]')) {
+                return;
+            }
             refresh(state);
         });
 
         form.addEventListener('submit', event => {
+            if (state.failed) {
+                return;
+            }
             event.preventDefault();
             refresh(state);
         });
 
         state.reset?.addEventListener('click', event => {
+            if (state.failed && state.reset.matches('a[href]')) {
+                return;
+            }
             event.preventDefault();
             resetForm(state);
         });

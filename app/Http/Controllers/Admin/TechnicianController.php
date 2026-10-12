@@ -6,13 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Mail\TechnicianAccountCreatedMail;
 use App\Models\Installation;
 use App\Models\User;
+use App\Support\TrackedEmailSender;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Throwable;
 
 class TechnicianController extends Controller
 {
@@ -165,21 +164,15 @@ class TechnicianController extends Controller
             'chat_available' => false,
         ]);
 
-        $keyEmailSent = true;
-
-        try {
-            Mail::to($technician->email)->send(
+        $keyEmailSent = TrackedEmailSender::attempt(
+            $technician->email,
+            'Technician account invitation',
+            fn () => Mail::to($technician->email)->send(
                 new TechnicianAccountCreatedMail($technician, $validated['temporary_password'])
-            );
-        } catch (Throwable $exception) {
-            $keyEmailSent = false;
-
-            Log::warning('Technician account key email failed to send.', [
-                'technician_id' => $technician->id,
-                'email' => $technician->email,
-                'error' => $exception->getMessage(),
-            ]);
-        }
+            ),
+            ['technician_id' => $technician->id],
+            $technician->id
+        );
 
         return redirect()
             ->route('admin.technicians.show', $technician)

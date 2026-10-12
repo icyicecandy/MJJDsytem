@@ -1,0 +1,1 @@
+@include('errors.minimal', ['status' => 503, 'title' => 'System temporarily unavailable', 'message' => 'MJJD Telecom is temporarily unavailable while maintenance is in progress. Please try again shortly.'])

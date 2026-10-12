@@ -1046,6 +1046,29 @@ textarea { min-height: 120px; resize: vertical; }
     line-height: 1.55;
 }
 
+.ticket-confirmation-option {
+    display: grid;
+    grid-template-columns: 1.15rem minmax(0, 1fr);
+    gap: 0.65rem;
+    align-items: start;
+    margin-top: 0.65rem;
+    cursor: pointer;
+    line-height: 1.45;
+}
+
+.ticket-confirmation-option input[type="checkbox"] {
+    width: 1.15rem;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    margin: 0.12rem 0 0;
+    accent-color: #2f73f2;
+    cursor: pointer;
+}
+
+.ticket-confirmation-option span {
+    min-width: 0;
+}
+
 .ticket-reopen-form {
     padding-top: 0.9rem;
     border-top: 1px solid rgba(219, 228, 239, 0.85);

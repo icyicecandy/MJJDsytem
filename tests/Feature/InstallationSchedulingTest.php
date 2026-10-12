@@ -572,6 +572,12 @@ test('admin approves customer reschedule request and updates installation schedu
         ->and($installation->reschedule_rejection_reason)->toBeNull()
         ->and($application->refresh()->status)->toBe(Application::STATUS_SCHEDULED)
         ->and(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%Customer reschedule request approved%')->exists())->toBeTrue();
+
+    $this->assertDatabaseHas('email_delivery_logs', [
+        'notification_type' => 'Installation reschedule',
+        'recipient' => $customer->email,
+        'status' => 'sent',
+    ]);
 });
 
 test('admin rejection of customer reschedule request requires and stores reason', function () {
@@ -868,6 +874,11 @@ test('assigned technician can activate a completed installation', function () {
         'status' => Installation::STATUS_COMPLETED,
         'completed_at' => now(),
         'technician_remarks' => 'Installed and ready for activation.',
+        'nap_code' => 'NAP-305',
+        'port_number' => 'P-03',
+        'equipment_serial_number' => 'EQ-0305',
+        'cable_length' => '75m',
+        'installation_photo_paths' => ['installation-photos/proof-0305.jpg'],
     ]);
 
     $response = $this
@@ -886,6 +897,12 @@ test('assigned technician can activate a completed installation', function () {
 
     expect(InstallationLog::where('installation_id', $installation->id)->where('notes', 'like', '%marked activated%')->exists())->toBeTrue();
 
+    $this->assertDatabaseHas('email_delivery_logs', [
+        'notification_type' => 'Installation activation',
+        'recipient' => $customer->email,
+        'status' => 'sent',
+    ]);
+
     $technicianPage = $this->actingAs($technician)
         ->get(route('technician.installations.show', $installation, false))
         ->assertOk()
@@ -903,6 +920,41 @@ test('assigned technician can activate a completed installation', function () {
         ->assertOk()
         ->assertSee($installation->displayJobReference())
         ->assertSee('Activated');
+});
+
+test('activation is blocked when a completed record has no technical details or proof', function () {
+    $technician = User::factory()->create(['role' => 'technician']);
+    $application = Application::create([
+        'user_id' => User::factory()->create(['role' => 'customer'])->id,
+        'reference_no' => 'APP-2026-0306',
+        'first_name' => 'Incomplete',
+        'last_name' => 'Evidence',
+        'email' => 'incomplete306@example.com',
+        'mobile_number' => '09170003306',
+        'region' => 'Ilocos Region',
+        'province' => 'Pangasinan',
+        'municipality' => 'Bayambang',
+        'barangay' => 'Dusoc',
+        'lat' => 15.7333,
+        'lng' => 120.3833,
+        'plan_code' => 'S2S_50',
+        'status' => Application::STATUS_INSTALLED,
+    ]);
+    $installation = Installation::create([
+        'application_id' => $application->id,
+        'technician_id' => $technician->id,
+        'installation_date' => '2026-05-06',
+        'installation_time' => '14:00',
+        'status' => Installation::STATUS_COMPLETED,
+        'completed_at' => now(),
+    ]);
+
+    $this->actingAs($technician)
+        ->patch(route('technician.installations.activate', $installation, false))
+        ->assertSessionHasErrors('status');
+
+    expect($installation->fresh()->status)->toBe(Installation::STATUS_COMPLETED)
+        ->and($application->fresh()->status)->toBe(Application::STATUS_INSTALLED);
 });
 
 test('scheduled installations cannot be marked completed directly', function () {

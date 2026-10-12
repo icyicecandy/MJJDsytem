@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Installation;
 use App\Models\InstallationLog;
+use App\Models\User;
 use App\Services\TechnicianSchedule;
 use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
+use App\Support\CustomerEmailSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -16,6 +18,13 @@ class InstallationController extends Controller
 {
     public function index(Request $request)
     {
+        $validatedFilters = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'technician_id' => ['nullable', 'integer', 'exists:users,id'],
+            'requires_action' => ['nullable', 'boolean'],
+            'rescheduled' => ['nullable', 'boolean'],
+        ]);
         $status = $request->query('status');
         if ($status && ! in_array($status, [
             Installation::STATUS_SCHEDULED,
@@ -28,6 +37,11 @@ class InstallationController extends Controller
             $status = null;
         }
         $search = trim((string) $request->query('search', ''));
+        $dateFrom = $validatedFilters['date_from'] ?? null;
+        $dateTo = $validatedFilters['date_to'] ?? null;
+        $technicianId = isset($validatedFilters['technician_id']) ? (int) $validatedFilters['technician_id'] : null;
+        $requiresAction = $request->boolean('requires_action');
+        $rescheduledOnly = $request->boolean('rescheduled');
         $selectedGroup = $request->query('group', 'all');
         if (! in_array($selectedGroup, ['all', 'scheduled', 'completed'], true)) {
             $selectedGroup = 'all';
@@ -92,6 +106,19 @@ class InstallationController extends Controller
             });
         }
 
+        $query
+            ->when($dateFrom, fn ($builder) => $builder->whereDate('installation_date', '>=', $dateFrom))
+            ->when($dateTo, fn ($builder) => $builder->whereDate('installation_date', '<=', $dateTo))
+            ->when($technicianId, fn ($builder) => $builder->where('technician_id', $technicianId))
+            ->when($rescheduledOnly, fn ($builder) => $builder->where(function ($rescheduled) {
+                $rescheduled->whereNotNull('reschedule_requested_at')->orWhere('status', Installation::STATUS_RESCHEDULE_REQUIRED);
+            }))
+            ->when($requiresAction, fn ($builder) => $builder->where(function ($attention) {
+                $attention->whereNull('technician_id')
+                    ->orWhere('status', Installation::STATUS_RESCHEDULE_REQUIRED)
+                    ->orWhere(fn ($pending) => $pending->whereNotNull('reschedule_requested_at')->whereNull('reschedule_reviewed_at'));
+            }));
+
         $allCount = Installation::query()->count();
 
         $scheduledCount = Installation::query()
@@ -115,6 +142,7 @@ class InstallationController extends Controller
             ->count();
 
         $installations = $query->paginate(15)->withQueryString();
+        $filterTechnicians = User::query()->technicians()->orderBy('name')->get(['id', 'name']);
 
         return view('admin.installations.index', compact(
             'installations',
@@ -126,7 +154,13 @@ class InstallationController extends Controller
             'rescheduleCount',
             'inProgressCount',
             'completedCount',
-            'activatedCount'
+            'activatedCount',
+            'filterTechnicians',
+            'dateFrom',
+            'dateTo',
+            'technicianId',
+            'requiresAction',
+            'rescheduledOnly'
         ));
     }
 
@@ -303,6 +337,8 @@ class InstallationController extends Controller
                 auth()->id()
             );
         }
+
+        CustomerEmailSender::sendInstallationRescheduled($installation->fresh(['application.user', 'technician']));
 
         return back()->with('success', 'Installation rescheduled successfully.');
     }

@@ -59,6 +59,17 @@ test('known subjects are automatically assigned to the least loaded on-shift tec
         ->and($ticket->assignment_source)->toBe('automatic')
         ->and($ticket->assigned_at)->not->toBeNull()
         ->and($ticket->response_due_at?->equalTo(now()->addHours(4)))->toBeTrue();
+
+    $this->assertDatabaseHas('email_delivery_logs', [
+        'notification_type' => 'Ticket assignment',
+        'recipient' => $customer->email,
+        'status' => 'sent',
+    ]);
+
+    $this->actingAs($customer)
+        ->get(route('customer.tickets.show', $ticket, false))
+        ->assertOk()
+        ->assertSee($available->name.' (Technician)');
 });
 
 test('technicians who are off shift on leave or busy with an installation are skipped', function () {

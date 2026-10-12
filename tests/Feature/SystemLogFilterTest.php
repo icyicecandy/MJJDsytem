@@ -70,3 +70,62 @@ test('system logs are paginated and preserve filter query parameters', function 
 
         ->assertSee('Page 1 of 2');
 });
+
+test('system logs expose email delivery and hide obsolete backup activity', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    SystemLog::create([
+        'user_id' => $admin->id,
+        'user_role' => 'admin',
+        'action' => 'Download Backup',
+        'description' => 'Obsolete backup event',
+    ]);
+    SystemLog::create([
+        'user_id' => $admin->id,
+        'user_role' => 'admin',
+        'action' => 'Email Sent',
+        'description' => 'Current email event',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.system-logs.index'))
+        ->assertOk()
+        ->assertSee('Log type')
+        ->assertSee('Email Delivery')
+        ->assertSee('Current email event')
+        ->assertSee('data-log-module="email"', false)
+        ->assertDontSee('Download Backup')
+        ->assertDontSee('Obsolete backup event');
+});
+
+test('system log live filtering accepts combined activity filters', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $technician = User::factory()->create([
+        'role' => 'technician',
+        'name' => 'Jepsy Dave Mamugay',
+    ]);
+
+    SystemLog::create([
+        'user_id' => $technician->id,
+        'user_role' => 'technician',
+        'action' => 'Account Logout',
+        'description' => 'Jepsy Dave Mamugay logged out.',
+        'created_at' => '2026-10-04 14:41:00',
+        'updated_at' => '2026-10-04 14:41:00',
+    ]);
+
+    $this->actingAs($admin)
+        ->withHeader('X-Requested-With', 'XMLHttpRequest')
+        ->get(route('admin.system-logs.index', [
+            'view' => 'activity',
+            'search' => 'jep',
+            'action' => 'Account Logout',
+            'date_from' => '2026-09-29',
+            'date_to' => '2026-10-12',
+        ], false))
+        ->assertOk()
+        ->assertSee('id="systemLogResults"', false)
+        ->assertSee('Jepsy Dave Mamugay logged out.')
+        ->assertSee('data-filter-page-switch', false)
+        ->assertDontSee('Live filtering could not update.');
+});

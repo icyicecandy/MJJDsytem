@@ -10,6 +10,9 @@
     <p><strong>Tracking Number:</strong> {{ $ticket->publicReference() }}</p>
     <p><strong>Subject:</strong> {{ $ticket->subject }}</p>
     <p><strong>Status:</strong> {{ ucfirst(str_replace('_', ' ', $ticket->status)) }}</p>
+    @if($ticket->assignedStaff)
+        <p><strong>Assigned Staff:</strong> {{ $ticket->assignedStaff->name }} ({{ ucfirst($ticket->assignedStaff->role) }})</p>
+    @endif
     <p>Please log in to the customer portal if you need to review the ticket conversation or add a follow-up reply.</p>
     <p>Thank you,<br>MJJD Telecom</p>
 </body>

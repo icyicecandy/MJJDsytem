@@ -75,6 +75,7 @@
                         <td>
                             @if($ticket->assignedStaff)
                                 <span class="record-strong">{{ $ticket->assignedStaff->name }}</span>
+                                <small class="record-muted">{{ ucfirst($ticket->assignedStaff->role) }}</small>
                             @else
                                 <span class="record-muted">Not yet assigned</span>
                             @endif

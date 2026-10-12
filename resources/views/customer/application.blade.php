@@ -97,6 +97,8 @@
                     </div>
                 </section>
 
+                <x-next-action :message="$application->nextActionGuidance()" :tone="$application->nextActionTone()" />
+
                 <div class="tracking-grid application-detail-grid">
                     <div class="tracking-meta"><strong>Reference</strong>{{ $application->reference_no }}</div>
                     <div class="tracking-meta"><strong>Submitted At</strong>{{ $application->created_at->displayDateTime('F d, Y h:i A') }}</div>

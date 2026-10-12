@@ -445,4 +445,33 @@ class Ticket extends Model
             'status' => $status,
         ];
     }
+
+    public function nextActionGuidance(): string
+    {
+        if ($this->isCancellationRequested()) {
+            return 'Administrator must approve or reject the cancellation request.';
+        }
+
+        return match ($this->status) {
+            self::STATUS_QUEUED => 'Waiting for an available support staff member to accept the ticket.',
+            self::STATUS_OPEN => $this->assigned_staff_id
+                ? 'Assigned staff must start work and record the resolution.'
+                : 'Assign an available support staff member.',
+            self::STATUS_IN_PROGRESS => 'Assigned staff must complete the work and enter resolution notes.',
+            self::STATUS_RESOLVED => 'Customer may review the resolution and close or reopen the ticket.',
+            self::STATUS_CLOSED => 'No further action is required. The ticket is closed.',
+            self::STATUS_CANCELLED => 'No further action is required. The ticket is cancelled.',
+            default => 'Review the ticket status and latest conversation.',
+        };
+    }
+
+    public function nextActionTone(): string
+    {
+        return match ($this->status) {
+            self::STATUS_RESOLVED => 'success',
+            self::STATUS_CLOSED, self::STATUS_CANCELLED => 'muted',
+            self::STATUS_CANCELLATION_REQUESTED => 'warning',
+            default => 'info',
+        };
+    }
 }

@@ -1,0 +1,1 @@
+@include('errors.minimal', ['status' => 419, 'title' => 'Session expired', 'message' => 'Your session expired before the request was completed. Refresh the page, sign in again if needed, and retry. No changes were saved.'])

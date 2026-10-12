@@ -4,9 +4,7 @@
 
 @push('styles')
 <style>
-    .installation-filter-toolbar {
-        grid-template-columns: minmax(24rem, 1fr) auto;
-    }
+    .installation-filter-toolbar { grid-template-columns: minmax(18rem, 2fr) repeat(5, minmax(8rem, auto)) auto; }
     .installation-filter-toolbar .toolbar-actions {
         flex-wrap: nowrap;
     }
@@ -146,17 +144,31 @@
                         data-live-installation-search-input
                     >
                 </div>
+                <div class="toolbar-field"><label for="installation_date_from">From</label><input id="installation_date_from" type="date" name="date_from" value="{{ $dateFrom }}"></div>
+                <div class="toolbar-field"><label for="installation_date_to">To</label><input id="installation_date_to" type="date" name="date_to" value="{{ $dateTo }}"></div>
+                <div class="toolbar-field"><label for="installation_technician">Technician</label><select id="installation_technician" name="technician_id"><option value="">All technicians</option>@foreach($filterTechnicians as $technician)<option value="{{ $technician->id }}" @selected((int) $technicianId === $technician->id)>{{ $technician->name }}</option>@endforeach</select></div>
+                <label class="toolbar-field"><span>Rescheduled</span><select name="rescheduled"><option value="0">All records</option><option value="1" @selected($rescheduledOnly)>Rescheduled only</option></select></label>
+                <label class="toolbar-field"><span>Action</span><select name="requires_action"><option value="0">All records</option><option value="1" @selected($requiresAction)>Requires action</option></select></label>
                 <div class="toolbar-actions">
                     <button type="submit" class="btn">Search</button>
                     <button type="button" class="btn secondary" data-live-installation-search-clear @if($search === '') hidden @endif>Reset</button>
                 </div>
             </form>
             <p class="admin-install-live-status" data-live-installation-search-status aria-live="polite">Results update automatically.</p>
+            <x-active-filter-summary :labels="[
+                $status ? 'Status: '.str_replace('_', ' ', ucfirst($status)) : null,
+                $search ? 'Search: '.$search : null,
+                $dateFrom ? 'From: '.$dateFrom : null,
+                $dateTo ? 'To: '.$dateTo : null,
+                $technicianId ? 'Technician: '.optional($filterTechnicians->firstWhere('id', $technicianId))->name : null,
+                $rescheduledOnly ? 'Rescheduled only' : null,
+                $requiresAction ? 'Requires action' : null,
+            ]" :reset-url="route('admin.installations.index')" />
         </div>
 
         <nav class="ticket-queue-overview__grid installation-progress-grid" aria-label="Filter installations by status" data-installation-status-nav aria-busy="false">
             <a
-                href="{{ route('admin.installations.index', array_filter(['group' => 'all', 'search' => $search])) }}"
+                href="{{ route('admin.installations.index', array_filter(array_merge(request()->except(['status', 'group', 'page']), ['group' => 'all']))) }}"
                 class="ticket-queue-metric {{ ! $status && $selectedGroup === 'all' ? 'is-active' : '' }}"
                 data-installation-status-card
                 @if(! $status && $selectedGroup === 'all') aria-current="page" @endif
@@ -165,7 +177,7 @@
                 <strong class="ticket-queue-metric__value">{{ $allCount }}</strong>
             </a>
             <a
-                href="{{ route('admin.installations.index', array_filter(['group' => 'scheduled', 'search' => $search])) }}"
+                href="{{ route('admin.installations.index', array_filter(array_merge(request()->except(['status', 'group', 'page']), ['group' => 'scheduled']))) }}"
                 class="ticket-queue-metric {{ ! $status && $selectedGroup === 'scheduled' ? 'is-active' : '' }}"
                 data-installation-status-card
                 @if(! $status && $selectedGroup === 'scheduled') aria-current="page" @endif
@@ -174,7 +186,7 @@
                 <strong class="ticket-queue-metric__value">{{ $scheduledCount }}</strong>
             </a>
             <a
-                href="{{ route('admin.installations.index', array_filter(['status' => 'in_progress', 'search' => $search])) }}"
+                href="{{ route('admin.installations.index', array_filter(array_merge(request()->except(['status', 'group', 'page']), ['status' => 'in_progress']))) }}"
                 class="ticket-queue-metric {{ $status === 'in_progress' ? 'is-active' : '' }}"
                 data-installation-status-card
                 @if($status === 'in_progress') aria-current="page" @endif
@@ -183,7 +195,7 @@
                 <strong class="ticket-queue-metric__value">{{ $inProgressCount }}</strong>
             </a>
             <a
-                href="{{ route('admin.installations.index', array_filter(['status' => 'reschedule_required', 'search' => $search])) }}"
+                href="{{ route('admin.installations.index', array_filter(array_merge(request()->except(['status', 'group', 'page']), ['status' => 'reschedule_required']))) }}"
                 class="ticket-queue-metric {{ $status === 'reschedule_required' ? 'is-active' : '' }}"
                 data-installation-status-card
                 @if($status === 'reschedule_required') aria-current="page" @endif
@@ -192,7 +204,7 @@
                 <strong class="ticket-queue-metric__value">{{ $rescheduleCount }}</strong>
             </a>
             <a
-                href="{{ route('admin.installations.index', array_filter(['group' => 'completed', 'search' => $search])) }}"
+                href="{{ route('admin.installations.index', array_filter(array_merge(request()->except(['status', 'group', 'page']), ['group' => 'completed']))) }}"
                 class="ticket-queue-metric {{ ! $status && $selectedGroup === 'completed' ? 'is-active' : '' }}"
                 data-installation-status-card
                 @if(! $status && $selectedGroup === 'completed') aria-current="page" @endif
@@ -201,7 +213,7 @@
                 <strong class="ticket-queue-metric__value">{{ $completedCount }}</strong>
             </a>
             <a
-                href="{{ route('admin.installations.index', array_filter(['status' => 'activated', 'search' => $search])) }}"
+                href="{{ route('admin.installations.index', array_filter(array_merge(request()->except(['status', 'group', 'page']), ['status' => 'activated']))) }}"
                 class="ticket-queue-metric {{ $status === 'activated' ? 'is-active' : '' }}"
                 data-installation-status-card
                 @if($status === 'activated') aria-current="page" @endif

@@ -41,6 +41,9 @@
                         <option value="cancelled" @selected($selectedStatus === 'cancelled')>Cancelled</option>
                     </select>
                 </div>
+                <div class="toolbar-field"><label for="ticket_date_from">From</label><input id="ticket_date_from" type="date" name="date_from" value="{{ $dateFrom }}"></div>
+                <div class="toolbar-field"><label for="ticket_date_to">To</label><input id="ticket_date_to" type="date" name="date_to" value="{{ $dateTo }}"></div>
+                <label class="toolbar-field"><span>Action</span><select name="requires_action"><option value="0">All records</option><option value="1" @selected($requiresAction)>Requires action</option></select></label>
                 <div class="toolbar-field">
                     <label for="admin_ticket_urgency">Urgency</label>
                     <select id="admin_ticket_urgency" name="urgency">
@@ -70,11 +73,23 @@
                 </div>
             </form>
         </div>
+        <x-active-filter-summary :labels="[
+            $selectedStatus !== 'all' ? 'Status: '.str_replace('_', ' ', ucfirst($selectedStatus)) : null,
+            $search ? 'Search: '.$search : null,
+            $selectedUrgency !== 'all' ? 'Urgency: '.ucfirst($selectedUrgency) : null,
+            $selectedTechnician !== 'all' ? 'Assigned staff filter' : null,
+            $dateFrom ? 'From: '.$dateFrom : null,
+            $dateTo ? 'To: '.$dateTo : null,
+            $requiresAction ? 'Requires action' : null,
+        ]" :reset-url="route('admin.tickets.index')" />
         @php
             $queueFilterParams = array_filter([
                 'search' => $search,
                 'urgency' => $selectedUrgency,
                 'technician' => $selectedTechnician,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'requires_action' => $requiresAction ? 1 : null,
             ], fn ($value) => $value !== '' && $value !== 'all');
         @endphp
         <nav class="ticket-queue-overview__grid" aria-label="Filter tickets by status" data-live-filter-sync="admin-ticket-queue">
@@ -272,18 +287,18 @@
                 <div class="ticket-sidebar-note" data-overlay-warning-box hidden>
                     <strong>Assignment warning</strong>
                     <p data-overlay-warning-text></p>
-                    <label>
+                    <label class="ticket-confirmation-option">
                         <input type="checkbox" name="confirm_assignment_override" value="1" data-overlay-warning-confirm @checked(old('confirm_assignment_override'))>
-                        I reviewed this warning and want to continue.
+                        <span>I reviewed this warning and want to continue.</span>
                     </label>
                 </div>
                 @error('confirm_assignment_override') <span class="error">{{ $message }}</span> @enderror
 
                 <div class="ticket-sidebar-note" data-overlay-progress-box hidden>
                     <strong>Work is already in progress.</strong>
-                    <label>
+                    <label class="ticket-confirmation-option">
                         <input type="checkbox" name="confirm_in_progress_transfer" value="1" data-overlay-progress-confirm @checked(old('confirm_in_progress_transfer'))>
-                        I confirm this intentional transfer of active work.
+                        <span>I confirm this intentional transfer of active work.</span>
                     </label>
                 </div>
                 @error('confirm_in_progress_transfer') <span class="error">{{ $message }}</span> @enderror

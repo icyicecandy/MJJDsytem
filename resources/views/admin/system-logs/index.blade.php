@@ -10,6 +10,7 @@
         'ticket' => 'Tickets',
         'chat' => 'Live Chat',
         'account' => 'Accounts',
+        'email' => 'Email',
         'system' => 'System',
         'general' => 'General',
     ];
@@ -22,6 +23,7 @@
             Str::contains($action, 'installation') => 'installation',
             Str::contains($action, 'ticket') => 'ticket',
             Str::contains($action, 'chat') => 'chat',
+            Str::contains($action, 'email') => 'email',
             Str::contains($action, ['account', 'profile', 'password']) => 'account',
             $log->user_role === 'system' => 'system',
             default => 'general',
@@ -69,7 +71,12 @@
         </div>
     </header>
 
+    <nav class="record-view-tabs" aria-label="System log views">
+        <a href="{{ route('admin.system-logs.index') }}" @class(['is-active' => $selectedView === 'activity'])>Activity</a>
+        <a href="{{ route('admin.system-logs.index', ['view' => 'email']) }}" @class(['is-active' => $selectedView === 'email'])>Email Delivery</a>
+    </nav>
 
+    @if($selectedView === 'activity')
     <section class="panel system-log-filter-panel" aria-labelledby="systemLogFiltersTitle">
         <div class="system-log-section-head">
             <div>
@@ -85,7 +92,14 @@
             </div>
         </div>
 
-        <form method="GET" action="{{ route('admin.system-logs.index') }}" class="system-log-filter-form" data-mobile-filter data-live-filter data-live-filter-target="#systemLogResults">
+        <form method="GET" action="{{ route('admin.system-logs.index', absolute: false) }}" class="system-log-filter-form" data-mobile-filter data-live-filter data-live-filter-target="#systemLogResults">
+            <label class="system-log-field">
+                <span>Log type</span>
+                <select name="view" data-filter-page-switch>
+                    <option value="activity" selected>Activity</option>
+                    <option value="email">Email Delivery</option>
+                </select>
+            </label>
             <label class="system-log-field system-log-field--search">
                 <span>Search activity</span>
                 <span class="system-log-search-control">
@@ -106,7 +120,7 @@
                 <span>Module</span>
                 <select name="module">
                     <option value="">All modules</option>
-                    @foreach(['application' => 'Applications', 'installation' => 'Installations', 'ticket' => 'Tickets', 'chat' => 'Live Chat', 'account' => 'Accounts', 'system' => 'System'] as $value => $label)
+                    @foreach(['application' => 'Applications', 'installation' => 'Installations', 'ticket' => 'Tickets', 'chat' => 'Live Chat', 'account' => 'Accounts', 'email' => 'Email', 'system' => 'System'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['module'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
@@ -236,5 +250,91 @@
 
         <x-ui.pagination :paginator="$logs" />
     </section>
+    @else
+        <section class="panel system-log-filter-panel" aria-labelledby="emailDeliveryFiltersTitle">
+            <div class="system-log-section-head">
+                <div>
+                    <span class="system-log-kicker">Delivery visibility</span>
+                    <h2 id="emailDeliveryFiltersTitle">Email delivery records</h2>
+                    <p>Check the recipient, notification type, sending result, and whether a failed message is available for retry.</p>
+                </div>
+            </div>
+
+            <form method="GET" action="{{ route('admin.system-logs.index', absolute: false) }}" class="system-log-filter-form" data-mobile-filter>
+                <label class="system-log-field">
+                    <span>Log type</span>
+                    <select name="view" data-filter-page-switch>
+                        <option value="activity">Activity</option>
+                        <option value="email" selected>Email Delivery</option>
+                    </select>
+                </label>
+                <label class="system-log-field system-log-field--search">
+                    <span>Recipient or type</span>
+                    <input type="search" name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Email address or notification type">
+                </label>
+                <label class="system-log-field">
+                    <span>Status</span>
+                    <select name="email_status">
+                        <option value="">All statuses</option>
+                        @foreach(['pending' => 'Pending', 'sent' => 'Sent', 'failed' => 'Failed'] as $value => $label)
+                            <option value="{{ $value }}" @selected(($filters['email_status'] ?? '') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="system-log-field">
+                    <span>Notification type</span>
+                    <select name="notification_type">
+                        <option value="">All types</option>
+                        @foreach($emailTypes as $type)
+                            <option value="{{ $type }}" @selected(($filters['notification_type'] ?? '') === $type)>{{ $type }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="system-log-field"><span>From date</span><input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}"></label>
+                <label class="system-log-field"><span>To date</span><input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}"></label>
+                <div class="system-log-filter-actions">
+                    <button type="submit" class="btn">Apply Filters</button>
+                    <a href="{{ route('admin.system-logs.index', ['view' => 'email']) }}" class="btn secondary">Clear Filters</a>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel system-log-records" aria-labelledby="emailDeliveryRecordsTitle">
+            <div class="system-log-records__head">
+                <div>
+                    <span class="system-log-kicker">Recorded messages</span>
+                    <h2 id="emailDeliveryRecordsTitle">Email Delivery</h2>
+                    <p>{{ number_format($emailDeliveries?->total() ?? 0) }} matching {{ Str::plural('record', $emailDeliveries?->total() ?? 0) }}</p>
+                </div>
+            </div>
+
+            @if($emailDeliveries)
+                <div class="table-wrap system-log-table-wrap" tabindex="0" role="region" aria-label="Email delivery records">
+                    <table class="telecom-table system-log-table" data-mobile-cards data-mobile-cards-expandable>
+                        <thead><tr><th>Notification</th><th>Recipient</th><th>Status</th><th>Attempt</th><th>Sent / failed</th></tr></thead>
+                        <tbody>
+                            @forelse($emailDeliveries as $delivery)
+                                <tr>
+                                    <td data-mobile-primary><strong>{{ $delivery->notification_type }}</strong></td>
+                                    <td data-mobile-secondary>{{ $delivery->recipient }}</td>
+                                    <td><span class="status-badge status-{{ $delivery->status }}">{{ ucfirst($delivery->status) }}</span></td>
+                                    <td>{{ $delivery->attempts }}<br><small>{{ str_replace('_', ' ', ucfirst($delivery->retry_status)) }}</small></td>
+                                    <td data-mobile-secondary>
+                                        <time>{{ optional($delivery->sent_at ?? $delivery->failed_at ?? $delivery->last_attempted_at)->timezone(config('app.timezone'))->format('M d, Y h:i A') }}</time>
+                                        @if($delivery->error_message)<details><summary>Failure details</summary><small>{{ $delivery->error_message }}</small></details>@endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5"><div class="system-log-empty"><h3>No matching email records</h3><p>New system emails will appear here after the migration is installed.</p></div></td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                <x-ui.pagination :paginator="$emailDeliveries" />
+            @else
+                <div class="system-log-empty"><h3>Email logging is not installed yet</h3><p>Run the pending database migration to enable delivery visibility.</p></div>
+            @endif
+        </section>
+    @endif
 </div>
 @endsection

@@ -7,6 +7,7 @@ use App\Models\Installation;
 use App\Models\InstallationLog;
 use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
+use App\Support\CustomerEmailSender;
 use App\Support\PublicUpload;
 use Illuminate\Http\Request;
 
@@ -378,6 +379,12 @@ class TechnicianDashboardController extends Controller
             ]);
         }
 
+        if (! $installation->hasCompletionEvidence()) {
+            return back()->withErrors([
+                'status' => 'Activation requires completed technical details and at least one proof-of-installation photo.',
+            ]);
+        }
+
         $installation->update([
             'status' => Installation::STATUS_ACTIVATED,
             'activation_status' => Installation::STATUS_ACTIVATED,
@@ -406,6 +413,8 @@ class TechnicianDashboardController extends Controller
                     auth()->id()
                 );
             }
+
+            CustomerEmailSender::sendInstallationActivated($installation->fresh(['application.user']));
 
             AppNotificationSender::sendToRole(
                 'admin',

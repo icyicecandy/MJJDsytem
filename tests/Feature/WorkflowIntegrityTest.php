@@ -84,7 +84,15 @@ test('a failed cancellation leaves both the application and installation unchang
 test('a failed activation leaves the completed installation and application unchanged', function () {
     $application = integrityApplication(['status' => Application::STATUS_INSTALLED]);
     $technician = User::factory()->create(['role' => 'technician']);
-    $installation = integrityInstallation($application, $technician, ['status' => Installation::STATUS_COMPLETED]);
+    $installation = integrityInstallation($application, $technician, [
+        'status' => Installation::STATUS_COMPLETED,
+        'completed_at' => now(),
+        'nap_code' => 'NAP-INTEGRITY',
+        'port_number' => 'P-01',
+        'equipment_serial_number' => 'EQ-INTEGRITY',
+        'cable_length' => '40m',
+        'installation_photo_paths' => ['installation-photos/integrity-proof.jpg'],
+    ]);
     $this->actingAs($technician)->withoutExceptionHandling();
     AppNotification::creating(fn () => throw new RuntimeException('Forced notification failure'));
 
@@ -219,7 +227,15 @@ test('customer emails wait until commit and are discarded on rollback', function
 test('duplicate activation does not add duplicate history or notifications', function () {
     $application = integrityApplication(['status' => Application::STATUS_INSTALLED]);
     $technician = User::factory()->create(['role' => 'technician']);
-    $installation = integrityInstallation($application, $technician, ['status' => Installation::STATUS_COMPLETED]);
+    $installation = integrityInstallation($application, $technician, [
+        'status' => Installation::STATUS_COMPLETED,
+        'completed_at' => now(),
+        'nap_code' => 'NAP-DUPLICATE',
+        'port_number' => 'P-02',
+        'equipment_serial_number' => 'EQ-DUPLICATE',
+        'cable_length' => '50m',
+        'installation_photo_paths' => ['installation-photos/duplicate-proof.jpg'],
+    ]);
     $this->actingAs($technician)->patch(route('technician.installations.activate', $installation))
         ->assertSessionHasNoErrors();
     $count = AppNotification::count();

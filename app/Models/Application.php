@@ -170,4 +170,41 @@ class Application extends Model
     {
         return $this->duplicate_id_image_detected;
     }
+
+    public function nextActionGuidance(): string
+    {
+        if (in_array($this->status, [self::STATUS_SUBMITTED, self::STATUS_UNDER_REVIEW], true)) {
+            return match ($this->id_verification_status) {
+                ApplicationIdentity::STATUS_PENDING => 'Verify the identity documents before approval.',
+                ApplicationIdentity::STATUS_REJECTED => 'Waiting for the customer to submit replacement identity photos.',
+                ApplicationIdentity::STATUS_VERIFIED => 'Confirm serviceability and slot availability, then approve or reject the application.',
+                default => 'Review the application and complete identity verification before approval.',
+            };
+        }
+
+        return match ($this->status) {
+            self::STATUS_APPROVED => 'Assign a technician and select an available installation schedule.',
+            self::STATUS_SCHEDULED => match (true) {
+                $this->installation?->hasPendingCustomerRescheduleRequest() => 'Review the customer reschedule request.',
+                $this->installation?->status === Installation::STATUS_RESCHEDULE_REQUIRED => 'Assign a new available installation schedule.',
+                default => 'Waiting for the assigned technician to start the installation.',
+            },
+            self::STATUS_CANCELLATION_REQUESTED => 'Administrator must approve or reject the cancellation request.',
+            self::STATUS_INSTALLED, 'completed' => 'Technician must confirm service activation.',
+            self::STATUS_ACTIVATED => 'No further action is required. Service is activated.',
+            self::STATUS_REJECTED => 'Application processing is complete. The customer may submit a new application.',
+            self::STATUS_CANCELLED => 'No further action is required. The application is cancelled.',
+            default => 'Review the current application status and recorded history.',
+        };
+    }
+
+    public function nextActionTone(): string
+    {
+        return match ($this->status) {
+            self::STATUS_ACTIVATED => 'success',
+            self::STATUS_REJECTED, self::STATUS_CANCELLED => 'muted',
+            self::STATUS_CANCELLATION_REQUESTED => 'warning',
+            default => $this->id_verification_status === ApplicationIdentity::STATUS_REJECTED ? 'warning' : 'info',
+        };
+    }
 }

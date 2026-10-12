@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Notifications\VerifyCustomerEmail;
+use App\Support\TrackedEmailSender;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +21,14 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     public function sendEmailVerificationNotification(): void
     {
-        $this->notify(new VerifyCustomerEmail);
+        TrackedEmailSender::attempt(
+            $this->email,
+            'Customer email verification',
+            fn () => $this->notify(new VerifyCustomerEmail),
+            ['user_id' => $this->id],
+            $this->id,
+            true
+        );
     }
 
     public const TECHNICIAN_STANDARD_SHIFT = '8:00 AM - 5:00 PM, Mon - Fri';

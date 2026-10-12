@@ -1,0 +1,1 @@
+@include('errors.minimal', ['status' => 500, 'title' => 'Request could not be completed', 'message' => 'The request could not be completed. No changes were saved. Please try again or contact the system administrator.'])

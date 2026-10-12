@@ -11,7 +11,9 @@
     $isClosed = $ticket->status === \App\Models\Ticket::STATUS_CLOSED;
     $isCancelled = $ticket->isCancelled();
     $isReadOnly = $ticket->isReadOnly();
-    $assignedStaff = optional($ticket->assignedStaff)->name ?? 'Waiting for Assignment';
+    $assignedStaff = $ticket->assignedStaff
+        ? $ticket->assignedStaff->name.' ('.ucfirst($ticket->assignedStaff->role).')'
+        : 'Waiting for Assignment';
     $customerName = auth()->user()->name;
     $showReopenFields = $errors->has('reason') || old('reason');
     $statusHelper = match ($ticket->status) {
@@ -64,6 +66,8 @@
                     button-text="View attachment"
                 />
             </section>
+
+            <x-next-action :message="$ticket->nextActionGuidance()" :tone="$ticket->nextActionTone()" />
 
             <section class="ticket-detail-card">
                 <div class="ticket-detail-section-head">

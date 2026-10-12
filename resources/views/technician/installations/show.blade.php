@@ -607,10 +607,10 @@
                 @elseif($installation->isInProgress())
                     <button type="submit" form="installationWorkflowForm" class="btn success">Mark as Completed</button>
                 @elseif($installation->isCompleted())
-                    <form method="POST" action="{{ route('technician.installations.activate', $installation->id) }}">
+                    <form method="POST" action="{{ route('technician.installations.activate', $installation->id) }}" data-protect-form>
                         @csrf
                         @method('PATCH')
-                        <button type="submit" class="btn success">Mark as Activated</button>
+                        <button type="submit" class="btn success" data-confirm="Confirm that installation work and proof are complete and activate this service?">Mark as Activated</button>
                     </form>
                 @elseif($installation->isActivated())
                     <button type="button" class="btn success" disabled>Activated</button>
@@ -622,11 +622,13 @@
             </div>
         </section>
 
+        <x-next-action :message="$installation->nextActionGuidance()" :tone="$installation->nextActionTone()" />
+
         @if($application?->status === \App\Models\Application::STATUS_CANCELLATION_REQUESTED)
             <section class="workflow-card application-alert-card is-danger">
                 <div class="workflow-card-head"><div><h2>Stop Work / Cancellation Request</h2><p>Do not complete or activate this job until the administrator decides the customer request.</p></div></div>
                 <p><strong>Customer reason:</strong> {{ $application->cancellation_reason ?: 'No reason recorded.' }}</p>
-                <form method="POST" action="{{ route('technician.installations.stop-work-notes', $installation) }}" class="apply-form-grid">
+                <form method="POST" action="{{ route('technician.installations.stop-work-notes', $installation) }}" class="apply-form-grid" data-protect-form data-warn-unsaved>
                     @csrf @method('PATCH')
                     <div class="apply-field full-span">
                         <label for="stop_work_technician_notes">Technician notes for admin</label>
@@ -722,7 +724,7 @@
                                     <strong>Ready to start onsite work</strong>
                                     <p class="workflow-note">Start the job to unlock completion notes and proof photo upload.</p>
                                 </div>
-                                <form method="POST" action="{{ route('technician.installations.status', $installation->id) }}">
+                    <form method="POST" action="{{ route('technician.installations.status', $installation->id) }}" data-protect-form>
                                     @csrf
                                     @method('PATCH')
                                     <input type="hidden" name="status" value="in_progress">
@@ -732,7 +734,7 @@
                         </div>
                     </section>
                 @elseif($installation->isInProgress())
-                    <form method="POST" enctype="multipart/form-data" action="{{ route('technician.installations.complete', $installation->id) }}" id="installationWorkflowForm" class="workflow-column">
+                    <form method="POST" enctype="multipart/form-data" action="{{ route('technician.installations.complete', $installation->id) }}" id="installationWorkflowForm" class="workflow-column" data-protect-form data-warn-unsaved>
                         @csrf
 
                         <section class="workflow-card workflow-action-card">
@@ -856,10 +858,10 @@
                                         <strong>Ready for activation</strong>
                                         <p class="workflow-note">This sets the installation and customer application status to activated.</p>
                                     </div>
-                                    <form method="POST" action="{{ route('technician.installations.activate', $installation->id) }}">
+                    <form method="POST" action="{{ route('technician.installations.activate', $installation->id) }}" data-protect-form>
                                         @csrf
                                         @method('PATCH')
-                                        <button type="submit" class="btn success">Mark as Activated</button>
+                        <button type="submit" class="btn success" data-confirm="Confirm that installation work and proof are complete and activate this service?">Mark as Activated</button>
                                     </form>
                                 </div>
                             </div>
