@@ -4,9 +4,34 @@
 
 @push('styles')
 <style>
-    .installation-filter-toolbar { grid-template-columns: minmax(18rem, 2fr) repeat(5, minmax(8rem, auto)) auto; }
+    .installation-filter-toolbar {
+        grid-template-columns: minmax(18rem, 2fr) repeat(5, minmax(8rem, 1fr)) minmax(11.5rem, auto);
+    }
     .installation-filter-toolbar .toolbar-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-self: end;
+        width: 100%;
         flex-wrap: nowrap;
+    }
+    .installation-filter-toolbar .toolbar-actions .btn {
+        width: 100%;
+        white-space: nowrap;
+    }
+    @media (max-width: 1260px) and (min-width: 768px) {
+        .installation-filter-toolbar {
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+        .installation-filter-toolbar .ticket-filter-search,
+        .installation-filter-toolbar .filter-date-range {
+            grid-column: span 3;
+        }
+        .installation-filter-toolbar > .toolbar-field:not(.ticket-filter-search) {
+            grid-column: span 2;
+        }
+        .installation-filter-toolbar .toolbar-actions {
+            grid-column: span 2;
+        }
     }
     .admin-install-live-status {
         min-height: 1.1rem;
@@ -77,7 +102,13 @@
         .installation-filter-toolbar {
             grid-template-columns: minmax(0, 1fr);
         }
+        .installation-filter-toolbar .filter-date-range {
+            grid-column: 1 / -1;
+        }
         .installation-filter-toolbar .toolbar-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            width: 100%;
             justify-content: flex-start;
         }
     }
@@ -144,14 +175,19 @@
                         data-live-installation-search-input
                     >
                 </div>
-                <div class="toolbar-field"><label for="installation_date_from">From</label><input id="installation_date_from" type="date" name="date_from" value="{{ $dateFrom }}"></div>
-                <div class="toolbar-field"><label for="installation_date_to">To</label><input id="installation_date_to" type="date" name="date_to" value="{{ $dateTo }}"></div>
+                <div class="filter-date-range" role="group" aria-labelledby="installation_date_range_label">
+                    <span id="installation_date_range_label" class="filter-date-range__label">Scheduled date</span>
+                    <div class="filter-date-range__fields">
+                        <div class="toolbar-field"><label for="installation_date_from">From</label><input id="installation_date_from" type="date" name="date_from" value="{{ $dateFrom }}"></div>
+                        <div class="toolbar-field"><label for="installation_date_to">To</label><input id="installation_date_to" type="date" name="date_to" value="{{ $dateTo }}"></div>
+                    </div>
+                </div>
                 <div class="toolbar-field"><label for="installation_technician">Technician</label><select id="installation_technician" name="technician_id"><option value="">All technicians</option>@foreach($filterTechnicians as $technician)<option value="{{ $technician->id }}" @selected((int) $technicianId === $technician->id)>{{ $technician->name }}</option>@endforeach</select></div>
                 <label class="toolbar-field"><span>Rescheduled</span><select name="rescheduled"><option value="0">All records</option><option value="1" @selected($rescheduledOnly)>Rescheduled only</option></select></label>
                 <label class="toolbar-field"><span>Action</span><select name="requires_action"><option value="0">All records</option><option value="1" @selected($requiresAction)>Requires action</option></select></label>
                 <div class="toolbar-actions">
                     <button type="submit" class="btn">Search</button>
-                    <button type="button" class="btn secondary" data-live-installation-search-clear @if($search === '') hidden @endif>Reset</button>
+                    <button type="button" class="btn secondary" data-live-installation-search-clear @if($search === '' && blank($dateFrom) && blank($dateTo) && blank($technicianId) && ! $rescheduledOnly && ! $requiresAction) hidden @endif>Reset</button>
                 </div>
             </form>
             <p class="admin-install-live-status" data-live-installation-search-status aria-live="polite">Results update automatically.</p>

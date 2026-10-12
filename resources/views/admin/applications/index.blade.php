@@ -78,7 +78,7 @@
                     >
                 </div>
 
-                <div class="toolbar-field">
+                <div class="toolbar-field application-status-field">
                     <label for="application_status_filter">Status</label>
                     <select id="application_status_filter" name="status" data-live-application-status>
                         @foreach($statuses as $key => $label)
@@ -87,13 +87,26 @@
                     </select>
                 </div>
 
-                <div class="toolbar-field"><label for="application_date_from">From</label><input id="application_date_from" type="date" name="date_from" value="{{ $dateFrom }}"></div>
-                <div class="toolbar-field"><label for="application_date_to">To</label><input id="application_date_to" type="date" name="date_to" value="{{ $dateTo }}"></div>
-                <div class="toolbar-field">
+                <div class="toolbar-field application-technician-field">
                     <label for="application_technician">Technician</label>
                     <select id="application_technician" name="technician_id"><option value="">All technicians</option>@foreach($filterTechnicians as $technician)<option value="{{ $technician->id }}" @selected((int) $technicianId === $technician->id)>{{ $technician->name }}</option>@endforeach</select>
                 </div>
-                <label class="toolbar-field"><span>Records requiring action</span><select name="requires_action"><option value="0">All records</option><option value="1" @selected($requiresAction)>Requires action</option></select></label>
+
+                <div class="filter-date-range application-date-range" role="group" aria-labelledby="application_date_range_label">
+                    <span id="application_date_range_label" class="filter-date-range__label">Submitted date</span>
+                    <div class="filter-date-range__fields">
+                        <div class="toolbar-field">
+                            <label for="application_date_from">From</label>
+                            <input id="application_date_from" type="date" name="date_from" value="{{ $dateFrom }}">
+                        </div>
+                        <div class="toolbar-field">
+                            <label for="application_date_to">To</label>
+                            <input id="application_date_to" type="date" name="date_to" value="{{ $dateTo }}">
+                        </div>
+                    </div>
+                </div>
+
+                <label class="toolbar-field application-action-field"><span>Records requiring action</span><select name="requires_action"><option value="0">All records</option><option value="1" @selected($requiresAction)>Requires action</option></select></label>
 
                 <div class="toolbar-actions">
                     <button type="submit" class="btn">Apply</button>
@@ -101,7 +114,7 @@
                         type="button"
                         class="btn secondary"
                         data-live-application-reset
-                        @if(blank($status ?? null) && blank($search ?? null)) hidden @endif
+                        @if(blank($status ?? null) && blank($search ?? null) && blank($dateFrom) && blank($dateTo) && blank($technicianId) && ! $requiresAction) hidden @endif
                     >Reset</button>
                 </div>
             </form>

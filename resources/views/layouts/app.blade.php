@@ -17,11 +17,12 @@
     <script defer src="{{ asset('js/auth.js') }}?v={{ filemtime(public_path('js/auth.js')) }}"></script>
     <script defer src="{{ asset('js/consent.js') }}?v={{ filemtime(public_path('js/consent.js')) }}"></script>
 </head>
-<body class="layout {{ auth()->check() ? 'is-auth' : 'is-guest' }} {{ request()->is('/') ? 'is-landing' : 'is-application-page' }}" @auth data-notifications-feed="{{ route('notifications.feed') }}" data-notifications-index="{{ route('notifications.index') }}" data-notifications-mark-all="{{ route('notifications.mark-all-read') }}" @endauth>
+<body class="layout {{ auth()->check() ? 'is-auth' : 'is-guest' }} {{ request()->is('/') ? 'is-landing' : 'is-application-page' }}" @auth data-notifications-feed="{{ route('notifications.feed') }}" data-notifications-index="{{ route('notifications.index') }}" data-notifications-mark-all="{{ route('notifications.mark-all-read') }}" data-notifications-mark-section="{{ route('notifications.mark-section-read') }}" @endauth>
     @php
         $headerNotifications = collect();
         $notificationOverlayItems = collect();
         $unreadNotificationCount = 0;
+        $sidebarNotificationCounts = [];
         $loginErrors = $errors->getBag('login');
         $registerErrors = $errors->getBag('register');
         $activeAuthModal = session('auth_modal');
@@ -31,6 +32,7 @@
             $headerNotifications = (clone $notificationQuery)->take(8)->get();
             $notificationOverlayItems = (clone $notificationQuery)->take(30)->get();
             $unreadNotificationCount = (clone $notificationQuery)->unread()->count();
+            $sidebarNotificationCounts = \App\Models\AppNotification::sidebarCountsFor(auth()->user());
         }
 
         if (! $activeAuthModal) {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AppNotificationSender;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -87,6 +88,16 @@ class RegisteredUserController extends Controller
             'terms_version' => $validated['terms_version'] ?? config('legal.terms_version'),
             'privacy_version' => $validated['privacy_version'] ?? config('legal.privacy_version'),
         ]);
+
+        AppNotificationSender::sendToRole(
+            'admin',
+            'New customer account',
+            $user->name.' registered a customer account.',
+            route('admin.customers.show', $user),
+            'customer_registered',
+            ['customer_id' => $user->id],
+            $user->id
+        );
 
         $verificationStatus = 'verification-link-sent';
 

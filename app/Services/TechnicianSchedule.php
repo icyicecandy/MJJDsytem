@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Application;
 use App\Models\Installation;
+use App\Models\TechnicianUnavailabilityRequest;
 use App\Models\Ticket;
 use App\Models\User;
 use Carbon\Carbon;
@@ -103,7 +104,8 @@ final class TechnicianSchedule
         string $dateField = 'installation_date',
         string $timeField = 'installation_time',
         ?Collection $bookings = null,
-        ?Collection $dailyInstallations = null
+        ?Collection $dailyInstallations = null,
+        ?Collection $unavailabilityRequests = null
     ): ?array {
         $start = Carbon::parse($date.' '.$time);
         $end = $start->copy()->addMinutes(Installation::SLOT_DURATION_MINUTES);
@@ -120,6 +122,19 @@ final class TechnicianSchedule
 
         if (self::overlapsBreak($technician, $start, $end)) {
             return ['field' => $timeField, 'message' => self::BREAK_MESSAGE];
+        }
+
+        $hasUnavailability = $unavailabilityRequests === null
+            ? TechnicianUnavailabilityRequest::blocksPeriodFor($technician->id, $start, $end)
+            : $unavailabilityRequests
+                ->where('technician_id', $technician->id)
+                ->contains(fn (TechnicianUnavailabilityRequest $request) => $request->blocksPeriod($start, $end));
+
+        if ($hasUnavailability) {
+            return [
+                'field' => $timeField,
+                'message' => 'This technician has an active unavailability request during the selected schedule.',
+            ];
         }
 
         $hasConflict = $bookings === null
@@ -178,7 +193,8 @@ final class TechnicianSchedule
         string $time,
         ?int $ignoreInstallationId = null,
         ?Collection $bookings = null,
-        ?Collection $dailyInstallations = null
+        ?Collection $dailyInstallations = null,
+        ?Collection $unavailabilityRequests = null
     ): Collection {
         return $technicians
             ->filter(fn (User $technician) => ! $technician->isDisabled()
@@ -190,7 +206,8 @@ final class TechnicianSchedule
                     $time,
                     $ignoreInstallationId,
                     bookings: $bookings,
-                    dailyInstallations: $dailyInstallations
+                    dailyInstallations: $dailyInstallations,
+                    unavailabilityRequests: $unavailabilityRequests
                 ) === null)
             ->values();
     }
@@ -221,6 +238,10 @@ final class TechnicianSchedule
             ->whereIn('status', Installation::activeSchedulingStatuses())
             ->when($ignoreInstallationId, fn ($query) => $query->whereKeyNot($ignoreInstallationId))
             ->get();
+        $unavailabilityRequests = TechnicianUnavailabilityRequest::query()
+            ->whereIn('technician_id', $technicianIds)
+            ->blocking()
+            ->get();
 
         $availability = [];
 
@@ -240,6 +261,7 @@ final class TechnicianSchedule
                     $excludedTime,
                     $bookings,
                     $dailyInstallations,
+                    $unavailabilityRequests,
                     $includeRouteDetails
                 ) {
                     if ($dateKey === $excludedDate && $slot === $excludedTime) {
@@ -258,7 +280,8 @@ final class TechnicianSchedule
                             $slot,
                             $ignoreInstallationId,
                             $bookings,
-                            $dailyInstallations
+                            $dailyInstallations,
+                            $unavailabilityRequests
                         )
                         : collect();
 
@@ -271,7 +294,8 @@ final class TechnicianSchedule
                             $slot,
                             $ignoreInstallationId,
                             $bookings,
-                            $dailyInstallations
+                            $dailyInstallations,
+                            $unavailabilityRequests
                         );
 
                     if ($availableTechnicians->isEmpty()) {
@@ -317,7 +341,8 @@ final class TechnicianSchedule
         string $time,
         ?int $ignoreInstallationId,
         Collection $bookings,
-        Collection $dailyInstallations
+        Collection $dailyInstallations,
+        Collection $unavailabilityRequests
     ): Collection {
         $options = $technicians->map(function (User $technician) use (
             $application,
@@ -325,7 +350,8 @@ final class TechnicianSchedule
             $time,
             $ignoreInstallationId,
             $bookings,
-            $dailyInstallations
+            $dailyInstallations,
+            $unavailabilityRequests
         ) {
             $issue = null;
 
@@ -341,7 +367,8 @@ final class TechnicianSchedule
                     $time,
                     $ignoreInstallationId,
                     bookings: $bookings,
-                    dailyInstallations: $dailyInstallations
+                    dailyInstallations: $dailyInstallations,
+                    unavailabilityRequests: $unavailabilityRequests
                 )['message'] ?? null;
             }
 
@@ -665,6 +692,10 @@ final class TechnicianSchedule
         $shiftStart = Carbon::parse($at->toDateString().' '.$technician->technicianShiftStart());
         $shiftEnd = Carbon::parse($at->toDateString().' '.$technician->technicianShiftEnd());
         if ($at->lt($shiftStart) || $at->gte($shiftEnd)) {
+            return false;
+        }
+
+        if (TechnicianUnavailabilityRequest::blocksPeriodFor($technician->id, $at, $at->copy()->addMinute())) {
             return false;
         }
 

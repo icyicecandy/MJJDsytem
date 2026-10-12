@@ -87,6 +87,28 @@ class CustomerEmailSender
         );
     }
 
+    public static function sendInstallationRequiresNewSchedule(Installation $installation): void
+    {
+        $installation->loadMissing('application.user');
+        $application = $installation->application;
+        if (! $application) {
+            return;
+        }
+
+        self::sendWorkflowUpdate(
+            $application->user?->email ?: $application->email,
+            'MJJD Telecom Installation Schedule Update - '.$application->reference_no,
+            'A new installation schedule is required',
+            'An operational availability change affected the current appointment. The administrator is arranging a replacement technician or schedule and will send another update after it is confirmed.',
+            $application->reference_no,
+            route('customer.application.show'),
+            'View application status',
+            'Installation requires new schedule',
+            ['Previous schedule' => $installation->installation_date?->format('F d, Y').' · '.($installation->installation_time ? Installation::slotLabel(\Carbon\Carbon::parse($installation->installation_time)->format('H:i')) : 'Time not recorded')],
+            ['application_id' => $application->id, 'installation_id' => $installation->id]
+        );
+    }
+
     public static function sendInstallationActivated(Installation $installation): void
     {
         $installation->loadMissing('application.user');

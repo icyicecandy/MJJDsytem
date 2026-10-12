@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AppNotificationSender;
 use GuzzleHttp\Client;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -151,6 +152,16 @@ class GoogleAuthController extends Controller
                 ]);
 
                 $user = User::create($payload);
+
+                AppNotificationSender::sendToRole(
+                    'admin',
+                    'New customer account',
+                    $user->name.' registered a customer account with Google.',
+                    route('admin.customers.show', $user),
+                    'customer_registered',
+                    ['customer_id' => $user->id],
+                    $user->id
+                );
 
                 Log::info('New user created from Google auth.', [
                     'user_id' => $user->id,

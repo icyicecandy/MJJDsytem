@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Events\ChatMessageSent;
+use App\Models\AppNotification;
 use App\Models\ChatMessage;
 use App\Models\User;
+use App\Support\AppNotificationSender;
 use App\Support\PublicUpload;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -629,13 +631,35 @@ class SupportChatService
             ? 'This conversation has been reassigned and you are now connected to support ' . $staff->name . '.'
             : 'You are now connected to ' . $staff->name;
 
-        return $this->createSystemMessage(
+        $systemMessage = $this->createSystemMessage(
             customer: $customer,
             message: $message,
             assignedStaff: $staff,
             status: $activate ? 'active_human' : 'assigned',
             handoffStatus: $actor->id === $staff->id ? 'transferred_to_human' : 'assigned_to_human'
         );
+
+        if ($latest?->assigned_staff_id !== null && (int) $latest->assigned_staff_id !== (int) $staff->id) {
+            AppNotification::query()
+                ->where('user_id', $latest->assigned_staff_id)
+                ->where('type', 'like', 'chat_%')
+                ->where('data->customer_id', $customer->id)
+                ->delete();
+        }
+
+        if ((int) $actor->id !== (int) $staff->id) {
+            AppNotificationSender::sendOrRefreshUnread(
+                $staff,
+                'Live chat assigned to you',
+                $customer->name.' is waiting for assistance.',
+                route('role.chat.conversation', ['role' => $staff->role, 'user' => $customer]),
+                'chat_assignment',
+                ['customer_id' => $customer->id, 'message_id' => $systemMessage->id],
+                $actor->id
+            );
+        }
+
+        return $systemMessage;
     }
 
     protected function storeChatAttachments(array $attachments): ?array
@@ -704,6 +728,32 @@ class SupportChatService
         $created->push($customerMessage);
         event(new ChatMessageSent($customerMessage));
 
+        if ($preferredStaff) {
+            AppNotificationSender::sendOrRefreshUnread(
+                $preferredStaff,
+                'New live chat message',
+                $customer->name.' sent a new message.',
+                route('role.chat.conversation', ['role' => $preferredStaff->role, 'user' => $customer]),
+                'chat_message_staff',
+                ['customer_id' => $customer->id, 'message_id' => $customerMessage->id],
+                $customer->id
+            );
+        } else {
+            User::query()
+                ->where('role', 'admin')
+                ->whereNull('disabled_at')
+                ->get()
+                ->each(fn (User $admin) => AppNotificationSender::sendOrRefreshUnread(
+                    $admin,
+                    'New live chat waiting',
+                    $customer->name.' sent a message and is waiting for support.',
+                    route('role.chat.conversation', ['role' => 'admin', 'user' => $customer]),
+                    'chat_message_staff',
+                    ['customer_id' => $customer->id, 'message_id' => $customerMessage->id],
+                    $customer->id
+                ));
+        }
+
         if ($assignedStaffId !== null) {
             return ['messages' => $created, 'state' => $this->conversationState($customer)];
         }
@@ -768,6 +818,16 @@ class SupportChatService
 
         $created->push($agentMessage);
         event(new ChatMessageSent($agentMessage));
+
+        AppNotificationSender::sendOrRefreshUnread(
+            $customer,
+            'New live chat reply',
+            $staff->name.' replied to your support conversation.',
+            route('chat.index'),
+            'chat_message_customer',
+            ['customer_id' => $customer->id, 'message_id' => $agentMessage->id],
+            $staff->id
+        );
 
         return ['messages' => $created, 'state' => $this->conversationState($customer)];
     }

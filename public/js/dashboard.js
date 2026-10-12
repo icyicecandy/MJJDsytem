@@ -126,6 +126,7 @@
         const body = document.body;
         const feedUrl = body?.dataset.notificationsFeed;
         const markAllUrl = body?.dataset.notificationsMarkAll;
+        const markSectionUrl = body?.dataset.notificationsMarkSection;
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         const notifDropdownList = document.getElementById('notifDropdownList');
         const notifUnreadLabel = document.getElementById('notifUnreadLabel');
@@ -216,6 +217,7 @@
             const unreadCount = Number(payload.unread_count || 0);
             notifUnreadLabel.textContent = unreadCount > 0 ? `${unreadCount} unread` : 'All caught up';
             notifDot.classList.toggle('is-hidden', unreadCount <= 0);
+            applySidebarNotificationCounts(payload.sidebar_counts || {});
 
             if (Array.isArray(payload.notifications) && payload.notifications.length > 0) {
                 notifDropdownList.innerHTML = payload.notifications
@@ -237,6 +239,16 @@
                 groupOverlayNotifications();
                 applyOverlayFilter();
             }
+        }
+
+        function applySidebarNotificationCounts(counts) {
+            document.querySelectorAll('[data-sidebar-notification-badge]').forEach((badge) => {
+                const section = badge.dataset.sidebarNotificationBadge;
+                const count = Math.max(0, Number(counts?.[section] || 0));
+                badge.textContent = count > 99 ? '99+' : String(count);
+                badge.classList.toggle('is-hidden', count <= 0);
+                badge.setAttribute('aria-label', `${count} unread ${section} update${count === 1 ? '' : 's'}`);
+            });
         }
 
         async function refreshNotifications() {
@@ -288,6 +300,48 @@
                         }
                     } catch (error) {
                         console.error('Mark all as read failed.', error);
+                    }
+                });
+            });
+        }
+
+        if (markSectionUrl && csrfToken) {
+            document.querySelectorAll('[data-notification-section]').forEach((link) => {
+                link.addEventListener('click', async function (event) {
+                    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                        return;
+                    }
+
+                    const section = link.dataset.notificationSection;
+                    const badge = document.querySelector(`[data-sidebar-notification-badge="${section}"]`);
+                    if (!section || !badge || badge.classList.contains('is-hidden')) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    const destination = link.href;
+
+                    try {
+                        const response = await fetch(markSectionUrl, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': csrfToken,
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ section })
+                        });
+
+                        if (response.ok) {
+                            const payload = await response.json();
+                            applySidebarNotificationCounts(payload.sidebar_counts || {});
+                        }
+                    } catch (error) {
+                        console.error('Sidebar notification update failed.', error);
+                    } finally {
+                        window.location.assign(destination);
                     }
                 });
             });

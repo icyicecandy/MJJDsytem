@@ -76,16 +76,82 @@
     .admin-technicians-table .next-schedule {
         white-space: nowrap;
     }
+    .admin-technicians-heading {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 1.25rem;
+        align-items: start;
+    }
+    .admin-technicians-heading h1 {
+        margin-bottom: 0.35rem;
+    }
+    .admin-technicians-heading p {
+        max-width: 780px;
+        margin: 0;
+    }
     .admin-technicians-header-actions {
         display: flex;
         align-items: center;
         justify-content: flex-end;
         flex: 0 0 auto;
     }
+    .admin-technicians-navigation {
+        display: flex;
+        gap: 0.45rem;
+        margin-top: 1.2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e2e8f0;
+    }
+    .admin-technicians-navigation__item {
+        display: inline-flex;
+        min-height: 2.7rem;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.62rem 0.9rem;
+        border: 1px solid transparent;
+        border-radius: 0.7rem;
+        color: #526785;
+        font-size: 0.9rem;
+        font-weight: 800;
+        text-decoration: none;
+    }
+    .admin-technicians-navigation__item:hover {
+        border-color: #cbd8eb;
+        background: #f8fafc;
+        color: #123d9e;
+    }
+    .admin-technicians-navigation__item.is-active {
+        border-color: #bfd0ef;
+        background: #eaf1ff;
+        color: #1746b5;
+    }
+    .admin-technicians-navigation__count {
+        display: inline-grid;
+        min-width: 1.5rem;
+        height: 1.5rem;
+        place-items: center;
+        padding: 0 0.38rem;
+        border-radius: 999px;
+        background: #fff;
+        color: #1746b5;
+        font-size: 0.72rem;
+        line-height: 1;
+    }
     @media (max-width: 720px) {
+        .admin-technicians-heading {
+            grid-template-columns: 1fr;
+        }
         .admin-technicians-header-actions,
         .admin-technicians-header-actions .btn {
             width: 100%;
+        }
+        .admin-technicians-navigation {
+            display: grid;
+            grid-template-columns: 1fr;
+        }
+        .admin-technicians-navigation__item {
+            justify-content: flex-start;
         }
     }
     .technician-account-modal {
@@ -279,14 +345,26 @@
 
 @section('content')
 <div class="page-stack">
-    <section class="card section-title-card">
-        <div>
-            <h1>Technicians</h1>
-            <p>Review technician records, core contact details, account state, and direct access to the full technician profile from one admin operations list.</p>
+    <section class="card">
+        <div class="admin-technicians-heading">
+            <div>
+                <h1>Technician Management</h1>
+                <p>Manage technician accounts, work schedules, contact information, and reported availability.</p>
+            </div>
+            <div class="admin-technicians-header-actions">
+                <button type="button" class="btn" data-open-technician-create>Add Technician</button>
+            </div>
         </div>
-        <div class="admin-technicians-header-actions">
-            <button type="button" class="btn" data-open-technician-create>Add New</button>
-        </div>
+
+        <nav class="admin-technicians-navigation" aria-label="Technician management sections">
+            <a href="{{ route('admin.technicians.index') }}" class="admin-technicians-navigation__item is-active" aria-current="page">Technician Directory</a>
+            <a href="{{ route('admin.unavailability.index') }}" class="admin-technicians-navigation__item">
+                Availability Requests
+                @if($pendingUnavailabilityCount > 0)
+                    <span class="admin-technicians-navigation__count" aria-label="{{ $pendingUnavailabilityCount }} pending requests">{{ $pendingUnavailabilityCount }}</span>
+                @endif
+            </a>
+        </nav>
     </section>
 
     <section class="card toolbar-card">

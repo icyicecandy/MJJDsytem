@@ -6,6 +6,7 @@ use App\Models\AppNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class NotificationController extends Controller
@@ -43,6 +44,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'unread_count' => (clone $query)->unread()->count(),
+            'sidebar_counts' => AppNotification::sidebarCountsFor($request->user()),
             'notifications' => (clone $query)
                 ->take(8)
                 ->get()
@@ -72,6 +74,22 @@ class NotificationController extends Controller
         return redirect()
             ->route('notifications.index')
             ->with('success', 'All notifications marked as read.');
+    }
+
+    public function markSectionRead(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'section' => ['required', Rule::in(AppNotification::SIDEBAR_SECTIONS)],
+        ]);
+
+        $updated = AppNotification::markSidebarSectionRead($request->user(), $validated['section']);
+
+        return response()->json([
+            'status' => 'ok',
+            'updated' => $updated,
+            'unread_count' => $request->user()->appNotifications()->unread()->count(),
+            'sidebar_counts' => AppNotification::sidebarCountsFor($request->user()),
+        ]);
     }
 
     public function redirect(Request $request, AppNotification $notification): RedirectResponse

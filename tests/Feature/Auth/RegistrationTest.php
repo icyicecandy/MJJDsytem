@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AppNotification;
 use App\Models\User;
 use App\Notifications\VerifyCustomerEmail;
 use Illuminate\Contracts\Notifications\Dispatcher;
@@ -43,6 +44,29 @@ test('new manual users register as unverified customers and receive a verificati
         ->and($user->privacy_version)->toBe('2026-03');
 
     Notification::assertSentTo($user, VerifyCustomerEmail::class);
+});
+
+test('new customer registration creates an admin customers sidebar notification', function () {
+    Notification::fake();
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->post('/register', [
+        'first_name' => 'New',
+        'last_name' => 'Customer',
+        'email' => 'new.customer@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+        'agreed_to_terms' => '1',
+        'agreed_to_privacy' => '1',
+    ])->assertRedirect(route('verification.notice', absolute: false));
+
+    $notification = AppNotification::query()
+        ->where('user_id', $admin->id)
+        ->where('type', 'customer_registered')
+        ->firstOrFail();
+
+    expect($notification->sidebarSectionFor($admin))->toBe('customers')
+        ->and($notification->read_at)->toBeNull();
 });
 
 test('registration validation reopens modal with compact errors', function () {

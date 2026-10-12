@@ -111,6 +111,7 @@
         <div class="telecom-hero-actions">
             <a href="{{ route('technician.installations.index') }}" class="btn">View Installations</a>
             <a href="{{ route('technician.tickets.index') }}" class="btn secondary">Open Tickets</a>
+            <a href="{{ route('technician.unavailability.index') }}" class="btn secondary">Report Unavailability</a>
         </div>
     </section>
 

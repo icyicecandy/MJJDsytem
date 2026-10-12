@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\InstallationController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SystemLogController;
 use App\Http\Controllers\Admin\TechnicianController;
+use App\Http\Controllers\Admin\TechnicianUnavailabilityController as AdminTechnicianUnavailabilityController;
 use App\Http\Controllers\AdminApplicationController;
 use App\Http\Controllers\AdminTicketController;
 use App\Http\Controllers\ApplicationDraftController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicTrackingController;
 use App\Http\Controllers\TechnicianDashboardController;
+use App\Http\Controllers\Technician\UnavailabilityController as TechnicianUnavailabilityController;
 use App\Http\Controllers\TechnicianTicketController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TicketMessageController;
@@ -82,6 +84,7 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence'])->group(fun
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/feed', [NotificationController::class, 'feed'])->name('notifications.feed');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+    Route::post('/notifications/mark-section-read', [NotificationController::class, 'markSectionRead'])->name('notifications.mark-section-read');
     Route::get('/notifications/{notification}/go', [NotificationController::class, 'redirect'])->name('notifications.redirect');
 });
 
@@ -156,6 +159,11 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin
     Route::patch('/admin/customers/{customer}/enable', [CustomerController::class, 'enableAccount'])->name('admin.customers.enable');
     Route::get('/admin/customers/{customer}', [CustomerController::class, 'show'])->name('admin.customers.show');
     Route::get('/admin/technicians', [TechnicianController::class, 'index'])->name('admin.technicians.index');
+    Route::get('/admin/technician-unavailability', [AdminTechnicianUnavailabilityController::class, 'index'])->name('admin.unavailability.index');
+    Route::get('/admin/technician-unavailability/{unavailability}', [AdminTechnicianUnavailabilityController::class, 'show'])->name('admin.unavailability.show');
+    Route::patch('/admin/technician-unavailability/{unavailability}/decision', [AdminTechnicianUnavailabilityController::class, 'decision'])->name('admin.unavailability.decision');
+    Route::get('/admin/technician-unavailability/{unavailability}/evidence', [AdminTechnicianUnavailabilityController::class, 'evidence'])->name('admin.unavailability.evidence');
+    Route::patch('/admin/technician-unavailability/{unavailability}/installations/{installation}/require-reschedule', [AdminTechnicianUnavailabilityController::class, 'requireReschedule'])->name('admin.unavailability.require-reschedule');
     Route::post('/admin/technicians', [TechnicianController::class, 'store'])->name('admin.technicians.store');
     Route::patch('/admin/technicians/{technician}/schedule', [TechnicianController::class, 'updateSchedule'])->name('admin.technicians.schedule');
     Route::patch('/admin/technicians/{technician}/disable', [TechnicianController::class, 'disableAccount'])->name('admin.technicians.disable');
@@ -209,6 +217,10 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:techn
     Route::get('/technician/customers/{customer}', [CustomerController::class, 'show'])->name('technician.customers.show');
 
     Route::get('/technician/installations', [TechnicianDashboardController::class, 'installations'])->name('technician.installations.index');
+    Route::get('/technician/unavailability', [TechnicianUnavailabilityController::class, 'index'])->name('technician.unavailability.index');
+    Route::post('/technician/unavailability', [TechnicianUnavailabilityController::class, 'store'])->name('technician.unavailability.store');
+    Route::patch('/technician/unavailability/{unavailability}/resubmit', [TechnicianUnavailabilityController::class, 'resubmit'])->name('technician.unavailability.resubmit');
+    Route::get('/technician/unavailability/{unavailability}/evidence', [TechnicianUnavailabilityController::class, 'evidence'])->name('technician.unavailability.evidence');
     Route::get('/technician/installations/{installation}/print', [TechnicianDashboardController::class, 'printInstallation'])->name('technician.installations.print');
     Route::get('/technician/installations/{installation}', [TechnicianDashboardController::class, 'showInstallation'])->name('technician.installations.show');
     Route::patch('/technician/installations/{installation}/status', [TechnicianDashboardController::class, 'updateInstallationStatus'])->name('technician.installations.status');

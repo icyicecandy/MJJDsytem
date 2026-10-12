@@ -20,7 +20,7 @@ class SystemLogController extends Controller
             'search' => ['nullable', 'string', 'max:120'],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'action' => ['nullable', 'string', 'max:120'],
-            'module' => ['nullable', 'in:application,installation,ticket,chat,account,email,system'],
+            'module' => ['nullable', 'in:application,installation,ticket,chat,account,availability,email,system'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'email_status' => ['nullable', 'in:pending,sent,failed'],
@@ -51,6 +51,7 @@ class SystemLogController extends Controller
                         'installation' => $moduleQuery->where('action', 'like', '%Installation%'),
                         'ticket' => $moduleQuery->where('action', 'like', '%Ticket%'),
                         'chat' => $moduleQuery->where('action', 'like', '%Chat%'),
+                        'availability' => $moduleQuery->where('action', 'like', '%Unavailability%'),
                         'email' => $moduleQuery->where('action', 'like', '%Email%'),
                         'account' => $moduleQuery->where(function (Builder $accountQuery): void {
                             $accountQuery->where('action', 'like', '%Account%')

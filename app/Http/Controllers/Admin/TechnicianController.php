@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\TechnicianAccountCreatedMail;
 use App\Models\Installation;
+use App\Models\TechnicianUnavailabilityRequest;
 use App\Models\User;
 use App\Support\TrackedEmailSender;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +23,9 @@ class TechnicianController extends Controller
         $employmentTypeOptions = User::technicianEmploymentTypeOptions();
         $workDayOptions = User::technicianWorkDayOptions();
         $temporaryPassword = old('temporary_password') ?: $this->generateTemporaryPassword();
+        $pendingUnavailabilityCount = TechnicianUnavailabilityRequest::query()
+            ->whereIn('status', [TechnicianUnavailabilityRequest::STATUS_PENDING, TechnicianUnavailabilityRequest::STATUS_CLARIFICATION])
+            ->count();
 
         $technicians = User::query()
             ->technicians()
@@ -71,7 +75,8 @@ class TechnicianController extends Controller
             'status',
             'employmentTypeOptions',
             'workDayOptions',
-            'temporaryPassword'
+            'temporaryPassword',
+            'pendingUnavailabilityCount'
         ));
     }
 

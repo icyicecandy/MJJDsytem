@@ -50,7 +50,7 @@
     </section>
 
     <section class="card toolbar-card">
-        <form method="GET" action="{{ route($customerIndexRoute) }}" class="toolbar-row" data-mobile-filter data-live-filter data-live-filter-target="#customerResults">
+        <form method="GET" action="{{ route($customerIndexRoute) }}" class="toolbar-row customer-filter-toolbar" data-mobile-filter data-live-filter data-live-filter-target="#customerResults">
             <div class="toolbar-field">
                 <label for="status">Application Status</label>
                 <select name="status" id="status">
@@ -67,13 +67,18 @@
             </div>
 
             <div class="toolbar-field"><label for="customer_account_status">Account</label><select name="account_status" id="customer_account_status"><option value="">All accounts</option><option value="active" @selected($accountStatus === 'active')>Active</option><option value="disabled" @selected($accountStatus === 'disabled')>Disabled</option></select></div>
-            <div class="toolbar-field"><label for="customer_date_from">From</label><input type="date" name="date_from" id="customer_date_from" value="{{ $dateFrom }}"></div>
-            <div class="toolbar-field"><label for="customer_date_to">To</label><input type="date" name="date_to" id="customer_date_to" value="{{ $dateTo }}"></div>
+            <div class="filter-date-range" role="group" aria-labelledby="customer_date_range_label">
+                <span id="customer_date_range_label" class="filter-date-range__label">Registered date</span>
+                <div class="filter-date-range__fields">
+                    <div class="toolbar-field"><label for="customer_date_from">From</label><input type="date" name="date_from" id="customer_date_from" value="{{ $dateFrom }}"></div>
+                    <div class="toolbar-field"><label for="customer_date_to">To</label><input type="date" name="date_to" id="customer_date_to" value="{{ $dateTo }}"></div>
+                </div>
+            </div>
             <label class="toolbar-field"><span>Action</span><select name="requires_action"><option value="0">All records</option><option value="1" @selected($requiresAction)>Requires action</option></select></label>
 
             <div class="toolbar-actions">
                 <button class="btn">Filter</button>
-                @if($search !== '' || $status !== '')
+                @if($search !== '' || $status !== '' || $accountStatus !== '' || filled($dateFrom) || filled($dateTo) || $requiresAction)
                     <a href="{{ route($customerIndexRoute) }}" class="btn secondary">Reset</a>
                 @endif
             </div>

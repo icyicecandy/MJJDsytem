@@ -49,12 +49,17 @@
                 </label>
             @endif
 
-            <label class="report-filter-field">From
-                <input type="date" name="from" value="{{ $filters['from'] }}" max="{{ $filters['to'] }}" required>
-            </label>
-            <label class="report-filter-field">To
-                <input type="date" name="to" value="{{ $filters['to'] }}" min="{{ $filters['from'] }}" required>
-            </label>
+            <div class="filter-date-range report-date-range" role="group" aria-labelledby="report_date_range_label">
+                <span id="report_date_range_label" class="filter-date-range__label">Report period</span>
+                <div class="filter-date-range__fields">
+                    <label class="report-filter-field">From
+                        <input type="date" name="from" value="{{ $filters['from'] }}" max="{{ $filters['to'] }}" required>
+                    </label>
+                    <label class="report-filter-field">To
+                        <input type="date" name="to" value="{{ $filters['to'] }}" min="{{ $filters['from'] }}" required>
+                    </label>
+                </div>
+            </div>
 
             <p class="report-period-guidance">Historical reports can cover multiple years. Records are included according to their submission, registration, ticket, or installation date.</p>
 

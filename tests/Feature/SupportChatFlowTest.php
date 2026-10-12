@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AppNotification;
 use App\Models\ChatMessage;
 use App\Models\User;
 use App\Services\SupportAiService;
@@ -112,6 +113,45 @@ test('one available technician gets assigned to the customer conversation', func
         ->and($latest->conversation_status)->toBe('assigned')
         ->and($result['state']['mode'])->toBe('assigned')
         ->and($result['state']['assigned_staff']->id)->toBe($technician->id);
+});
+
+test('customer chat messages create one refreshed unread sidebar notification for assigned staff', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = makeSupportUser('technician');
+    $service = app(SupportChatService::class);
+
+    $service->handleCustomerMessage($customer, 'First message');
+    $firstNotification = AppNotification::query()
+        ->where('user_id', $technician->id)
+        ->where('type', 'chat_message_staff')
+        ->firstOrFail();
+
+    $service->handleCustomerMessage($customer, 'Second message');
+
+    expect(AppNotification::query()
+        ->where('user_id', $technician->id)
+        ->where('type', 'chat_message_staff')
+        ->whereNull('read_at')
+        ->count())->toBe(1)
+        ->and($firstNotification->refresh()->data['message_id'])->not->toBeNull()
+        ->and($firstNotification->sidebarSectionFor($technician))->toBe('chat');
+});
+
+test('staff chat replies create a customer live chat sidebar notification', function () {
+    $customer = User::factory()->create(['role' => 'customer']);
+    $technician = makeSupportUser('technician');
+    $service = app(SupportChatService::class);
+
+    $service->handleCustomerMessage($customer, 'I need help.');
+    $service->handleStaffMessage($technician, $customer, 'I can help you.');
+
+    $notification = AppNotification::query()
+        ->where('user_id', $customer->id)
+        ->where('type', 'chat_message_customer')
+        ->firstOrFail();
+
+    expect($notification->sidebarSectionFor($customer))->toBe('chat')
+        ->and($notification->read_at)->toBeNull();
 });
 
 test('chat image attachment is stored and rendered for assigned support', function () {

@@ -356,10 +356,30 @@ a { color: inherit; }
 }
 .nav-icon svg { width: 17px; height: 17px; }
 .nav-label {
+    flex: 1 1 auto;
+    min-width: 0;
     font-weight: 500;
     font-size: 0.93rem;
     line-height: 1.2;
 }
+.sidebar-notification-badge {
+    display: inline-grid;
+    flex: 0 0 auto;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    place-items: center;
+    padding: 0 0.34rem;
+    border: 2px solid #0d224d;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 900;
+    line-height: 1;
+    box-shadow: 0 3px 9px rgba(239,68,68,.3);
+}
+.sidebar-notification-badge.is-hidden { display: none; }
+.sidebar-item.active .sidebar-notification-badge { border-color:#e8b800; }
 .sidebar-item:hover a {
     background: rgba(255,255,255,0.08);
     transform: translateX(2px);
@@ -8487,8 +8507,6 @@ body.layout .ticket-list-table tbody tr.ticket-row--queued .actions-cell {
 .report-detail-section dt { color: #5b6984; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
 .report-detail-section dd { min-width: 0; margin: 0; color: #172b4d; font-size: 0.86rem; font-weight: 700; overflow-wrap: anywhere; }
 .report-detail-privacy { margin: 1rem 0 0; padding: 0.75rem; border-radius: 10px; background: #fff8e8; color: #744500; font-size: 0.76rem; line-height: 1.5; }
-.admin-installations-table .actions-cell { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-
 @media (max-width: 720px) {
     .analytics-tabs,
     .report-detail-sections { grid-template-columns: 1fr; }
@@ -9732,9 +9750,52 @@ body.layout .ticket-list-table tbody tr.ticket-row--queued .actions-cell {
 }
 
 
+/* Shared date-range control keeps From and To together in every filter layout. */
+.filter-date-range {
+    display: grid;
+    min-width: 0;
+    gap: 0.4rem;
+}
+.filter-date-range__label {
+    color: var(--color-text-muted);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+.filter-date-range__fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+.filter-date-range :is(.toolbar-field, .system-log-field, .report-filter-field) {
+    width: 100%;
+    min-width: 0;
+}
+.filter-date-range .system-log-field {
+    grid-column: auto;
+}
+.filter-date-range .toolbar-field label,
+.filter-date-range .system-log-field > span:first-child,
+.filter-date-range .report-filter-field {
+    font-size: 0.75rem;
+}
+.toolbar-row > .filter-date-range {
+    flex: 2 1 390px;
+}
+.installation-filter-toolbar > .filter-date-range,
+.ticket-filter-toolbar--admin > .filter-date-range,
+.report-date-range {
+    grid-column: span 2;
+}
+.system-log-date-range {
+    grid-column: span 4;
+}
+
 /* Applications workflow filter layout. */
 .application-filter-toolbar {
-    grid-template-columns: minmax(22rem, 2fr) minmax(12rem, 1fr) auto;
+    grid-template-columns: minmax(22rem, 2fr) repeat(2, minmax(12rem, 1fr));
+}
+.application-filter-toolbar .toolbar-actions {
+    justify-content: flex-start;
 }
 .badge.reschedule {
     background: #fff3cd;
@@ -9744,8 +9805,15 @@ body.layout .ticket-list-table tbody tr.ticket-row--queued .actions-cell {
     .application-filter-toolbar {
         grid-template-columns: minmax(0, 1.5fr) minmax(12rem, 1fr);
     }
-    .application-filter-toolbar .toolbar-actions {
+    .application-filter-toolbar .ticket-filter-search,
+    .application-date-range {
         grid-column: 1 / -1;
+    }
+    .system-log-date-range {
+        grid-column: span 6;
+    }
+    .application-filter-toolbar .toolbar-actions {
+        grid-column: auto;
         justify-content: flex-start;
     }
 }
@@ -9753,6 +9821,20 @@ body.layout .ticket-list-table tbody tr.ticket-row--queued .actions-cell {
     body.layout .mobile-filter__body .application-filter-toolbar,
     .application-filter-toolbar {
         grid-template-columns: minmax(0, 1fr);
+    }
+    .ticket-filter-toolbar--admin > .filter-date-range,
+    .system-log-date-range,
+    .report-date-range {
+        grid-column: 1 / -1;
+    }
+}
+@media (max-width: 520px) {
+    .filter-date-range__fields {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .report-date-range,
+    .system-log-date-range {
+        grid-column: 1 / -1;
     }
 }
 

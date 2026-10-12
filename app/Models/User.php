@@ -207,6 +207,11 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->hasMany(Installation::class, 'technician_id');
     }
 
+    public function unavailabilityRequests(): HasMany
+    {
+        return $this->hasMany(TechnicianUnavailabilityRequest::class, 'technician_id');
+    }
+
     public function application()
     {
         return $this->hasOne(Application::class)->latestOfMany();

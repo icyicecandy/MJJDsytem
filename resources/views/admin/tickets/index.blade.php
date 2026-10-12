@@ -41,8 +41,13 @@
                         <option value="cancelled" @selected($selectedStatus === 'cancelled')>Cancelled</option>
                     </select>
                 </div>
-                <div class="toolbar-field"><label for="ticket_date_from">From</label><input id="ticket_date_from" type="date" name="date_from" value="{{ $dateFrom }}"></div>
-                <div class="toolbar-field"><label for="ticket_date_to">To</label><input id="ticket_date_to" type="date" name="date_to" value="{{ $dateTo }}"></div>
+                <div class="filter-date-range" role="group" aria-labelledby="ticket_date_range_label">
+                    <span id="ticket_date_range_label" class="filter-date-range__label">Submitted date</span>
+                    <div class="filter-date-range__fields">
+                        <div class="toolbar-field"><label for="ticket_date_from">From</label><input id="ticket_date_from" type="date" name="date_from" value="{{ $dateFrom }}"></div>
+                        <div class="toolbar-field"><label for="ticket_date_to">To</label><input id="ticket_date_to" type="date" name="date_to" value="{{ $dateTo }}"></div>
+                    </div>
+                </div>
                 <label class="toolbar-field"><span>Action</span><select name="requires_action"><option value="0">All records</option><option value="1" @selected($requiresAction)>Requires action</option></select></label>
                 <div class="toolbar-field">
                     <label for="admin_ticket_urgency">Urgency</label>
@@ -67,7 +72,7 @@
                 </div>
                 <div class="toolbar-actions">
                     <button type="submit" class="btn">Apply</button>
-                    @if($search !== '' || $selectedStatus !== 'all' || $selectedUrgency !== 'all' || $selectedTechnician !== 'all')
+                    @if($search !== '' || $selectedStatus !== 'all' || $selectedUrgency !== 'all' || $selectedTechnician !== 'all' || filled($dateFrom) || filled($dateTo) || $requiresAction)
                         <a href="{{ route('admin.tickets.index') }}" class="btn secondary">Reset</a>
                     @endif
                 </div>

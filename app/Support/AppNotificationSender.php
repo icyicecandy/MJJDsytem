@@ -42,4 +42,33 @@ class AppNotificationSender
             $createdBy
         );
     }
+
+    public static function sendOrRefreshUnread(User $user, string $title, ?string $message, ?string $url, string $type, array $data = [], ?int $createdBy = null): AppNotification
+    {
+        $query = $user->appNotifications()
+            ->unread()
+            ->where('type', $type);
+
+        if (isset($data['customer_id'])) {
+            $query->where('data->customer_id', $data['customer_id']);
+        }
+
+        $notification = $query->first();
+
+        if (! $notification) {
+            return self::send($user, $title, $message, $url, $type, $data, $createdBy);
+        }
+
+        $notification->forceFill([
+            'title' => $title,
+            'message' => $message,
+            'url' => $url,
+            'data' => $data,
+            'created_by' => $createdBy,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ])->save();
+
+        return $notification;
+    }
 }

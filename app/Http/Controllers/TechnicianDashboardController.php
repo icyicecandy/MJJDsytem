@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Application;
 use App\Models\Installation;
 use App\Models\InstallationLog;
+use App\Models\TechnicianUnavailabilityRequest;
 use App\Services\WorkflowTransaction;
 use App\Support\AppNotificationSender;
 use App\Support\CustomerEmailSender;
@@ -162,6 +163,18 @@ class TechnicianDashboardController extends Controller
         if (! $installation->canTransitionTo($validated['status'])) {
             return back()->withErrors([
                 'status' => 'This installation cannot be moved to that status from its current state.',
+            ]);
+        }
+
+        if ($validated['status'] === Installation::STATUS_IN_PROGRESS
+            && $installation->scheduledStartAt()
+            && TechnicianUnavailabilityRequest::blocksPeriodFor(
+                (int) $installation->technician_id,
+                $installation->scheduledStartAt(),
+                $installation->scheduledEndAt()
+            )) {
+            return back()->withErrors([
+                'status' => 'This job overlaps your pending or approved unavailability. Ask the administrator to review coverage before starting it.',
             ]);
         }
 

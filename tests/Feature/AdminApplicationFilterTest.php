@@ -52,6 +52,10 @@ test('administrator application page exposes live search and instant status cont
         ->assertSee('data-live-application-search', false)
         ->assertSee('data-live-application-search-input', false)
         ->assertSee('data-live-application-status', false)
+        ->assertSee('class="filter-date-range application-date-range"', false)
+        ->assertSee('Submitted date')
+        ->assertSee('id="application_date_from"', false)
+        ->assertSee('id="application_date_to"', false)
         ->assertSee('data-application-results', false)
         ->assertSee('data-application-status-nav', false)
         ->assertSee('data-application-status-card="submitted"', false)
@@ -64,7 +68,6 @@ test('administrator application page exposes live search and instant status cont
         ->assertSee($application->reference_no)
         ->assertSee('Maria Santos');
 });
-
 test('administrator can use partial application search while retaining the status filter', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $target = createAdminApplicationFilterRecord(

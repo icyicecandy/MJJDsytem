@@ -10,6 +10,7 @@
         'ticket' => 'Tickets',
         'chat' => 'Live Chat',
         'account' => 'Accounts',
+        'availability' => 'Availability',
         'email' => 'Email',
         'system' => 'System',
         'general' => 'General',
@@ -23,6 +24,7 @@
             Str::contains($action, 'installation') => 'installation',
             Str::contains($action, 'ticket') => 'ticket',
             Str::contains($action, 'chat') => 'chat',
+            Str::contains($action, 'unavailability') => 'availability',
             Str::contains($action, 'email') => 'email',
             Str::contains($action, ['account', 'profile', 'password']) => 'account',
             $log->user_role === 'system' => 'system',
@@ -120,7 +122,7 @@
                 <span>Module</span>
                 <select name="module">
                     <option value="">All modules</option>
-                    @foreach(['application' => 'Applications', 'installation' => 'Installations', 'ticket' => 'Tickets', 'chat' => 'Live Chat', 'account' => 'Accounts', 'email' => 'Email', 'system' => 'System'] as $value => $label)
+                    @foreach(['application' => 'Applications', 'installation' => 'Installations', 'ticket' => 'Tickets', 'chat' => 'Live Chat', 'account' => 'Accounts', 'availability' => 'Availability', 'email' => 'Email', 'system' => 'System'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['module'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
@@ -134,14 +136,19 @@
                     @endforeach
                 </select>
             </label>
-            <label class="system-log-field">
-                <span>From date</span>
-                <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" max="{{ $filters['date_to'] ?? $today }}">
-            </label>
-            <label class="system-log-field">
-                <span>To date</span>
-                <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" min="{{ $filters['date_from'] ?? '' }}" max="{{ $today }}">
-            </label>
+            <div class="filter-date-range system-log-date-range" role="group" aria-labelledby="system_log_activity_date_range_label">
+                <span id="system_log_activity_date_range_label" class="filter-date-range__label">Occurred date</span>
+                <div class="filter-date-range__fields">
+                    <label class="system-log-field">
+                        <span>From</span>
+                        <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" max="{{ $filters['date_to'] ?? $today }}">
+                    </label>
+                    <label class="system-log-field">
+                        <span>To</span>
+                        <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" min="{{ $filters['date_from'] ?? '' }}" max="{{ $today }}">
+                    </label>
+                </div>
+            </div>
             <div class="system-log-filter-actions">
                 <button type="submit" class="btn">Apply Filters</button>
                 <a href="{{ route('admin.system-logs.index') }}" class="btn secondary">Reset</a>
@@ -290,8 +297,13 @@
                         @endforeach
                     </select>
                 </label>
-                <label class="system-log-field"><span>From date</span><input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}"></label>
-                <label class="system-log-field"><span>To date</span><input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}"></label>
+                <div class="filter-date-range system-log-date-range" role="group" aria-labelledby="system_log_email_date_range_label">
+                    <span id="system_log_email_date_range_label" class="filter-date-range__label">Delivery date</span>
+                    <div class="filter-date-range__fields">
+                        <label class="system-log-field"><span>From</span><input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}"></label>
+                        <label class="system-log-field"><span>To</span><input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}"></label>
+                    </div>
+                </div>
                 <div class="system-log-filter-actions">
                     <button type="submit" class="btn">Apply Filters</button>
                     <a href="{{ route('admin.system-logs.index', ['view' => 'email']) }}" class="btn secondary">Clear Filters</a>
