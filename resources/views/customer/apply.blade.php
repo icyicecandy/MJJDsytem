@@ -247,23 +247,18 @@
                 </div>
 
                 <div class="apply-plan-stack">
-                    <label class="apply-plan-option {{ old('plan_code', $formApplication->plan_code ?? '') === 'S2S_50' ? 'selected' : '' }}">
-                        <input type="radio" name="plan_code" value="S2S_50" {{ old('plan_code', $formApplication->plan_code ?? '') === 'S2S_50' ? 'checked' : '' }} required>
-                        <div>
-                            <strong>Superfiber 50 Mbps</strong>
-                            <span>Good for daily browsing, messaging, streaming, and home use.</span>
-                        </div>
-                        <div class="apply-plan-price">PHP 999 installation fee</div>
-                    </label>
-
-                    <label class="apply-plan-option {{ old('plan_code', $formApplication->plan_code ?? '') === 'S2S_100' ? 'selected' : '' }}">
-                        <input type="radio" name="plan_code" value="S2S_100" {{ old('plan_code', $formApplication->plan_code ?? '') === 'S2S_100' ? 'checked' : '' }} required>
-                        <div>
-                            <strong>Extraboost 100 Mbps</strong>
-                            <span>Higher-speed access for multiple users, devices, and heavier streaming.</span>
-                        </div>
-                        <div class="apply-plan-price">PHP 1,699 installation fee</div>
-                    </label>
+                    @forelse($servicePlans as $plan)
+                        <label class="apply-plan-option {{ old('plan_code', $formApplication->plan_code ?? '') === $plan->code ? 'selected' : '' }}">
+                            <input type="radio" name="plan_code" value="{{ $plan->code }}" {{ old('plan_code', $formApplication->plan_code ?? '') === $plan->code ? 'checked' : '' }} required>
+                            <div>
+                                <strong>{{ $plan->displayName() }}</strong>
+                                <span>{{ $plan->description }}</span>
+                            </div>
+                            <div class="apply-plan-price">PHP {{ $plan->formattedFeeAmount() }} installation fee</div>
+                        </label>
+                    @empty
+                        <div class="alert alert-error" role="alert">No service plans are currently available. Please contact MJJD Telecom support.</div>
+                    @endforelse
                 </div>
                 @error('plan_code')
                     <span class="error">{{ $message }}</span>

@@ -133,7 +133,7 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="record-strong">{{ $application?->plan_code ?: 'No plan' }}</span>
+                                <span class="record-strong">{{ $application?->planDisplayName() ?: 'No plan' }}</span>
                             </td>
                             <td>
                                 <div class="record-stack">

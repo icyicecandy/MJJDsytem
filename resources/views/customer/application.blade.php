@@ -102,7 +102,7 @@
                 <div class="tracking-grid application-detail-grid">
                     <div class="tracking-meta"><strong>Reference</strong>{{ $application->reference_no }}</div>
                     <div class="tracking-meta"><strong>Submitted At</strong>{{ $application->created_at->displayDateTime('F d, Y h:i A') }}</div>
-                    <div class="tracking-meta"><strong>Plan</strong>{{ $application->plan_code }}</div>
+                    <div class="tracking-meta"><strong>Plan</strong>{{ $application->planDisplayName() }}</div>
                     <div class="tracking-meta"><strong>Service Area</strong>{{ $application->barangay }}, {{ $application->municipality }}</div>
                     <div class="tracking-meta"><strong>Address</strong>{{ $fullAddress ?: 'Not provided' }}</div>
                     <div class="tracking-meta"><strong>Submitted ID</strong>{{ $application->validIdTypeLabel() }}</div>
@@ -390,7 +390,7 @@
                 <tbody>@foreach($applications as $historyApplication)<tr>
                     <td><span class="record-strong">{{ $historyApplication->reference_no }}</span></td>
                     <td>{{ $historyApplication->created_at->format('M d, Y') }}</td>
-                    <td>{{ $historyApplication->plan_code }}</td>
+                    <td>{{ $historyApplication->planDisplayName() }}</td>
                     <td><span class="badge {{ $historyApplication->status }}">{{ ucfirst(str_replace('_', ' ', $historyApplication->status)) }}</span></td>
                     <td>{{ $historyApplication->installation?->displayStatusLabel() ?? 'Not scheduled' }}</td>
                 </tr>@endforeach</tbody>

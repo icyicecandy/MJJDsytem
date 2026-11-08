@@ -24,11 +24,7 @@ class PasswordController extends Controller
             'password' => [
                 'required',
                 'confirmed',
-                Password::min(8)
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols()
-                    ->uncompromised(),
+                Password::defaults(),
             ],
         ], [
             'current_password.current_password' => 'Your current password is incorrect.',

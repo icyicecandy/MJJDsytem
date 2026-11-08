@@ -1378,7 +1378,7 @@
             </div>
             <div class="admin-app-header-facts" aria-label="Application highlights">
                 <div class="admin-app-header-fact"><span>Customer</span><strong>{{ $fullName ?: 'Not provided' }}</strong></div>
-                <div class="admin-app-header-fact"><span>Plan</span><strong>{{ $application->plan_code ?: 'Not provided' }}</strong></div>
+                <div class="admin-app-header-fact"><span>Plan</span><strong>{{ $application->planDisplayName() ?: 'Not provided' }}</strong></div>
                 <div class="admin-app-header-fact"><span>Technician</span><strong>{{ $technicianName }}</strong></div>
                 <div class="admin-app-header-fact"><span>Schedule</span><strong>{{ $scheduleLabel }}</strong></div>
             </div>
@@ -1451,7 +1451,7 @@
                         </div>
                         <div class="admin-app-detail">
                             <span class="admin-app-label">Selected plan</span>
-                            <div class="admin-app-value">{{ $application->plan_code ?: 'Not provided' }}</div>
+                            <div class="admin-app-value">{{ $application->planDisplayName() ?: 'Not provided' }}</div>
                         </div>
                         <div class="admin-app-detail">
                             <span class="admin-app-label">Email</span>
@@ -1896,7 +1896,7 @@
 
                                     <div class="admin-app-field admin-app-field--full">
                                         <label for="assessment_notes">Assessment notes</label>
-                                        <textarea id="assessment_notes" name="assessment_notes" rows="4" placeholder="Document serviceability checks, site constraints, or slot observations.">{{ $assessmentNotes }}</textarea>
+                                        <textarea id="assessment_notes" name="assessment_notes" rows="4" maxlength="2000" placeholder="Document serviceability checks, site constraints, or slot observations.">{{ $assessmentNotes }}</textarea>
                                         @error('assessment_notes')
                                             <span class="error">{{ $message }}</span>
                                         @enderror

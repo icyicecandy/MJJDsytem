@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class TechnicianController extends Controller
 {
@@ -128,7 +129,12 @@ class TechnicianController extends Controller
             'technician_unavailable_dates' => ['nullable', 'array'],
             'technician_unavailable_dates.*' => ['nullable', 'date_format:Y-m-d', 'distinct'],
             'technician_max_active_tickets' => ['nullable', 'integer', 'min:1', 'max:20'],
-            'temporary_password' => ['required', 'string', 'min:12', 'max:64'],
+            'temporary_password' => [
+                'required',
+                'string',
+                'max:64',
+                Password::min(12)->mixedCase()->numbers()->symbols(),
+            ],
         ], [
             'first_name.regex' => 'First name may contain letters, spaces, apostrophes, periods, and hyphens.',
             'last_name.regex' => 'Last name may contain letters, spaces, apostrophes, periods, and hyphens.',

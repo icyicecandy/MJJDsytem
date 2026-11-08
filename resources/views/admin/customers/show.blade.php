@@ -146,7 +146,7 @@
                     <div class="tracking-meta"><strong>Applicant Name</strong><span>{{ trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? '')) ?: $customer->name }}</span></div>
                     <div class="tracking-meta"><strong>Application Email</strong><span>{{ $application->email ?: 'No email recorded' }}</span></div>
                     <div class="tracking-meta"><strong>Mobile Number</strong><span>{{ $application->mobile_number ?: 'No mobile number recorded' }}</span></div>
-                    <div class="tracking-meta"><strong>Plan</strong><span>{{ $application->plan_code ?: 'No plan selected' }}</span></div>
+                    <div class="tracking-meta"><strong>Plan</strong><span>{{ $application->planDisplayName() ?: 'No plan selected' }}</span></div>
                     <div class="tracking-meta"><strong>Status</strong><span>{{ $applicationStatusLabel }}</span></div>
                     <div class="tracking-meta"><strong>Serviceability</strong><span>{{ $application->serviceability_status ? ucfirst(str_replace('_', ' ', $application->serviceability_status)) : 'Not assessed' }}</span></div>
                     <div class="tracking-meta"><strong>Slot Availability</strong><span>{{ $application->slot_availability_status ? ucfirst(str_replace('_', ' ', $application->slot_availability_status)) : 'Not assessed' }}</span></div>

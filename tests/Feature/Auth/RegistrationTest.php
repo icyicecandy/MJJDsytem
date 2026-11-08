@@ -19,8 +19,8 @@ test('new manual users register as unverified customers and receive a verificati
         'first_name' => 'Test',
         'last_name' => 'User',
         'email' => '  TEST@EXAMPLE.COM ',
-        'password' => 'password',
-        'password_confirmation' => 'password',
+        'password' => 'MjJd!Reg2026Qx7',
+        'password_confirmation' => 'MjJd!Reg2026Qx7',
         'role' => 'technician',
         'agreed_to_terms' => '1',
         'agreed_to_privacy' => '1',
@@ -54,8 +54,8 @@ test('new customer registration creates an admin customers sidebar notification'
         'first_name' => 'New',
         'last_name' => 'Customer',
         'email' => 'new.customer@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
+        'password' => 'MjJd!Reg2026Qx8',
+        'password_confirmation' => 'MjJd!Reg2026Qx8',
         'agreed_to_terms' => '1',
         'agreed_to_privacy' => '1',
     ])->assertRedirect(route('verification.notice', absolute: false));
@@ -86,6 +86,33 @@ test('registration validation reopens modal with compact errors', function () {
         ->assertDontSee('Please fix the following errors');
 });
 
+test('manual registration rejects passwords that do not meet the shared password policy', function (string $password) {
+    Notification::fake();
+
+    $this->from('/')
+        ->post('/register', [
+            'first_name' => 'Weak',
+            'last_name' => 'Password',
+            'email' => 'weak.'.md5($password).'@example.com',
+            'password' => $password,
+            'password_confirmation' => $password,
+            'agreed_to_terms' => '1',
+            'agreed_to_privacy' => '1',
+        ])
+        ->assertRedirect('/')
+        ->assertSessionHasErrorsIn('register', 'password')
+        ->assertSessionHas('auth_modal', 'register');
+
+    $this->assertGuest();
+    expect(User::query()->where('email', 'weak.'.md5($password).'@example.com')->exists())->toBeFalse();
+})->with([
+    'seven digits' => '1234567',
+    'missing uppercase' => 'lowercase1!',
+    'missing lowercase' => 'UPPERCASE1!',
+    'missing number' => 'NoNumber!',
+    'missing symbol' => 'NoSymbol1',
+]);
+
 test('customer registration remains recoverable when verification email delivery fails', function () {
     $dispatcher = Mockery::mock(Dispatcher::class);
     $dispatcher->shouldReceive('send')
@@ -97,8 +124,8 @@ test('customer registration remains recoverable when verification email delivery
         'first_name' => 'Delivery',
         'last_name' => 'Retry',
         'email' => 'delivery.retry@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
+        'password' => 'MjJd!Reg2026Qx9',
+        'password_confirmation' => 'MjJd!Reg2026Qx9',
         'agreed_to_terms' => '1',
         'agreed_to_privacy' => '1',
     ]);

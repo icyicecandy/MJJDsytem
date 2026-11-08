@@ -670,7 +670,7 @@ class AdminTicketController extends Controller
         abort_unless($ticket->canReceiveReplies(), 422, 'Closed or cancelled tickets cannot receive new replies.');
 
         $request->validate([
-            'message' => ['nullable', 'required_without_all:ticket_attachment,ticket_attachments', 'string'],
+            'message' => ['nullable', 'required_without_all:ticket_attachment,ticket_attachments', 'string', 'max:4000'],
             'ticket_attachment' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'ticket_attachments' => ['nullable', 'array', 'max:5'],
             'ticket_attachments.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
@@ -690,6 +690,7 @@ class AdminTicketController extends Controller
 
         return back();
     }
+
     private function assignmentCandidates(?Ticket $ticket = null)
     {
         $service = app(TicketAssignmentService::class);
@@ -718,5 +719,4 @@ class AdminTicketController extends Controller
                 $staff->setAttribute('assignment_warnings', $service->manualAssignmentWarnings($staff, $ticket));
             });
     }
-
 }

@@ -33,11 +33,7 @@ class FirstLoginPasswordController extends Controller
                 'required',
                 'confirmed',
                 'different:current_password',
-                Password::min(8)
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols()
-                    ->uncompromised(),
+                Password::defaults(),
             ],
         ], [
             'current_password.current_password' => 'The temporary account key is incorrect.',

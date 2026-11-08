@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\InstallationController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SystemLogController;
+use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Admin\TechnicianController;
 use App\Http\Controllers\Admin\TechnicianUnavailabilityController as AdminTechnicianUnavailabilityController;
 use App\Http\Controllers\AdminApplicationController;
@@ -17,12 +18,14 @@ use App\Http\Controllers\CustomerApplicationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicTrackingController;
-use App\Http\Controllers\TechnicianDashboardController;
 use App\Http\Controllers\Technician\UnavailabilityController as TechnicianUnavailabilityController;
+use App\Http\Controllers\TechnicianDashboardController;
 use App\Http\Controllers\TechnicianTicketController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TicketMessageController;
+use App\Models\BusinessSetting;
 use App\Models\Installation;
+use App\Models\ServicePlan;
 use App\Models\Ticket;
 use Illuminate\Support\Facades\Route;
 
@@ -31,13 +34,20 @@ Route::get('/', function () {
         return redirect()->route('dashboard');
     }
 
-    return view('public.home');
+    return view('public.home', [
+        'servicePlans' => ServicePlan::query()->active()->ordered()->get(),
+        'businessSetting' => BusinessSetting::current(),
+    ]);
 });
 
 Route::get('/track-application', [PublicTrackingController::class, 'form'])->name('track.form');
-Route::post('/track-application', [PublicTrackingController::class, 'search'])->name('track.search');
+Route::post('/track-application', [PublicTrackingController::class, 'search'])
+    ->middleware('throttle:public-application-tracking')
+    ->name('track.search');
 Route::get('/track-ticket', [PublicTrackingController::class, 'ticketForm'])->name('track.ticket.form');
-Route::post('/track-ticket', [PublicTrackingController::class, 'ticketSearch'])->name('track.ticket.search');
+Route::post('/track-ticket', [PublicTrackingController::class, 'ticketSearch'])
+    ->middleware('throttle:public-ticket-tracking')
+    ->name('track.ticket.search');
 
 Route::middleware(['auth', 'account.active'])->group(function () {
     Route::get('/technician/first-login/password', [FirstLoginPasswordController::class, 'edit'])
@@ -151,6 +161,11 @@ Route::middleware(['auth', 'account.active', 'track.staff.presence', 'role:admin
     Route::patch('/admin/tickets/{ticket}/cancellation/approve', [AdminTicketController::class, 'approveCancellation'])->name('admin.tickets.cancellation.approve');
     Route::patch('/admin/tickets/{ticket}/cancellation/reject', [AdminTicketController::class, 'rejectCancellation'])->name('admin.tickets.cancellation.reject');
     Route::get('/admin/system-logs', [SystemLogController::class, 'index'])->name('admin.system-logs.index');
+    Route::get('/admin/settings', [SystemSettingController::class, 'index'])->name('admin.settings.index');
+    Route::post('/admin/settings/plans', [SystemSettingController::class, 'storePlan'])->name('admin.settings.plans.store');
+    Route::patch('/admin/settings/plans/{servicePlan}', [SystemSettingController::class, 'updatePlan'])->name('admin.settings.plans.update');
+    Route::patch('/admin/settings/plans/{servicePlan}/availability', [SystemSettingController::class, 'updatePlanAvailability'])->name('admin.settings.plans.availability');
+    Route::patch('/admin/settings/business', [SystemSettingController::class, 'updateBusiness'])->name('admin.settings.business.update');
     Route::get('/admin/installations', [InstallationController::class, 'index'])->name('admin.installations.index');
     Route::patch('/admin/installations/{installation}/reassign', [InstallationController::class, 'reassign'])->name('admin.installations.reassign');
     Route::patch('/admin/installations/{installation}/reschedule', [InstallationController::class, 'reschedule'])->name('admin.installations.reschedule');

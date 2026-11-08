@@ -3,10 +3,14 @@
 namespace App\Providers;
 
 use Carbon\Carbon;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\NotPwnedVerifier;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -40,6 +44,36 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         date_default_timezone_set(config('app.timezone', 'Asia/Manila'));
+
+        Password::defaults(fn () => Password::min(8)
+            ->mixedCase()
+            ->numbers()
+            ->symbols()
+            ->uncompromised());
+
+        RateLimiter::for('public-application-tracking', function (Request $request) {
+            return Limit::perMinute(5)
+                ->by('public-application-tracking|'.$request->ip())
+                ->response(fn (Request $request, array $headers) => redirect()
+                    ->back()
+                    ->withErrors([
+                        'reference_no' => 'Too many application tracking attempts. Please wait one minute before trying again.',
+                    ])
+                    ->withInput($request->only('reference_no', 'contact'))
+                    ->withHeaders($headers));
+        });
+
+        RateLimiter::for('public-ticket-tracking', function (Request $request) {
+            return Limit::perMinute(5)
+                ->by('public-ticket-tracking|'.$request->ip())
+                ->response(fn (Request $request, array $headers) => redirect()
+                    ->back()
+                    ->withErrors([
+                        'reference_no' => 'Too many ticket tracking attempts. Please wait one minute before trying again.',
+                    ])
+                    ->withInput($request->only('reference_no', 'contact'))
+                    ->withHeaders($headers));
+        });
 
         Carbon::macro('inAppTimezone', function () {
             /** @var \Carbon\Carbon $this */

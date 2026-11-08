@@ -176,7 +176,7 @@
                             <td class="ref-cell"><span class="record-strong record-reference">{{ $app->reference_no }}</span></td>
                             <td class="customer-cell">{{ $app->user->name }}</td>
                             <td class="contact-cell">{{ $app->mobile_number ?: 'Not provided' }}</td>
-                            <td class="plan-cell">{{ $app->plan_code }}</td>
+                            <td class="plan-cell">{{ $app->planDisplayName() }}</td>
                             <td class="status-cell">
                                 @if($isReschedule)
                                     <span class="badge reschedule">Reschedule</span>

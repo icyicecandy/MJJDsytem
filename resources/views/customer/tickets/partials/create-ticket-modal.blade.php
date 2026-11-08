@@ -47,7 +47,7 @@
 
                 <div class="customer-ticket-modal__field">
                     <label for="customer_ticket_description">Description</label>
-                    <textarea id="customer_ticket_description" name="description" rows="5" required placeholder="Describe the issue, what happened, and any details that can help support review it faster.">{{ old('description') }}</textarea>
+                    <textarea id="customer_ticket_description" name="description" rows="5" required maxlength="4000" placeholder="Describe the issue, what happened, and any details that can help support review it faster.">{{ old('description') }}</textarea>
                     @error('description')
                         <p class="customer-ticket-modal__error">{{ $message }}</p>
                     @enderror

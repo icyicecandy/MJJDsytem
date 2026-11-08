@@ -119,6 +119,40 @@ test('analytics overview and customer reports respect the selected date range', 
         ->assertDontSee('Excluded Customer');
 });
 
+test('analytics quick periods clearly identify the selected date range', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $defaultResponse = $this->actingAs($admin)
+        ->get(route('admin.reports.index', absolute: false))
+        ->assertOk()
+        ->assertSee('Selected: This month');
+
+    expect($defaultResponse->getContent())
+        ->toMatch('/data-period="month" class="is-active" aria-pressed="true"/');
+
+    $lastThirtyResponse = $this->actingAs($admin)
+        ->get(route('admin.reports.index', [
+            'type' => 'operations',
+            'from' => '2026-08-25',
+            'to' => '2026-09-23',
+            'period' => '30',
+        ], false))
+        ->assertOk()
+        ->assertSee('Selected: Last 30 days');
+
+    expect($lastThirtyResponse->getContent())
+        ->toMatch('/data-period="30" class="is-active" aria-pressed="true"/');
+
+    $this->actingAs($admin)
+        ->get(route('admin.reports.index', [
+            'type' => 'operations',
+            'from' => '2026-08-01',
+            'to' => '2026-08-10',
+        ], false))
+        ->assertOk()
+        ->assertSee('Custom date range');
+});
+
 test('recent operations use a compact mobile card layout without clipping desktop columns', function () {
     $css = file_get_contents(public_path('css/dashboard.css'));
 

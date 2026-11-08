@@ -3,6 +3,44 @@
 @section('title', 'Analytics & Reports')
 
 @section('content')
+@php
+    $quickPeriodRanges = [
+        'month' => [
+            'label' => 'This month',
+            'from' => now()->startOfMonth()->toDateString(),
+            'to' => now()->toDateString(),
+        ],
+        '30' => [
+            'label' => 'Last 30 days',
+            'from' => now()->subDays(29)->toDateString(),
+            'to' => now()->toDateString(),
+        ],
+        'quarter' => [
+            'label' => 'This quarter',
+            'from' => now()->startOfQuarter()->toDateString(),
+            'to' => now()->toDateString(),
+        ],
+        'year' => [
+            'label' => 'This year',
+            'from' => now()->startOfYear()->toDateString(),
+            'to' => now()->toDateString(),
+        ],
+    ];
+    $requestedQuickPeriod = (string) request('period', '');
+    $activeQuickPeriod = null;
+    if (isset($quickPeriodRanges[$requestedQuickPeriod])
+        && $quickPeriodRanges[$requestedQuickPeriod]['from'] === $filters['from']
+        && $quickPeriodRanges[$requestedQuickPeriod]['to'] === $filters['to']) {
+        $activeQuickPeriod = $requestedQuickPeriod;
+    } else {
+        foreach ($quickPeriodRanges as $key => $range) {
+            if ($range['from'] === $filters['from'] && $range['to'] === $filters['to']) {
+                $activeQuickPeriod = $key;
+                break;
+            }
+        }
+    }
+@endphp
 <div class="report-page">
     <header class="page-header-card report-screen-only analytics-page-header">
         <div>
@@ -34,6 +72,7 @@
         <form method="GET" action="{{ route('admin.reports.index') }}" class="report-filter-form" data-report-builder>
             <input type="hidden" name="generate" value="1">
             <input type="hidden" name="tab" value="{{ $tab }}">
+            <input type="hidden" name="period" value="{{ $activeQuickPeriod }}" data-report-period-input>
 
             @if($tab === 'overview')
                 <input type="hidden" name="type" value="operations">
@@ -120,10 +159,10 @@
 
         <div class="report-period-presets" data-report-presets>
             <span>Quick periods:</span>
-            <button type="button" data-period="month">This month</button>
-            <button type="button" data-period="30">Last 30 days</button>
-            <button type="button" data-period="quarter">This quarter</button>
-            <button type="button" data-period="year">This year</button>
+            @foreach($quickPeriodRanges as $key => $range)
+                <button type="button" data-period="{{ $key }}" class="{{ (string) $activeQuickPeriod === (string) $key ? 'is-active' : '' }}" aria-pressed="{{ (string) $activeQuickPeriod === (string) $key ? 'true' : 'false' }}">{{ $range['label'] }}</button>
+            @endforeach
+            <small class="report-period-selection" data-period-selection aria-live="polite">{{ $activeQuickPeriod ? 'Selected: '.$quickPeriodRanges[$activeQuickPeriod]['label'] : 'Custom date range' }}</small>
         </div>
         @if($errors->any())
             <div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>
@@ -339,16 +378,53 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const from = form.querySelector('[name="from"]');
     const to = form.querySelector('[name="to"]');
+    const periodInput = form.querySelector('[data-report-period-input]');
+    const periodSelection = presets ? presets.querySelector('[data-period-selection]') : null;
     const type = form.querySelector('[data-report-type]');
     const status = form.querySelector('[data-report-status]');
     const statusesByType = @json($filterOptions['statuses_by_type']);
     const selectedStatus = @json($filters['status']);
+    const reportToday = @json(now()->toDateString());
 
     const format = value => {
         const year = value.getFullYear();
         const month = String(value.getMonth() + 1).padStart(2, '0');
         const day = String(value.getDate()).padStart(2, '0');
         return year + '-' + month + '-' + day;
+    };
+
+    const rangeFor = period => {
+        const end = new Date(reportToday + 'T00:00:00');
+        const start = new Date(end);
+        if (period === 'month') start.setDate(1);
+        if (period === '30') start.setDate(start.getDate() - 29);
+        if (period === 'quarter') start.setMonth(Math.floor(end.getMonth() / 3) * 3, 1);
+        if (period === 'year') start.setMonth(0, 1);
+        return { from: format(start), to: format(end) };
+    };
+
+    const syncActivePeriod = preferredPeriod => {
+        if (!presets) return;
+        const buttons = Array.from(presets.querySelectorAll('[data-period]'));
+        let active = null;
+        if (preferredPeriod) {
+            const preferred = buttons.find(button => button.dataset.period === preferredPeriod);
+            const preferredRange = preferred ? rangeFor(preferred.dataset.period) : null;
+            if (preferredRange && preferredRange.from === from.value && preferredRange.to === to.value) active = preferred;
+        }
+        if (!active) {
+            active = buttons.find(button => {
+                const range = rangeFor(button.dataset.period);
+                return range.from === from.value && range.to === to.value;
+            }) || null;
+        }
+        buttons.forEach(button => {
+            const selected = button === active;
+            button.classList.toggle('is-active', selected);
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        });
+        if (periodInput) periodInput.value = active ? active.dataset.period : '';
+        if (periodSelection) periodSelection.textContent = active ? 'Selected: ' + active.textContent.trim() : 'Custom date range';
     };
 
     const updateReportFilters = (keepStatus) => {
@@ -379,25 +455,18 @@ document.addEventListener('DOMContentLoaded', function () {
         presets.addEventListener('click', event => {
             const button = event.target.closest('[data-period]');
             if (!button) return;
-            const end = new Date();
-            const start = new Date(end);
-            if (button.dataset.period === 'month') start.setDate(1);
-            if (button.dataset.period === '30') start.setDate(start.getDate() - 29);
-            if (button.dataset.period === 'quarter') {
-                start.setMonth(Math.floor(end.getMonth() / 3) * 3, 1);
-            }
-            if (button.dataset.period === 'year') {
-                start.setMonth(0, 1);
-            }
-            from.value = format(start);
-            to.value = format(end);
+            const range = rangeFor(button.dataset.period);
+            from.value = range.from;
+            to.value = range.to;
             from.max = to.value;
             to.min = from.value;
+            syncActivePeriod(button.dataset.period);
         });
     }
 
-    from.addEventListener('change', () => { to.min = from.value; });
-    to.addEventListener('change', () => { from.max = to.value; });
+    syncActivePeriod(periodInput ? periodInput.value : null);
+    from.addEventListener('change', () => { to.min = from.value; syncActivePeriod(); });
+    to.addEventListener('change', () => { from.max = to.value; syncActivePeriod(); });
 });
 </script>
 @endsection

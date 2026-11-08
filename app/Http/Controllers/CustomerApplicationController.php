@@ -8,13 +8,14 @@ use App\Models\ApplicationIdVerificationEvent;
 use App\Models\IdentityDocumentClaim;
 use App\Models\Installation;
 use App\Models\InstallationLog;
+use App\Models\ServicePlan;
 use App\Models\User;
 use App\Rules\ReadableApplicationIdImage;
 use App\Services\TechnicianSchedule;
 use App\Services\WorkflowTransaction;
 use App\Support\ApplicationContact;
-use App\Support\ApplicationIdUpload;
 use App\Support\ApplicationIdentity;
+use App\Support\ApplicationIdUpload;
 use App\Support\AppNotificationSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -51,8 +52,9 @@ class CustomerApplicationController extends Controller
         $draft = ApplicationDraft::query()->where('user_id', $user->id)->where('expires_at', '>', now())->first();
 
         $validIdTypes = ApplicationIdentity::types();
+        $servicePlans = ServicePlan::query()->active()->ordered()->get();
 
-        return view('customer.apply', compact('application', 'mapBounds', 'addressCatalog', 'draft', 'validIdTypes'));
+        return view('customer.apply', compact('application', 'mapBounds', 'addressCatalog', 'draft', 'validIdTypes', 'servicePlans'));
     }
 
     public function store(Request $request)
@@ -63,7 +65,9 @@ class CustomerApplicationController extends Controller
 
             return $this->storeWithinTransaction($request, $user, $obsoleteDraftPhotos);
         }, protectContacts: true);
-        foreach ($obsoleteDraftPhotos as $obsoleteDraftPhoto) ApplicationDraft::deletePhoto($obsoleteDraftPhoto);
+        foreach ($obsoleteDraftPhotos as $obsoleteDraftPhoto) {
+            ApplicationDraft::deletePhoto($obsoleteDraftPhoto);
+        }
 
         return $response;
     }
@@ -116,7 +120,10 @@ class CustomerApplicationController extends Controller
             'street_landmark' => ['nullable', 'string', 'max:255'],
             'lat' => ['required', 'numeric'],
             'lng' => ['required', 'numeric'],
-            'plan_code' => ['required', 'in:S2S_50,S2S_100'],
+            'plan_code' => [
+                'required',
+                Rule::exists('service_plans', 'code')->where(fn ($query) => $query->where('is_active', true)),
+            ],
             'valid_id_type' => ['required', Rule::in(array_keys(ApplicationIdentity::types()))],
             'valid_id_type_other' => [Rule::requiredIf($request->input('valid_id_type') === ApplicationIdentity::TYPE_OTHER), 'nullable', 'string', 'max:80', 'regex:/^[\p{L}\p{N}][\p{L}\p{N}\s().,&\-\/]*$/u'],
             'id_image' => [$draft?->hasIdImage() ? 'nullable' : 'required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', new ReadableApplicationIdImage],
@@ -149,6 +156,10 @@ class CustomerApplicationController extends Controller
                 ->withInput();
         }
 
+        $servicePlan = ServicePlan::query()
+            ->active()
+            ->where('code', $validated['plan_code'])
+            ->firstOrFail();
 
         $idImageHash = $request->hasFile('id_image')
             ? ApplicationIdentity::uploadedFileHash($request->file('id_image'))
@@ -178,6 +189,12 @@ class CustomerApplicationController extends Controller
             'lat' => $lat,
             'lng' => $lng,
             'plan_code' => $validated['plan_code'],
+            'plan_id' => $servicePlan->id,
+            'plan_name_snapshot' => $servicePlan->name,
+            'plan_speed_mbps_snapshot' => $servicePlan->speed_mbps,
+            'plan_installation_fee_snapshot' => $servicePlan->installation_fee,
+            'plan_description_snapshot' => $servicePlan->description,
+            'plan_features_snapshot' => $servicePlan->features,
             'id_image_path' => $idImagePath,
             'id_selfie_image_path' => $idSelfiePath,
             'valid_id_type' => $validated['valid_id_type'],

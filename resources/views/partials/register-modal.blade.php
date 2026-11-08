@@ -74,7 +74,7 @@
                 <div class="register-auth-grid register-password-grid">
                     <div class="register-field password-group {{ $registerErrors->has('password') ? 'has-error' : '' }}">
                         <label for="register_modal_password">Password</label>
-                        <input id="register_modal_password" type="password" name="password" required placeholder="Create a password" />
+                        <input id="register_modal_password" type="password" name="password" required minlength="8" autocomplete="new-password" aria-describedby="registerPasswordPolicy" placeholder="Create a password" />
                         <button
                             type="button"
                             class="register-password-toggle show-password"
@@ -89,14 +89,12 @@
                                 <path d="m3.3 4.5 16.2 15-1.1 1.2-3-2.8A12.8 12.8 0 0 1 12 19c-5.5 0-9.9-3.4-11-7 .5-1.8 1.9-3.5 3.8-4.7L2.2 5.7l1.1-1.2Zm7 6.5 3.2 3a2.5 2.5 0 0 1-3.2-3Zm1.7-6c5.5 0 9.9 3.4 11 7-.4 1.4-1.4 2.8-2.8 4l-2.2-2c.7-.6 1.3-1.3 1.6-2-1.1-2.7-4.6-5.3-8.6-5.3-1 0-2 .2-2.9.5L6.4 5.9c1.7-.6 3.6-.9 5.6-.9Zm-.5 2.8a4.2 4.2 0 0 1 4.1 5l-1.6-1.5a2.5 2.5 0 0 0-2.8-2.7l-1.6-1.5c.6-.2 1.2-.3 1.9-.3Z"/>
                             </svg>
                         </button>
-                        @error('password', 'register')
-                            <span class="error">{{ $message }}</span>
-                        @enderror
+                        <span class="error" id="registerPasswordLiveError" @unless ($registerErrors->has('password')) hidden @endunless>{{ $registerErrors->first('password') }}</span>
                     </div>
 
                     <div class="register-field password-group {{ $registerErrors->has('password_confirmation') ? 'has-error' : '' }}">
                         <label for="register_modal_password_confirmation">Confirm Password</label>
-                        <input id="register_modal_password_confirmation" type="password" name="password_confirmation" required placeholder="Confirm your password" />
+                        <input id="register_modal_password_confirmation" type="password" name="password_confirmation" required minlength="8" autocomplete="new-password" placeholder="Confirm your password" />
                         <button
                             type="button"
                             class="register-password-toggle show-password"
@@ -111,9 +109,18 @@
                                 <path d="m3.3 4.5 16.2 15-1.1 1.2-3-2.8A12.8 12.8 0 0 1 12 19c-5.5 0-9.9-3.4-11-7 .5-1.8 1.9-3.5 3.8-4.7L2.2 5.7l1.1-1.2Zm7 6.5 3.2 3a2.5 2.5 0 0 1-3.2-3Zm1.7-6c5.5 0 9.9 3.4 11 7-.4 1.4-1.4 2.8-2.8 4l-2.2-2c.7-.6 1.3-1.3 1.6-2-1.1-2.7-4.6-5.3-8.6-5.3-1 0-2 .2-2.9.5L6.4 5.9c1.7-.6 3.6-.9 5.6-.9Zm-.5 2.8a4.2 4.2 0 0 1 4.1 5l-1.6-1.5a2.5 2.5 0 0 0-2.8-2.7l-1.6-1.5c.6-.2 1.2-.3 1.9-.3Z"/>
                             </svg>
                         </button>
-                        @error('password_confirmation', 'register')
-                            <span class="error">{{ $message }}</span>
-                        @enderror
+                        <span class="error" id="registerPasswordConfirmationLiveError" @unless ($registerErrors->has('password_confirmation')) hidden @endunless>{{ $registerErrors->first('password_confirmation') }}</span>
+                    </div>
+                </div>
+
+                <div class="register-password-policy" id="registerPasswordPolicy" aria-live="polite">
+                    <strong>Password requirements</strong>
+                    <div class="register-password-rules">
+                        <span data-password-rule="length">8+ characters</span>
+                        <span data-password-rule="uppercase">Uppercase</span>
+                        <span data-password-rule="lowercase">Lowercase</span>
+                        <span data-password-rule="number">Number</span>
+                        <span data-password-rule="symbol">Symbol</span>
                     </div>
                 </div>
 
@@ -160,9 +167,14 @@
                 const firstNameInput = document.getElementById('register_modal_first_name');
                 const lastNameInput = document.getElementById('register_modal_last_name');
                 const emailInput = document.getElementById('register_modal_email');
+                const passwordInput = document.getElementById('register_modal_password');
+                const passwordConfirmationInput = document.getElementById('register_modal_password_confirmation');
                 const firstNameError = document.getElementById('registerFirstNameLiveError');
                 const lastNameError = document.getElementById('registerLastNameLiveError');
                 const emailError = document.getElementById('registerEmailLiveError');
+                const passwordError = document.getElementById('registerPasswordLiveError');
+                const passwordConfirmationError = document.getElementById('registerPasswordConfirmationLiveError');
+                const passwordRuleElements = Array.from(form.querySelectorAll('[data-password-rule]'));
                 const emailCheckUrl = @json(route('register.email-check'));
                 const hasServerErrors = @json($registerErrors->any());
                 const namePattern = /^[\p{L}][\p{L}\p{M}\s'.-]*$/u;
@@ -225,6 +237,44 @@
 
                     setLiveError(emailInput, emailError, '');
                     return true;
+                }
+
+                function passwordRuleState(value) {
+                    return {
+                        length: value.length >= 8,
+                        uppercase: /[A-Z]/.test(value),
+                        lowercase: /[a-z]/.test(value),
+                        number: /[0-9]/.test(value),
+                        symbol: /[^A-Za-z0-9]/.test(value),
+                    };
+                }
+
+                function updatePasswordRules() {
+                    const state = passwordRuleState(passwordInput?.value || '');
+                    passwordRuleElements.forEach(function (element) {
+                        element.classList.toggle('is-met', Boolean(state[element.dataset.passwordRule]));
+                    });
+                    return Object.values(state).every(Boolean);
+                }
+
+                function validatePassword(showMessage = false) {
+                    if (!passwordInput) return true;
+                    const valid = updatePasswordRules();
+                    const message = passwordInput.value === ''
+                        ? 'Enter a password.'
+                        : 'Use at least 8 characters with uppercase and lowercase letters, a number, and a symbol.';
+                    setLiveError(passwordInput, passwordError, valid ? '' : (showMessage ? message : ''));
+                    return valid;
+                }
+
+                function validatePasswordConfirmation(showMessage = false) {
+                    if (!passwordConfirmationInput || !passwordInput) return true;
+                    const valid = passwordConfirmationInput.value !== '' && passwordConfirmationInput.value === passwordInput.value;
+                    const message = passwordConfirmationInput.value === ''
+                        ? 'Confirm your password.'
+                        : 'The password confirmation does not match.';
+                    setLiveError(passwordConfirmationInput, passwordConfirmationError, valid ? '' : (showMessage ? message : ''));
+                    return valid;
                 }
 
                 function runEmailDuplicateCheck() {
@@ -324,6 +374,28 @@
                     });
                 }
 
+                if (passwordInput) {
+                    updatePasswordRules();
+                    passwordInput.addEventListener('input', function () {
+                        validatePassword(false);
+                        if (passwordConfirmationInput?.value) {
+                            validatePasswordConfirmation(true);
+                        }
+                    });
+                    passwordInput.addEventListener('blur', function () {
+                        validatePassword(passwordInput.value !== '');
+                    });
+                }
+
+                if (passwordConfirmationInput) {
+                    passwordConfirmationInput.addEventListener('input', function () {
+                        validatePasswordConfirmation(false);
+                    });
+                    passwordConfirmationInput.addEventListener('blur', function () {
+                        validatePasswordConfirmation(passwordConfirmationInput.value !== '');
+                    });
+                }
+
                 form.addEventListener('submit', function (event) {
                     const namesValid = [
                         validateNameField(firstNameInput, firstNameError, 'First name'),
@@ -331,10 +403,12 @@
                     ].every(Boolean);
 
                     const emailFormatValid = validateEmailFormat();
+                    const passwordValid = validatePassword(true);
+                    const passwordConfirmationValid = validatePasswordConfirmation(true);
 
-                    if (!namesValid || !emailFormatValid) {
+                    if (!namesValid || !emailFormatValid || !passwordValid || !passwordConfirmationValid) {
                         event.preventDefault();
-                        const invalidField = [firstNameInput, lastNameInput, emailInput].find(function (field) {
+                        const invalidField = [firstNameInput, lastNameInput, emailInput, passwordInput, passwordConfirmationInput].find(function (field) {
                             return field && !field.checkValidity();
                         });
                         if (invalidField) {

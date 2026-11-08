@@ -213,7 +213,7 @@
                             </div>
                             <div class="today-workload-main">
                                 <div class="record-strong">{{ $customerName ?: 'N/A' }}</div>
-                                <div class="record-muted">{{ $application?->plan_code ?: 'No plan recorded' }}</div>
+                                <div class="record-muted">{{ $application?->planDisplayName() ?: 'No plan recorded' }}</div>
                                 <div class="record-muted">Contact: {{ $contactNumber ?: 'No contact number recorded' }}</div>
                             </div>
                             <div class="today-workload-address">

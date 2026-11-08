@@ -118,7 +118,7 @@
                 @if(! $isReadOnly)
                     <form method="POST" action="{{ route('technician.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="ticket-reply-form" data-unsaved-warning data-protect-form>
                         @csrf
-                        <textarea name="message" rows="3" placeholder="Write a clear update for the customer..."></textarea>
+                        <textarea name="message" rows="3" maxlength="4000" placeholder="Write a clear update for the customer..."></textarea>
                         <label for="technician_ticket_attachment">Attachments <span class="field-badge optional">Optional</span></label>
                         <input id="technician_ticket_attachment" type="file" name="ticket_attachments[]" accept=".jpg,.jpeg,.png,.webp" multiple>
                         @error('ticket_attachment')

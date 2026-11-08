@@ -32,11 +32,6 @@
 
                     <div class="auth-nav-links">
                         <a href="{{ url('/') }}">Home</a>
-                        @if($isRegisterPage)
-                            <a href="{{ url('/') }}">Home</a>
-                        @else
-                            <a href="{{ url('/') }}">Home</a>
-                        @endif
                     </div>
                 </nav>
             </div>

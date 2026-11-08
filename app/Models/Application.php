@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use App\Support\ApplicationIdUpload;
-use App\Support\ApplicationIdentity;
 use App\Support\ApplicationContact;
+use App\Support\ApplicationIdentity;
+use App\Support\ApplicationIdUpload;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -13,13 +13,21 @@ class Application extends Model
     use HasFactory;
 
     public const STATUS_SUBMITTED = 'submitted';
+
     public const STATUS_UNDER_REVIEW = 'under_review';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_SCHEDULED = 'scheduled';
+
     public const STATUS_CANCELLATION_REQUESTED = 'cancellation_requested';
+
     public const STATUS_INSTALLED = 'installed';
+
     public const STATUS_ACTIVATED = 'activated';
+
     public const STATUS_CANCELLED = 'cancelled';
+
     public const STATUS_REJECTED = 'rejected';
 
     protected $fillable = [
@@ -37,6 +45,12 @@ class Application extends Model
         'lat',
         'lng',
         'plan_code',
+        'plan_id',
+        'plan_name_snapshot',
+        'plan_speed_mbps_snapshot',
+        'plan_installation_fee_snapshot',
+        'plan_description_snapshot',
+        'plan_features_snapshot',
         'id_image_path',
         'id_selfie_image_path',
         'valid_id_type',
@@ -91,6 +105,8 @@ class Application extends Model
             'duplicate_id_number_detected' => 'boolean',
             'duplicate_id_image_detected' => 'boolean',
             'id_verified_at' => 'datetime',
+            'plan_installation_fee_snapshot' => 'decimal:2',
+            'plan_features_snapshot' => 'array',
         ];
     }
 
@@ -102,6 +118,19 @@ class Application extends Model
     public function user()
     {
         return $this->belongsTo(\App\Models\User::class);
+    }
+
+    public function servicePlan()
+    {
+        return $this->belongsTo(ServicePlan::class, 'plan_id');
+    }
+
+    public function planDisplayName(): string
+    {
+        $name = $this->plan_name_snapshot ?: $this->servicePlan?->name;
+        $speed = $this->plan_speed_mbps_snapshot ?: $this->servicePlan?->speed_mbps;
+
+        return $name && $speed ? $name.' '.$speed.' Mbps' : $this->plan_code;
     }
 
     public function assessor()

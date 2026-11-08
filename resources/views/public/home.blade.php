@@ -17,6 +17,9 @@
 
 @push('styles')
 <style>
+    body.layout.is-landing .page-body {
+        max-width: none;
+    }
     .public-home {
         --panel-soft: linear-gradient(180deg, rgba(15, 31, 74, 0.62), rgba(10, 24, 58, 0.54));
         --strip-soft: linear-gradient(180deg, rgba(21, 43, 97, 0.54), rgba(12, 29, 68, 0.46));
@@ -24,16 +27,19 @@
         --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(211, 227, 255, 0.10));
         --glass-shadow: 0 8px 20px rgba(3, 16, 44, 0.12);
         --glass-shadow-hover: 0 14px 30px rgba(5, 24, 64, 0.18);
+        --landing-gutter: clamp(1rem, 1.75vw, 2.5rem);
+        --landing-content-max: 2160px;
+        --landing-hero-max: 2280px;
         display: grid;
         gap: 2.8rem;
         padding: 0 0 4rem;
     }
     .public-shell {
-        width: min(1360px, 100%);
+        width: min(var(--landing-content-max), calc(100% - var(--landing-gutter) - var(--landing-gutter)));
         margin-inline: auto;
     }
     .public-hero-shell {
-        width: 100%;
+        width: min(var(--landing-hero-max), calc(100% - var(--landing-gutter) - var(--landing-gutter)));
     }
         .public-home-heading {
         display: grid;
@@ -209,7 +215,9 @@
         text-align: center;
     }
     .public-plan-grid {
+        width: min(1680px, 100%);
         margin-top: 1.35rem;
+        margin-inline: auto;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 1.35rem;
@@ -310,7 +318,7 @@
 
     .public-steps-strip {
         position: relative;
-        width: min(1360px, 100%);
+        width: min(var(--landing-content-max), calc(100% - var(--landing-gutter) - var(--landing-gutter)));
         margin-inline: auto;
         background: var(--glass-fill);
         border: 1px solid var(--glass-border);
@@ -717,7 +725,7 @@
     }
         .public-steps-strip {
         position: relative;
-        width: min(1360px, 100%);
+        width: min(var(--landing-content-max), calc(100% - var(--landing-gutter) - var(--landing-gutter)));
         margin-inline: auto;
         background: var(--glass-fill);
         border: 1px solid var(--glass-border);
@@ -888,8 +896,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h4l3 8 4-16 3 8h2"></path></svg>
                     Fiber Service Platform
                 </span>
-                <h1>Manage your MJJD Telecom Service Online.</h1>
-                <p>Apply for service, track your application, and check support updates in one simple MJJD Telecom portal.</p>
+                <h1>Manage your {{ $businessSetting->business_name }} service online.</h1>
+                <p>Apply for service, track your application, and check support updates in one simple customer portal.</p>
                 <div class="public-hero-actions">
                     <a href="{{ url('/') }}" class="btn public-hero-btn" data-open-register-modal>Apply Now</a>
                     <a href="{{ route('track.form') }}" class="btn secondary public-hero-btn">Track Application</a>
@@ -912,38 +920,29 @@
         </div>
 
         <div class="public-plan-grid">
-            <article class="public-plan-card">
-                <div class="public-plan-top">
-                    <div>
-                        <strong>Superfiber</strong>
-                        <div class="public-plan-speed">50 Mbps</div>
+            @forelse($servicePlans as $plan)
+                <article class="public-plan-card {{ $plan->is_featured ? 'featured' : '' }}">
+                    <div class="public-plan-top">
+                        <div>
+                            <strong>{{ $plan->name }}</strong>
+                            <div class="public-plan-speed">{{ number_format($plan->speed_mbps) }} Mbps</div>
+                        </div>
+                        @if($plan->badge)
+                            <span class="public-plan-badge">{{ $plan->badge }}</span>
+                        @endif
                     </div>
-                </div>
-                <div class="public-plan-price">&#8369;999<small> installation fee</small></div>
-                <ul class="public-plan-list">
-                    <li>Ideal for browsing and streaming</li>
-                    <li>Up to 6 devices</li>
-                    <li>Application review before installation</li>
-                </ul>
-                <a href="{{ url('/') }}" class="btn" data-open-register-modal>Select Plan</a>
-            </article>
-
-            <article class="public-plan-card featured">
-                <div class="public-plan-top">
-                    <div>
-                        <strong>Extraboost</strong>
-                        <div class="public-plan-speed">100 Mbps</div>
-                    </div>
-                    <span class="public-plan-badge">Most Popular</span>
-                </div>
-                <div class="public-plan-price">&#8369;1,699<small> installation fee</small></div>
-                <ul class="public-plan-list">
-                    <li>Perfect for gaming and HD streaming</li>
-                    <li>Up to 10 devices</li>
-                    <li>Application review before installation</li>
-                </ul>
-                <a href="{{ url('/') }}" class="btn" data-open-register-modal>Select Plan</a>
-            </article>
+                    <p>{{ $plan->description }}</p>
+                    <div class="public-plan-price">&#8369;{{ $plan->formattedFeeAmount() }}<small> installation fee</small></div>
+                    <ul class="public-plan-list">
+                        @foreach($plan->features ?? [] as $feature)
+                            <li>{{ $feature }}</li>
+                        @endforeach
+                    </ul>
+                    <a href="{{ url('/') }}" class="btn" data-open-register-modal>Select Plan</a>
+                </article>
+            @empty
+                <article class="public-plan-card"><strong>Plans temporarily unavailable</strong><p>Please contact our support team for current service options.</p></article>
+            @endforelse
         </div>
     </section>
 
@@ -1044,28 +1043,28 @@
                 <span class="public-contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.78.65 2.62a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.46-1.22a2 2 0 0 1 2.11-.45c.84.31 1.72.53 2.62.65A2 2 0 0 1 22 16.92z"></path></svg></span>
                 <div>
                     <strong>Phone</strong>
-                    <span>0985 075 7176</span>
+                    <span>{{ $businessSetting->phone }}</span>
                 </div>
             </article>
             <article class="public-contact-item">
                 <span class="public-contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg></span>
                 <div>
                     <strong>Email</strong>
-                    <span>support&#64;mjjdtelecom.com</span>
+                    <span>{{ $businessSetting->support_email }}</span>
                 </div>
             </article>
             <article class="public-contact-item">
                 <span class="public-contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></span>
                 <div>
                     <strong>Business Hours</strong>
-                    <span>Mon - Fri: 8:00 AM - 5:00 PM</span>
+                    <span>{{ $businessSetting->business_hours }}</span>
                 </div>
             </article>
             <article class="public-contact-item">
                 <span class="public-contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
                 <div>
                     <strong>Office Location</strong>
-                    <span>Dumlao St. Dusoc, Bayambang, Pangasinan</span>
+                    <span>{{ $businessSetting->office_address }}</span>
                 </div>
             </article>
         </div>
@@ -1073,13 +1072,15 @@
 
     <section class="public-shell public-footer" data-reveal>
         <div class="public-footer-copy">
-            <p>&copy; {{ date('Y') }} MJJD TELECOM. All rights reserved.</p>
+            <p>&copy; {{ date('Y') }} {{ $businessSetting->business_name }}. All rights reserved.</p>
         </div>
 
         <div class="public-footer-links">
             <a href="{{ route('track.form') }}">Application Tracking</a>
             <a href="{{ route('track.ticket.form') }}">Ticket Tracking</a>
             <a href="{{ url('/') }}" data-open-login-modal>Support</a>
+            @if($businessSetting->facebook_url)<a href="{{ $businessSetting->facebook_url }}" target="_blank" rel="noopener">Facebook</a>@endif
+            @if($businessSetting->map_url)<a href="{{ $businessSetting->map_url }}" target="_blank" rel="noopener">Map</a>@endif
         </div>
     </section>
 </div>

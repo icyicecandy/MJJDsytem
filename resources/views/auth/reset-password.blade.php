@@ -27,15 +27,16 @@
                     <div class="form-group">
                         <label for="password">New Password</label>
                         <div class="password-group">
-                            <input id="password" type="password" name="password" required autocomplete="new-password">
+                            <input id="password" type="password" name="password" required minlength="8" autocomplete="new-password" aria-describedby="resetPasswordHelp">
                             <button type="button" class="show-password" data-target="password" aria-label="Show password" title="Show password">Show</button>
                         </div>
+                        <p class="small-text" id="resetPasswordHelp">Use at least 8 characters with uppercase and lowercase letters, a number, and a symbol.</p>
                         @error('password')<span class="error">{{ $message }}</span>@enderror
                     </div>
                     <div class="form-group">
                         <label for="password_confirmation">Confirm Password</label>
                         <div class="password-group">
-                            <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password">
+                            <input id="password_confirmation" type="password" name="password_confirmation" required minlength="8" autocomplete="new-password">
                             <button type="button" class="show-password" data-target="password_confirmation" aria-label="Show password" title="Show password">Show</button>
                         </div>
                         @error('password_confirmation')<span class="error">{{ $message }}</span>@enderror

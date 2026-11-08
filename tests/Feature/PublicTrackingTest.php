@@ -105,7 +105,7 @@ test('public ticket tracking returns matching ticket details', function () {
     ]);
 
     $this->post(route('track.ticket.search'), [
-        'reference_no' => ' ' . strtolower($ticket->publicReference()) . ' ',
+        'reference_no' => ' '.strtolower($ticket->publicReference()).' ',
         'contact' => 'ticket-owner@example.com',
     ])
         ->assertOk()
@@ -134,4 +134,69 @@ test('public ticket tracking rejects mismatched email', function () {
         ])
         ->assertRedirect(route('track.ticket.form'))
         ->assertSessionHasErrors('reference_no');
+});
+
+test('public application tracking allows five attempts and then shows a friendly cooldown message', function () {
+    $ipAddress = '203.0.113.41';
+    $payload = [
+        'reference_no' => 'APP-DOES-NOT-EXIST',
+        'contact' => 'applicant@example.com',
+    ];
+
+    foreach (range(1, 5) as $attempt) {
+        $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])
+            ->from(route('track.form'))
+            ->post(route('track.search'), $payload)
+            ->assertRedirect(route('track.form'))
+            ->assertSessionHasErrors([
+                'reference_no' => 'We could not find an application that matches those details.',
+            ]);
+    }
+
+    $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])
+        ->from(route('track.form'))
+        ->post(route('track.search'), $payload)
+        ->assertRedirect(route('track.form'))
+        ->assertSessionHasErrors([
+            'reference_no' => 'Too many application tracking attempts. Please wait one minute before trying again.',
+        ])
+        ->assertHeader('Retry-After');
+});
+
+test('public ticket tracking has a separate five-attempt limit and friendly cooldown message', function () {
+    $ipAddress = '203.0.113.42';
+    $ticketPayload = [
+        'reference_no' => 'TKT-DOES-NOT-EXIST',
+        'contact' => 'customer@example.com',
+    ];
+
+    foreach (range(1, 5) as $attempt) {
+        $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])
+            ->from(route('track.ticket.form'))
+            ->post(route('track.ticket.search'), $ticketPayload)
+            ->assertRedirect(route('track.ticket.form'))
+            ->assertSessionHasErrors([
+                'reference_no' => 'We could not find a ticket that matches those details.',
+            ]);
+    }
+
+    $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])
+        ->from(route('track.ticket.form'))
+        ->post(route('track.ticket.search'), $ticketPayload)
+        ->assertRedirect(route('track.ticket.form'))
+        ->assertSessionHasErrors([
+            'reference_no' => 'Too many ticket tracking attempts. Please wait one minute before trying again.',
+        ])
+        ->assertHeader('Retry-After');
+
+    $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])
+        ->from(route('track.form'))
+        ->post(route('track.search'), [
+            'reference_no' => 'APP-DOES-NOT-EXIST',
+            'contact' => 'customer@example.com',
+        ])
+        ->assertRedirect(route('track.form'))
+        ->assertSessionHasErrors([
+            'reference_no' => 'We could not find an application that matches those details.',
+        ]);
 });

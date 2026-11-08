@@ -138,6 +138,7 @@ class TechnicianDashboardController extends Controller
 
         return view('admin.reports.detail', compact('document'));
     }
+
     public function updateInstallationStatus(Request $request, Installation $installation)
     {
         return WorkflowTransaction::installation($installation, function (Installation $installation) use ($request) {
@@ -192,18 +193,18 @@ class TechnicianDashboardController extends Controller
             InstallationLog::create([
                 'installation_id' => $installation->id,
                 'user_id' => auth()->id(),
-                'notes' => 'Installation marked as reschedule required. Remarks: ' . $validated['technician_remarks'],
+                'notes' => 'Installation marked as reschedule required. Remarks: '.$validated['technician_remarks'],
             ]);
 
             system_log(
                 'Reschedule Required',
-                'Installation ' . $installation->displayJobReference() . ' was marked as reschedule required by ' . auth()->user()->name . '.'
+                'Installation '.$installation->displayJobReference().' was marked as reschedule required by '.auth()->user()->name.'.'
             );
 
             AppNotificationSender::sendToRole(
                 'admin',
                 'Installation requires reschedule',
-                'Installation #' . $installation->id . ' was marked reschedule required by ' . auth()->user()->name . '.',
+                'Installation #'.$installation->id.' was marked reschedule required by '.auth()->user()->name.'.',
                 route('admin.applications.show', $installation->application),
                 'installation_reschedule_required',
                 ['installation_id' => $installation->id, 'application_id' => $installation->application_id],
@@ -221,7 +222,7 @@ class TechnicianDashboardController extends Controller
 
         system_log(
             'Installation Started',
-            'Installation ' . $installation->displayJobReference() . ' was started by ' . auth()->user()->name . '.'
+            'Installation '.$installation->displayJobReference().' was started by '.auth()->user()->name.'.'
         );
 
         return back()->with('success', 'Installation started successfully.');
@@ -290,7 +291,7 @@ class TechnicianDashboardController extends Controller
         }
 
         $validated = $request->validate([
-            'technician_remarks' => ['required', 'string'],
+            'technician_remarks' => ['required', 'string', 'max:1000'],
             'nap_code' => ['required', 'string', 'max:100'],
             'port_number' => ['required', 'string', 'max:50'],
             'equipment_serial_number' => ['required', 'string', 'max:100'],
@@ -336,12 +337,12 @@ class TechnicianDashboardController extends Controller
         InstallationLog::create([
             'installation_id' => $installation->id,
             'user_id' => auth()->id(),
-            'notes' => 'Installation marked completed. Remarks: ' . $validated['technician_remarks'] . $technicalNotes,
+            'notes' => 'Installation marked completed. Remarks: '.$validated['technician_remarks'].$technicalNotes,
         ]);
 
         system_log(
             'Installation Completed',
-            'Installation ' . $installation->displayJobReference() . ' was completed by ' . auth()->user()->name . '.'
+            'Installation '.$installation->displayJobReference().' was completed by '.auth()->user()->name.'.'
         );
 
         if ($installation->application) {
@@ -364,7 +365,7 @@ class TechnicianDashboardController extends Controller
             AppNotificationSender::sendToRole(
                 'admin',
                 'Installation completed',
-                'Installation #' . $installation->id . ' has been completed by ' . auth()->user()->name . '.',
+                'Installation #'.$installation->id.' has been completed by '.auth()->user()->name.'.',
                 route('admin.installations.index'),
                 'installation_completed_admin',
                 ['installation_id' => $installation->id, 'application_id' => $installation->application->id],
@@ -432,7 +433,7 @@ class TechnicianDashboardController extends Controller
             AppNotificationSender::sendToRole(
                 'admin',
                 'Installation activated',
-                'Installation #' . $installation->id . ' has been activated by ' . auth()->user()->name . '.',
+                'Installation #'.$installation->id.' has been activated by '.auth()->user()->name.'.',
                 route('admin.applications.show', $installation->application),
                 'installation_activated_admin',
                 ['installation_id' => $installation->id, 'application_id' => $installation->application->id],

@@ -28,7 +28,7 @@
                 </p>
 
                 <label>Description</label>
-                <textarea name="description" rows="5" required>{{ old('description') }}</textarea>
+                <textarea name="description" rows="5" required maxlength="4000">{{ old('description') }}</textarea>
 
                 <label for="ticket_photo">Photos <span class="field-badge optional">Optional</span></label>
                 <input id="ticket_photo" type="file" name="ticket_photos[]" accept=".jpg,.jpeg,.png,.webp" multiple>

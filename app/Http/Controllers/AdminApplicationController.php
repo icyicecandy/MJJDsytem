@@ -248,7 +248,7 @@ class AdminApplicationController extends Controller
             $assessment = $request->validate([
                 'serviceability_status' => ['required', 'in:pending,serviceable,not_serviceable'],
                 'slot_availability_status' => ['required', 'in:pending,available,full,not_applicable'],
-                'assessment_notes' => ['nullable', 'string'],
+                'assessment_notes' => ['nullable', 'string', 'max:2000'],
                 'rejection_reason' => [
                     Rule::requiredIf($validated['status'] === 'rejected'),
                     'nullable',

@@ -17,7 +17,7 @@
             <p><span class="badge {{ $application->status }}">{{ strtoupper(str_replace('_', ' ', $application->status)) }}</span></p>
             <div class="tracking-grid mt-1">
                 <div class="tracking-meta"><strong>Reference Number</strong>{{ $application->reference_no }}</div>
-                <div class="tracking-meta"><strong>Plan</strong>{{ $application->plan_code }}</div>
+                <div class="tracking-meta"><strong>Plan</strong>{{ $application->planDisplayName() }}</div>
                 <div class="tracking-meta"><strong>Service Area</strong>{{ $application->barangay }}, {{ $application->municipality }}</div>
                 <div class="tracking-meta"><strong>Submitted</strong>{{ $application->created_at->displayDateTime() }}</div>
             </div>

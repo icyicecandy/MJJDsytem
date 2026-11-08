@@ -7157,6 +7157,47 @@ body.login-modal-open {
 .register-modal .register-password-toggle.is-visible .icon-eye-off {
     display: block;
 }
+.register-modal .register-password-policy {
+    display: grid;
+    gap: 0.42rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid rgba(159, 192, 240, 0.16);
+    border-radius: 12px;
+    background: rgba(10, 28, 66, 0.38);
+    color: rgba(219, 230, 247, 0.82);
+    font-size: 0.76rem;
+}
+.register-modal .register-password-policy strong {
+    color: rgba(245, 249, 255, 0.94);
+    font-size: 0.78rem;
+}
+.register-modal .register-password-rules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.36rem;
+}
+.register-modal .register-password-rules span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding: 0.25rem 0.48rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    transition: color 0.18s ease, background 0.18s ease;
+}
+.register-modal .register-password-rules span::before {
+    content: '\2022';
+    color: #94a3b8;
+    font-weight: 900;
+}
+.register-modal .register-password-rules span.is-met {
+    background: rgba(34, 197, 94, 0.16);
+    color: #bbf7d0;
+}
+.register-modal .register-password-rules span.is-met::before {
+    content: '\2713';
+    color: #4ade80;
+}
 .register-modal .register-consent-section {
     gap: 0.3rem;
 }
@@ -8469,6 +8510,21 @@ body.layout .ticket-list-table tbody tr.ticket-row--queued .actions-cell {
 }
 
 .report-period-presets button:hover { border-color: #2454d3; background: #edf3ff; }
+.report-period-presets button.is-active,
+.report-period-presets button[aria-pressed="true"] {
+    border-color: #173fa8;
+    background: linear-gradient(135deg, #173b96, #2758d9);
+    color: #fff;
+    box-shadow: 0 6px 14px rgba(36, 84, 211, 0.22);
+}
+.report-period-presets button.is-active::before,
+.report-period-presets button[aria-pressed="true"]::before {
+    content: "\2713";
+    margin-right: 0.32rem;
+    font-weight: 900;
+}
+.report-period-presets button:focus-visible { outline: 3px solid rgba(36, 84, 211, 0.28); outline-offset: 2px; }
+.report-period-selection { margin-left: 0.2rem; color: #2454d3; font-size: 0.76rem; font-weight: 800; }
 .report-toolbar { align-items: center; justify-content: space-between; }
 .report-toolbar-summary { display: grid; gap: 0.1rem; color: #102a71; }
 .report-toolbar-summary span { color: #5b6984; font-size: 0.8rem; }

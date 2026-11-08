@@ -110,8 +110,6 @@ test('system log live filtering accepts combined activity filters', function () 
         'user_role' => 'technician',
         'action' => 'Account Logout',
         'description' => 'Jepsy Dave Mamugay logged out.',
-        'created_at' => '2026-10-04 14:41:00',
-        'updated_at' => '2026-10-04 14:41:00',
     ]);
 
     $this->actingAs($admin)
@@ -120,8 +118,8 @@ test('system log live filtering accepts combined activity filters', function () 
             'view' => 'activity',
             'search' => 'jep',
             'action' => 'Account Logout',
-            'date_from' => '2026-09-29',
-            'date_to' => '2026-10-12',
+            'date_from' => now()->subDay()->toDateString(),
+            'date_to' => now()->toDateString(),
         ], false))
         ->assertOk()
         ->assertSee('id="systemLogResults"', false)

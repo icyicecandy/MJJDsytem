@@ -745,7 +745,7 @@
                             <div class="workflow-form-grid">
                                 <div class="workflow-field full">
                                     <label for="technician_remarks">Technician Remarks</label>
-                                    <textarea id="technician_remarks" name="technician_remarks" rows="4" required placeholder="Add installation notes, customer confirmation, or onsite issues.">{{ old('technician_remarks', $installation->technician_remarks) }}</textarea>
+                                    <textarea id="technician_remarks" name="technician_remarks" rows="4" required maxlength="1000" placeholder="Add installation notes, customer confirmation, or onsite issues.">{{ old('technician_remarks', $installation->technician_remarks) }}</textarea>
                                 </div>
                                 <div class="workflow-field full">
                                     <span class="workflow-label">Technical Installation Details</span>
@@ -821,7 +821,7 @@
 
                             <div class="workflow-field">
                                 <label for="reschedule_technician_remarks">Remarks</label>
-                                <textarea id="reschedule_technician_remarks" name="technician_remarks" rows="3" required placeholder="Customer unavailable at location">{{ old('technician_remarks') }}</textarea>
+                                <textarea id="reschedule_technician_remarks" name="technician_remarks" rows="3" required maxlength="1000" placeholder="Customer unavailable at location">{{ old('technician_remarks') }}</textarea>
                             </div>
 
                             <div class="workflow-action-panel">
